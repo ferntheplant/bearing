@@ -119,7 +119,7 @@ convenient prompt quietly violates, and the failure is invisible until an agent 
 one entry in the restricted-imports rule the repo already configures. Deleting it as redundant with the
 convention is the tidying that reintroduces this.
 
-**CI greps the shipped skill and the generated help output for the confirmation flag.** The undocumented dry run
+**CI greps the shipped skill and the generated help output for the confirmation flag.** The design-close dry run
 in [The confirmation flag is undocumented on purpose (ADR 0016)](./adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)
 survives only as long as nothing shipped mentions the flag — and it is exactly the kind of constraint that rots
 in six months when someone helpfully documents it. The test's failure message has to explain why rather than

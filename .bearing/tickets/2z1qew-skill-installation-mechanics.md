@@ -28,8 +28,8 @@ The three sub-questions, in the order they bite:
 Constraints that are not up for grabs: no subprocess
 ([Bearing never spawns a subprocess (ADR 0018)](../../docs/adr/0018-bearing-never-spawns-a-subprocess.md)), so
 nothing shells out to `git` or to another CLI; and setup is the one command allowed to prompt
-([A dry run and a re-run (ADR 0015)](../../docs/adr/0015-a-dry-run-and-a-re-run-never-a-prompt.md)), so a
-question here is legitimate where it would not be anywhere else.
+([Only design-ticket closing is a dry run (ADR 0029)](../../docs/adr/0029-only-design-ticket-closing-is-a-dry-run.md)),
+so a question here is legitimate where it would not be anywhere else.
 
 Settles as an ADR, and probably an edit to the setup capability's promises where the two-behaviour ambiguity in
 ADR 0023 gets resolved into one.

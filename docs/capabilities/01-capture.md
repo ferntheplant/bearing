@@ -7,7 +7,7 @@ starts with something captured here or with a commitment made directly.
 ## What you can expect
 
 - **`bearing backlog "..."` writes an item and gets out of the way.** No type, no project, no priority, no
-  status. Being in the backlog is the item's whole status.
+  status, and no dry run. Being in the backlog is the item's whole status.
 - **Length is not a filter.** A three-word note and a full bug report with reproduction steps, failing output,
   and the file you suspect are both backlog items. Write everything you have while you have it — what is missing
   from a backlog item is a decision about size and lane, not information.
@@ -34,3 +34,5 @@ invocation lists the backlog).
   scoping rather than volume is the test, and why unmoored fog waits here.
 - [The filename is the only place an id appears (ADR 0006)](../adr/0006-the-filename-is-the-only-place-an-id-appears.md)
   — why an item can be captured with no fields and still have identity.
+- [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
+  why capture writes its generated id and item in one invocation.

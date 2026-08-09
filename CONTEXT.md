@@ -153,8 +153,8 @@ clear. It is derived, and it is the only ranking bearing has.
 _Avoid_: priority, severity, points, weight.
 
 **dry run**:
-The default behaviour of any command that would change the tracker: it prints what it would do, and the same
-command re-run takes effect. It is the shape of every mutation, not a flag on one of them.
+The first invocation of closing a design ticket: it prints the trail row and planned edits, and the same command
+re-run takes effect. Every other mutation applies directly.
 _Avoid_: preview, confirmation prompt (bearing has none outside first-time setup).
 
 **spec**:

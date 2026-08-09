@@ -34,8 +34,9 @@ because wayfinder ships to repos that will never have a `docs/README.md` at all.
 Two constraints the text inherits: it stops at a ticket someone could pick up and hands off rather than
 half-writing a spec
 ([Bearing stops at the repo's edge (ADR 0014)](../../docs/adr/0014-bearing-stops-at-the-repos-edge.md)), and it
-must never mention the flag that applies a dry run
+must never mention the flag that applies a design close
 ([The confirmation flag is undocumented on purpose (ADR 0016)](../../docs/adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)),
-which CI greps for.
+which CI greps for. It teaches direct tracker-file editing and direct mutations rather than the removed `edit`
+command or a universal dry-run ritual.
 
 Settles as an ADR on the allocation. The skill text itself is the build tickets that follow.

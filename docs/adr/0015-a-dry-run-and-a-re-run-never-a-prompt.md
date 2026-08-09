@@ -1,5 +1,7 @@
 # A dry run and a re-run, never a prompt
 
+> Superseded by [Only design-ticket closing is a dry run (ADR 0029)](./0029-only-design-ticket-closing-is-a-dry-run.md).
+
 Every command that would change the tracker prints what it would do and changes nothing. Re-running the same
 command with a confirmation flag applies it. Bearing has no interactive prompts anywhere except first-time
 setup, which runs once, at a keyboard, before any of this exists.

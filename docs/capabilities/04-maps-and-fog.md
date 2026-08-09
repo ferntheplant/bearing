@@ -22,8 +22,8 @@ picks up the work next.
   broken one warns, never fails, because rephrasing fog and clearing fog are both normal.
 - **`bearing fog` shows the patches and which tickets are chasing each**, per project or across all of them.
 - **Drift gets named, not guessed.** When a heading is reworded, the integrity pass says which link broke,
-  suggests the closest current heading, and prints the exact command that repoints the ticket. Applying it is
-  your decision.
+  suggests the closest current heading, and prints the exact command that repoints the ticket. Running that
+  command applies the edit immediately.
 - **A map outlives its own fog.** Once nothing is left to chart it stops appearing among decisions to make, but
   it stays until its last ticket closes, because its trail is what the remaining build work rests on.
 
@@ -51,3 +51,5 @@ command) and **15** (repointing edits the ticket and leaves the map byte-for-byt
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
   — the two endings, and why there is no archive.
 - [Three flat directories, and a project is a map file (ADR 0005)](../adr/0005-three-flat-directories-and-a-project-is-a-map-file.md)
+- [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
+  why an explicitly targeted repoint applies in one invocation.

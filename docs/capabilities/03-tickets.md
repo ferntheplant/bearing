@@ -1,8 +1,8 @@
 # Tickets
 
-The commitments themselves: creating them, reading them, editing them, and finding the ones you care about. A
-ticket is work someone has decided to do — everything about its shape is in service of being legible to whoever
-picks it up cold, human or agent.
+The commitments themselves: creating them, reading them, editing their Markdown directly, and finding the ones
+you care about. A ticket is work someone has decided to do — everything about its shape is in service of being
+legible to whoever picks it up cold, human or agent.
 
 ## What you can expect
 
@@ -18,18 +18,21 @@ picks it up cold, human or agent.
   is a satisfied one.
 - **`bearing new design` with no project is an error** that names the maps that exist so the next command is
   obvious. Not a prompt, not a default, not a map created behind your back.
+- **Ticket content is edited directly.** Bearing has no `edit` command and never launches an editor. Bodies and
+  frontmatter are yours; `bearing check` reports structural mistakes.
 - **`bearing retitle` owns renaming.** The title lives in the filename, so retitling by hand is how you get a
-  name that lies; the id survives.
+  name that lies; the id survives. The new name is written before the old one is deleted, so interruption can
+  leave a duplicate id but cannot silently remove the ticket. Creating and retitling apply immediately.
 - **`bearing ls` filters by type, readiness, blocked-ness, project, or a query**, and **`bearing show` prints
   one.** Both take `--json`, as every read in bearing does.
 - **Short id prefixes work everywhere an id does** — three or four characters is usually enough to type.
 
 ## Where it stands
 
-**Partial.** `packages/core` reads `<tracker>/tickets/` into ticket
-values and `apps/cli` renders them or emits `--json` ([ADR 0019](../adr/0019-core-returns-values-only-the-cli-renders.md)
-is the seam between them). The command surface — filters, `show`, prefix resolution — remains settled, not
-built.
+**Partial.** `packages/core` reads a supplied tracker's `tickets/` into ticket values and `apps/cli` renders
+them or emits `--json` ([ADR 0019](../adr/0019-core-returns-values-only-the-cli-renders.md) is the seam between
+them). Nearest-ancestor discovery and the command surface — filters, `show`, prefix resolution — remain settled,
+not built.
 
 ## Acceptance criteria
 
@@ -47,3 +50,9 @@ with no project fails and names the maps), **10** (retitle preserves the id and 
   ticket has no verification section and no gate command, and what that costs.
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
   — why a build ticket keeps naming its project for its whole life.
+- [Mutations are ordered, not atomic (ADR 0025)](../adr/0025-mutations-are-ordered-not-atomic.md) — why an
+  interrupted retitle fails toward a rejected duplicate rather than an absent ticket.
+- [Tracker files are edited directly (ADR 0030)](../adr/0030-tracker-files-are-edited-directly.md) — why bearing
+  owns the filename operation but not an editor command.
+- [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
+  why creation and retitle plan and apply in one invocation.

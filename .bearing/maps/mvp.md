@@ -35,39 +35,14 @@ criterion in §8 should remove it — write the observation down where it belong
 
 ## Trail
 
-| id  | Decision | Outcome |
-| --- | -------- | ------- |
+| id     | Decision                  | Outcome                                                                                                                        |
+| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| kwjvxc | Mutation atomicity        | [Mutations are ordered, not atomic (ADR 0025)](../../docs/adr/0025-mutations-are-ordered-not-atomic.md)                        |
+| tdw9km | Default tracker directory | [`.bearing/` is the default tracker directory (ADR 0026)](../../docs/adr/0026-dot-bearing-is-the-default-tracker-directory.md) |
 
-Nothing yet. A row is a design ticket's closure and nothing else, so a decision settled without a ticket never
-appears here — the 23 that predate this map and the ones taken in conversation since are all in
-[`docs/adr/`](../../docs/adr/). The trail starts from the first ticket closed through bearing's own tracker.
+A row is a design ticket's closure and nothing else, so a decision settled without a ticket never appears here.
 
 ## Not yet specified
-
-### Mutation atomicity
-
-What a reader is entitled to assume after a close or a triage is interrupted halfway. Charted; what stays fog is
-whether the answer still holds once there are mutations touching more than two files.
-
-### The module ordering inside core
-
-The proposal, in dependency order, which is also plausible as a build order:
-
-1. **Ids and slugs** — id generation, slugification, filename parse and format, prefix resolution against the
-   live set with ambiguity as an error.
-2. **The store** — read the tracker into memory in one pass: backlog items, tickets with parsed frontmatter,
-   maps. Everything downstream is pure over the result.
-3. **Map parsing** — fog headings and the trail table. Read-only, forever.
-4. **The graph** — blocker resolution, transitive gate counts, fog links matched against anchors.
-5. **The frontier** — the three sections and their ranking.
-6. **Mutations** — create, retitle, triage, close, each as a plan and an apply.
-7. **Check** — mostly assertions over the graph, plus the command string that fixes each finding.
-
-Only step 6 touches the disk destructively. What is not settled is which of those steps is really one module
-and which is several, where the internal seams go, and whether the store should hand downstream code a parsed
-value or a queryable thing. The read path is the first slice precisely so this gets decided against real code
-rather than in the abstract — but it is fog until that slice exists, and it is the fog most likely to make the
-rest cheap or expensive.
 
 ### Skill installation mechanics
 
@@ -108,11 +83,6 @@ moving**, and the moment there is a migration tool the format has a compatibilit
 So this patch is really a question about ordering — how late this can be left, and what signal says the format
 has stopped moving.
 
-### The default tracker directory name
-
-What a fresh `bearing init` writes into a repo that has no opinion. Charted; the residual is what happens when
-the chosen name is already taken in the target repo, which is a collision policy rather than a naming question.
-
 ### What the skill teaches versus what the repo documents
 
 Which sentences belong in the shipped wayfinder skill, which belong in a target repo's own docs, and which
@@ -122,11 +92,11 @@ been written, and `ABSTRACT.md` §6 lists a `skills/` directory that does not ex
 ### Exit codes and the failure contract
 
 Nothing anywhere records what any command returns. The integrity pass has a provisional answer — errors fail,
-warnings do not, and a repo wanting stricter can grep — and that says nothing about the other nineteen commands:
-what a refused close returns against a failed one, whether a dry run that would change nothing differs from one
-that would, what an ambiguous id prefix exits with. An agent is the primary caller and will branch on these,
-which makes them a shipped contract rather than an implementation detail. Left as fog deliberately: answering it
-against zero commands is guessing, and one slice of real CLI code makes every case concrete.
+warnings do not, and a repo wanting stricter can grep — and that says nothing about the other commands:
+what a refused design close returns against a failed one, whether a no-op direct mutation differs from one that
+changes a file, or what an ambiguous id prefix exits with. An agent is the primary caller and will branch on
+these, which makes them a shipped contract rather than an implementation detail. One slice of real CLI code now
+makes the cases concrete enough to chart next.
 
 ## Out of scope
 

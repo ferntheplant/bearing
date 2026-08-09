@@ -105,7 +105,8 @@ builds, tests, or validates itself.
 ### 3.8 Every command is operable by an agent
 
 No prompts, no TTY assumptions, no question a non-human caller cannot answer. Where a second look matters, it is
-a dry run and a re-run. First-time setup is the single exception, and it runs once.
+a dry run and a re-run: closing a design ticket. First-time setup is the single interactive exception, and it
+runs once.
 
 ## 4. Goals
 
@@ -116,7 +117,7 @@ The MVP must:
 - give every item a six-character id that lives only in its filename and survives for the item's life;
 - accept unambiguous id prefixes everywhere an id is accepted;
 - triage an item to any of five verdicts, four of which are the same move plus frontmatter;
-- create, list, show, edit, and retitle tickets of both types;
+- create, list, show, and retitle tickets of both types, with their Markdown edited directly;
 - resolve blocking by id across projects, treating a blocker that no longer exists as satisfied;
 - parse a hand-written map for its fog patches and its trail, and never write one;
 - match a design ticket's declared fog against the map's patches, warning rather than failing on a miss;
@@ -125,7 +126,7 @@ The MVP must:
 - rank by transitive gate count, plus fog cleared for design tickets, and by nothing else;
 - close a build ticket by deleting it and stripping its id from every blocker list;
 - close a design ticket only against a trail row with a non-empty outcome, showing that row verbatim first;
-- make every mutation a dry run that a re-run applies, with no interactive prompt anywhere but first-time setup;
+- make only design-ticket closing a dry run that a re-run applies, with every other mutation applying directly;
 - close a map, refusing while any ticket still names it;
 - report every integrity error and warning, each warning carrying the command that resolves it;
 - emit `--json` on every read and respect `NO_COLOR`;
@@ -161,24 +162,28 @@ skills/           the wayfinder method, copied into a target repo at setup
 ```
 
 One rule makes the separation real: **core returns values, and only the CLI turns a value into a string.**
-Closing a ticket returns a plan holding the trail row, the fog patches, the file to delete, and the blocker
+Closing a design ticket returns a plan holding the trail row, the fog patches, the file to delete, and the blocker
 edits it would make. The CLI renders that as the dry run; `--json` serializes the same value; a future
-non-terminal interface returns it directly. Dry-run and apply are already two operations, so the safety
-property falls out of the seam rather than being enforced at the surface.
+non-terminal interface returns it directly. Every mutation still has separate planning and applying operations;
+direct mutations run both in one invocation.
 
 Core depends on a filesystem, a path implementation, and a clock. That is the complete list.
+
+Core exposes domain operations rather than a loaded tracker or its internal analyses. Each tracker operation
+reads the three directories once into a private, lossless observation that retains exact source and malformed
+evidence; parsers, indexes, the blocking graph, and source rewriting stay behind that interface.
 
 On disk:
 
 ```text
-<tracker>/
+.bearing/
   backlog/<id>-<slug>.md    untriaged — no frontmatter; being here is the status
   tickets/<id>-<slug>.md    every ticket, design and build
   maps/<project>.md         Destination / Notes / Trail / Not yet specified / Out of scope
 ```
 
 At the surface. Verb ergonomics borrowed from [dex](https://dex.rip); aliases everywhere; `--json` on every
-read; `NO_COLOR` respected. This is what `--help` shows, which is why the flag that applies a dry run is absent
+read; `NO_COLOR` respected. This is what `--help` shows, which is why the flag that applies a design close is absent
 from it:
 
 ```text
@@ -189,7 +194,6 @@ bearing backlog                            # bare: list the backlog
 bearing new <type> "title" [--project X]   # create a ticket  (alias: create, add)
 bearing ls [--build|--design|--blocked|--ready|--project X|--query "..."|--flat|--json]
 bearing show <id> [--full|--json]
-bearing edit <id>
 bearing retitle <id> "..."                 # owns the rename; id survives
 bearing close <id>                         # asymmetric by type    (alias: done)
 bearing close --map <project>              # refuses while any ticket names it
@@ -198,8 +202,7 @@ bearing triage <id> --to <project> | --ticket | --drop
 bearing fog [<project>]                    # patches, and which tickets are chasing each
 bearing fog --repoint <id> <patch>         # fix a drifted fog link
 bearing check                              # integrity pass
-bearing init                               # config + install the skill
-bearing config <key>[=<value>]
+bearing init                               # create .bearing + install the skill
 bearing completion <shell>
 ```
 
@@ -214,15 +217,13 @@ tracker and get output, with the seam exercised before there is anything to unpi
 the graph and ranking exist. Mutations come last, because they are the only part that can damage a tracker, and
 setup and publishing come after that.
 
-That order is available because most of §8 is a read: only criteria 1–2, 5–10, 15, 21–25 and 28–29 mutate
-anything, and the ranking and integrity criteria — the ones most likely to be wrong on the first attempt — are
-reachable against a hand-written tracker and no mutation code at all.
+That order is available because the ranking and integrity criteria — the ones most likely to be wrong on the
+first attempt — are reachable against a hand-written tracker and no mutation code at all.
 
 Nothing here reorders §5. Read-path-first is a build order, not a reduction in scope.
 
-What this does not settle is the module-level ordering inside core: which of these steps is really one module,
-where the internal seams go, and how much care the destructive step needs. That is deliberately decided against
-the first slice rather than in advance.
+The first slice settled the module-level ordering inside core; see
+[Core exposes operations, not tracker internals (ADR 0027)](./docs/adr/0027-core-exposes-operations-not-tracker-internals.md).
 
 ## 8. MVP acceptance criteria
 
@@ -230,8 +231,8 @@ The MVP is acceptable when each of these holds. Every criterion is owned by exac
 [`docs/capabilities/`](./docs/capabilities/), so a criterion nobody claims is a visible gap rather than a silent
 one.
 
-1. `bearing init` in a repo with no tracker writes the one-key configuration and installs the skill into
-   whichever agent directory the repository already uses.
+1. `bearing init` in a directory with no tracker creates `.bearing/` and installs the skill into whichever agent
+   directory the repository already uses.
 2. Re-running `bearing init` over a locally edited skill updates without discarding the edit.
 3. `bearing backlog "..."` writes an item carrying an id and no frontmatter, in one command with no other input.
 4. Bare `bearing backlog` lists the backlog.
@@ -260,14 +261,18 @@ one.
 22. Re-running that close deletes the file and strips the id from every blocker list.
 23. Closing a design ticket refuses when its map has no trail row for the id, or when that row's outcome is
     empty.
-24. Closing a build ticket deletes it without inspecting the working tree, the commit, or the map.
-25. `bearing close --map <project>` refuses while any ticket names the map, and deletes the file when none does.
-26. `bearing check` reports every error class — dangling blocker, dangling project, design ticket with no
-    project, unknown type, duplicate id — and every warning class — dangling fog link, trail row for a ticket
-    that still exists.
+24. Closing a build ticket deletes it on the first invocation without inspecting the working tree, the commit,
+    or the map.
+25. `bearing close --map <project>` refuses while any ticket names the map, and otherwise deletes the file on
+    the first invocation.
+26. `bearing check` reports every parse failure and every integrity error class — dangling blocker, dangling
+    project, design ticket with no project, unknown type, duplicate id — and every warning class — dangling fog
+    link, trail row for a ticket that still exists.
 27. Every `bearing check` warning prints the exact command that resolves it, and there is no bulk-fix flag.
-28. No command spawns a subprocess, and every command completes in a directory that is not a git repository.
-29. No shipped artifact — help output, skill text, error message — names the flag that applies a dry run.
+28. Starting in any nested directory, every tracker command finds the nearest ancestor's `.bearing/` without
+    git; no command spawns a subprocess, and a missing or malformed nearest tracker fails loudly.
+29. Every mutation except design-ticket closing applies on its first invocation, and no shipped artifact — help
+    output, skill text, error message — names the flag that applies a design close.
 
 ## 9. Decision summary
 
@@ -291,21 +296,29 @@ The design commits to:
   [ADR 0011](./docs/adr/0011-fog-links-are-advisory-not-referential.md),
   [ADR 0012](./docs/adr/0012-anchor-drift-is-detected-and-named-never-repaired.md),
   [ADR 0013](./docs/adr/0013-a-map-lives-until-its-last-ticket-closes.md)).
-- **Bearing stops at the repo's edge**, with one configuration key
-  ([ADR 0014](./docs/adr/0014-bearing-stops-at-the-repos-edge.md)).
-- **A dry run and a re-run instead of a prompt**, with the applying flag deliberately undocumented
-  ([ADR 0015](./docs/adr/0015-a-dry-run-and-a-re-run-never-a-prompt.md),
-  [ADR 0016](./docs/adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)).
+- **Bearing stops at the repo's edge**, with no configuration and the nearest ancestor's `.bearing/` as the
+  fixed tracker
+  ([ADR 0014](./docs/adr/0014-bearing-stops-at-the-repos-edge.md),
+  [ADR 0028](./docs/adr/0028-dot-bearing-is-fixed-and-discovered-upward.md)).
+- **Only design-ticket closing is a dry run and re-run**, with every other mutation direct, the applying flag
+  deliberately undocumented, and interrupted applies ordered toward visible residue rather than rollback
+  ([ADR 0016](./docs/adr/0016-the-confirm-flag-is-undocumented-on-purpose.md),
+  [ADR 0025](./docs/adr/0025-mutations-are-ordered-not-atomic.md),
+  [ADR 0029](./docs/adr/0029-only-design-ticket-closing-is-a-dry-run.md)).
 - **No archaeology and no subprocesses**
   ([ADR 0017](./docs/adr/0017-no-archaeology-git-remembers.md),
   [ADR 0018](./docs/adr/0018-bearing-never-spawns-a-subprocess.md)).
-- **Core returns values, one package publishes, Bun only**, on Effect's pinned and confined unstable CLI
+- **Core exposes operations and returns values, one package publishes, Bun only**, on Effect's pinned and
+  confined unstable CLI
   ([ADR 0019](./docs/adr/0019-core-returns-values-only-the-cli-renders.md),
   [ADR 0020](./docs/adr/0020-one-published-package-and-core-stays-private.md),
   [ADR 0021](./docs/adr/0021-bun-only-no-node-fallback.md),
-  [ADR 0022](./docs/adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md)).
+  [ADR 0022](./docs/adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md),
+  [ADR 0027](./docs/adr/0027-core-exposes-operations-not-tracker-internals.md)).
 - **Bearing installs its own skill**, versioned with the binary
   ([ADR 0023](./docs/adr/0023-bearing-installs-its-own-skill.md)).
 - **Four frontmatter fields, and the body is prose**, with the id and slug rules that
   [ADR 0006](./docs/adr/0006-the-filename-is-the-only-place-an-id-appears.md) assumes
   ([ADR 0024](./docs/adr/0024-four-frontmatter-fields-and-the-body-is-prose.md)).
+- **Tracker files are edited directly**, with bearing owning retitles because filenames carry identity
+  ([ADR 0030](./docs/adr/0030-tracker-files-are-edited-directly.md)).

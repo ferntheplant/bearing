@@ -21,7 +21,7 @@ right fit:
 The framework's prompt module is exactly what first-time setup needs, which makes the no-interactive-prompts
 rule mechanically enforceable rather than aspirational: **the prompt module may be imported by the setup command
 and nowhere else**, as a lint rule on restricted imports. See
-[A dry run and a re-run, never a prompt (ADR 0015)](./0015-a-dry-run-and-a-re-run-never-a-prompt.md).
+[Only design-ticket closing is a dry run (ADR 0029)](./0029-only-design-ticket-closing-is-a-dry-run.md).
 
 Shell completion generation comes with the framework, so that command is close to a one-liner rather than a
 feature.

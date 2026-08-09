@@ -36,7 +36,7 @@ to be split into three layers:
 | **Method**    | wayfinder; when to chart a map at all                              | a skill bearing installs |
 
 Policy shrank the most. It was going to be configuration bearing reads; it is prose bearing never parses.
-Bearing's configuration holds exactly one thing — where the tracker lives.
+Bearing has no configuration: the tracker lives in the nearest ancestor's `.bearing/`.
 
 ## Non-goals
 
