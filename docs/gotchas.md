@@ -4,9 +4,9 @@ Most of what is here was not chosen — the registry, the runtime, or the toolch
 none of it is an [ADR](./adr/). The rest is a constraint that looks like clutter, standing because deleting it
 silently removes a property something else depends on. [`docs/README.md`](./README.md) has the format.
 
-**Nothing here is battle damage yet.** Bearing has no code, so these are registry and measurement findings taken
-on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1) rather than production scars. Re-measure before treating a
-number as current, and delete an entry outright once its upstream reason stops being true.
+**Nothing here is production battle damage yet.** These are registry, toolchain, and measurement findings taken
+on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1). Re-measure before treating a number as current, and delete
+an entry outright once its upstream reason stops being true.
 
 ## The toolchain
 
@@ -45,6 +45,19 @@ identically are undefined behaviour**, deliberately: GitHub would suffix the sec
 every ticket to the first, and nothing warns. Detecting it would mean extending an error set that
 [the integrity pass](./capabilities/07-integrity.md) keeps deliberately closed, to cover a collision that a
 human staring at two identical headings would see first.
+
+**Vitest runs as `bunx --bun vp test`, never from `node_modules/vitest`.** Vite+ executes the same Vitest copy
+that `vite-plus/test` re-exports, while the obvious hoisted binary is a separate module instance. Launching that
+binary (`bun node_modules/vitest/vitest.mjs run`) makes every suite die with `runner.config is undefined`.
+The `--bun` flag also keeps the runner on bearing's target runtime, which the CLI tests need for Bun's platform
+services. Reaching for the hoisted binary or dropping `--bun` is the tidying that reintroduces this.
+
+**`sortPackageJson` normalizes an `exports` map back to a plain string, silently dropping a `types` condition.**
+The repo's formatter rewrites `".": { "types": "./src/index.ts", "default": "./dist/index.mjs" }` to
+`".": "./dist/index.mjs"`, so a package that must type-resolve to source before its first build —
+`@bearing/core` on a clean checkout — cannot say so in `package.json`. The resolution lives in the importing
+workspace's tsconfig instead: a `paths` entry pointing at the source `index.ts`, which formatting leaves alone.
+Adding the condition and trusting it to survive `vp check --fix` is the tidying that reintroduces this.
 
 **`unstable/` and a `beta` dist-tag are two separate warnings, and both are accurate.** The beta line was at
 `4.0.0-beta.106` while the `latest` tag still pointed at 3.22.1, so a dependency resolved by tag gets a

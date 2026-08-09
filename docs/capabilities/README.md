@@ -12,18 +12,19 @@ any of them.
 | --- | ---------------------------------------------------------- | --------- | -------------- |
 | 1   | [Capture](./01-capture.md)                                 | Designed  | 3, 4           |
 | 2   | [Triage](./02-triage.md)                                   | Designed  | 5, 6, 7        |
-| 3   | [Tickets](./03-tickets.md)                                 | Designed  | 8, 9, 10, 11   |
+| 3   | [Tickets](./03-tickets.md)                                 | Partial   | 8, 9, 10, 11   |
 | 4   | [Maps and fog](./04-maps-and-fog.md)                       | Designed  | 12, 13, 14, 15 |
 | 5   | [The frontier](./05-the-frontier.md)                       | Designed  | 16–20          |
 | 6   | [Closing](./06-closing.md)                                 | Designed  | 21–25          |
 | 7   | [Integrity](./07-integrity.md)                             | Designed  | 26, 27         |
 | 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Designed  | 1, 2, 28, 29   |
 
-Everything is **Designed**. Bearing has no code: six rounds of design conversation settled the shape, and the
-next round is the first vertical slice — [`ABSTRACT.md`](../../ABSTRACT.md) §7 has the order it comes in.
+**Tickets is Partial; every other capability is Designed.** The first vertical slice has `packages/core` read a
+tracker's tickets into values and `apps/cli` list them or emit `--json`, per [`ABSTRACT.md`](../../ABSTRACT.md)
+§7. The rest of the order is still to come.
 
 ## A note on command names
 
 These files name commands as they were designed, and the whole surface is listed in
-[`ABSTRACT.md`](../../ABSTRACT.md) §6. It is settled but unbuilt, so a name here is a commitment rather than an
-observation, and the first slice is what will confirm it.
+[`ABSTRACT.md`](../../ABSTRACT.md) §6. Most of it is settled but unbuilt, so a name here is a commitment rather
+than an observation.

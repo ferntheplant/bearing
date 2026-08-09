@@ -27,7 +27,6 @@
     "packages/**/*.ts",
     "tools/**/*.ts",
     "test/**/*.ts",
-    "scripts/**/*.ts",
     "commitlint.config.ts",
     "vite.config.ts"
   ]

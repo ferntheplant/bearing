@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    "paths": {
+      "@bearing/core": ["../../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "vite.config.ts"]
+}

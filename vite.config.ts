@@ -1,9 +1,16 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vite-plus";
 
 const IGNORE_PATTERNS = ["**/*.gen.ts", "**/dist/**", "**/build/**", "**/coverage/**", ".tanstack/**", ".wrangler/**"];
 
 export default defineConfig({
   root: ".",
+  resolve: {
+    alias: {
+      "@bearing/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
+    },
+  },
   logLevel: "error",
   staged: {
     "*": "vp check --fix",

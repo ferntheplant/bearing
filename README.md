@@ -5,7 +5,9 @@ the route to the destination is not yet visible.
 
 The name is the method. You take a bearing, walk it, and take another when the view changes.
 
-**Nothing is built yet.** The design is settled and written down; the next round is the first vertical slice.
+**The first slice of the read path is built.** `packages/core` reads a tracker's `tickets/` directory into
+values, and `apps/cli` renders them or emits `--json` ([Core returns values (ADR 0019)](./docs/adr/0019-core-returns-values-only-the-cli-renders.md)
+is what keeps the two apart). Everything else is designed and written down, not built.
 
 ## What it is
 
