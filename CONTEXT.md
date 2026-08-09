@@ -9,6 +9,13 @@ so the tool's words are about position and movement rather than about workflow s
 word would have done (backlog, board, sprint, status), bearing either means something narrower by it or does not
 have the concept at all, and the `_Avoid_` lists are where that shows.
 
+**Every term here is doubly loaded, and there is no way around it.** Bearing tracks bearing, so this repository
+both defines these words and contains instances of them: "the trail" is the name of a section in the map format
+_and_ the actual trail in `.bearing/maps/mvp.md`; "the destination" is a concept _and_ a paragraph someone
+wrote. Nothing distinguishes the two readings except context, and no naming scheme would — the collision is the
+dogfooding rather than a mistake in it. The habit that keeps it survivable is being explicit whenever both
+readings are live: say _the map format's trail_ or _this project's trail_, never the bare noun.
+
 ## The system
 
 **Bearing**:
@@ -60,7 +67,7 @@ including when it was absorbed, invalidated, or dropped rather than answered.
 _Avoid_: dependency, parent.
 
 **id**:
-The eight-character handle that identifies an item for life. It survives promotion out of the backlog and
+The six-character handle that identifies an item for life. It survives promotion out of the backlog and
 survives a retitle. It is for typing at a shell; it is not what prose calls a thing.
 _Avoid_: key, ticket number, ref.
 

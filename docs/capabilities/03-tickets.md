@@ -44,8 +44,3 @@ with no project fails and names the maps), **10** (retitle preserves the id and 
   ticket has no verification section and no gate command, and what that costs.
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
   — why a build ticket keeps naming its project for its whole life.
-
-## Still open
-
-- How much does the missing step between a build ticket and a repo's own spec actually hurt in a repo that has
-  one? The trade is accepted; the size of it is unmeasured.

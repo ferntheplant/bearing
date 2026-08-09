@@ -38,19 +38,16 @@ criterion in §8 should remove it — write the observation down where it belong
 | id  | Decision | Outcome |
 | --- | -------- | ------- |
 
-Nothing yet. The 23 decisions taken before this map existed are in [`docs/adr/`](../../docs/adr/); the trail
-starts from the first ticket closed through bearing's own tracker.
+Nothing yet. A row is a design ticket's closure and nothing else, so a decision settled without a ticket never
+appears here — the 23 that predate this map and the ones taken in conversation since are all in
+[`docs/adr/`](../../docs/adr/). The trail starts from the first ticket closed through bearing's own tracker.
 
 ## Not yet specified
 
 ### Mutation atomicity
 
-The one step of the build order with no decision behind it. A close renames or deletes one file and rewrites
-the blocker list of an unknown number of others; a triage moves a file and writes frontmatter. Nothing has
-decided what happens when that is interrupted halfway, whether a partial apply is acceptable given that the
-tracker is committed and a human is looking at `git status` anyway, or whether the plan/apply split already
-gives the operator enough to recover by hand. Cheap to over-engineer, and the failure mode of getting it wrong
-is a tracker that lies rather than one that errors.
+What a reader is entitled to assume after a close or a triage is interrupted halfway. Charted; what stays fog is
+whether the answer still holds once there are mutations touching more than two files.
 
 ### The module ordering inside core
 
@@ -74,11 +71,9 @@ rest cheap or expensive.
 
 ### Skill installation mechanics
 
-Detecting which agent-directory convention a repository uses, writing without clobbering a locally edited
-skill, and re-running to update. All three are solved in
-[vercel-labs/skills](https://github.com/vercel-labs/skills), so the work is reading `skills add` and deciding
-how much of its shape to adopt. This is the last thing standing between setup and a build, and it is the one
-patch here that is closer to research than to a decision.
+Detecting the agent-directory convention, writing without clobbering a local edit, and re-running to update.
+Charted as research against an existing implementation; what stays fog until that reading happens is how much of
+it bearing needs at all.
 
 ### Publishing for the first time
 
@@ -115,10 +110,23 @@ has stopped moving.
 
 ### The default tracker directory name
 
-This repository's tracker is `.bearing/`, chosen here. What a fresh `bearing init` should write into a repo
-that has no opinion is still open: the ancestor's `.scratch` was inherited rather than chosen, `.bearing` names
-the tool rather than the contents, and a repo already using `.scratch` for scratch work has a collision. One
-key of configuration means this is only a default, but a default is what almost every repo will keep.
+What a fresh `bearing init` writes into a repo that has no opinion. Charted; the residual is what happens when
+the chosen name is already taken in the target repo, which is a collision policy rather than a naming question.
+
+### What the skill teaches versus what the repo documents
+
+Which sentences belong in the shipped wayfinder skill, which belong in a target repo's own docs, and which
+belong in neither. The allocation is charted. What stays fog is the text itself — not a line of the skill has
+been written, and `ABSTRACT.md` §6 lists a `skills/` directory that does not exist.
+
+### Exit codes and the failure contract
+
+Nothing anywhere records what any command returns. The integrity pass has a provisional answer — errors fail,
+warnings do not, and a repo wanting stricter can grep — and that says nothing about the other nineteen commands:
+what a refused close returns against a failed one, whether a dry run that would change nothing differs from one
+that would, what an ambiguous id prefix exits with. An agent is the primary caller and will branch on these,
+which makes them a shipped contract rather than an implementation detail. Left as fog deliberately: answering it
+against zero commands is guessing, and one slice of real CLI code makes every case concrete.
 
 ## Out of scope
 
@@ -127,4 +135,6 @@ key of configuration means this is only a default, but a default is what almost 
 - **Other repositories adopting bearing.** The destination is bearing tracking bearing. Whether the method
   survives contact with a second repository is a real question and a later one.
 - **Anything past the ticket→spec boundary.** Turning a build ticket into an execution contract is the repo's
-  job, per [ADR 0014](../../docs/adr/0014-bearing-stops-at-the-repos-edge.md), including in this repo.
+  job, per
+  [Bearing stops at the repo's edge (ADR 0014)](../../docs/adr/0014-bearing-stops-at-the-repos-edge.md),
+  including in this repo.

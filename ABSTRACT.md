@@ -113,7 +113,7 @@ The MVP must:
 
 - store the whole tracker as Markdown in the repository, in three flat directories;
 - capture an untriaged item in one command with no fields to fill in;
-- give every item an eight-character id that lives only in its filename and survives for the item's life;
+- give every item a six-character id that lives only in its filename and survives for the item's life;
 - accept unambiguous id prefixes everywhere an id is accepted;
 - triage an item to any of five verdicts, four of which are the same move plus frontmatter;
 - create, list, show, edit, and retitle tickets of both types;
@@ -156,7 +156,7 @@ The MVP will not:
 
 ```text
 packages/core     the domain — no terminal, no strings, no bun, no git
-packages/cli      the interface — owns effect/unstable/cli, published as the binary
+apps/cli          the interface — owns effect/unstable/cli, published as the binary
 skills/           the wayfinder method, copied into a target repo at setup
 ```
 
@@ -306,3 +306,6 @@ The design commits to:
   [ADR 0022](./docs/adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md)).
 - **Bearing installs its own skill**, versioned with the binary
   ([ADR 0023](./docs/adr/0023-bearing-installs-its-own-skill.md)).
+- **Four frontmatter fields, and the body is prose**, with the id and slug rules that
+  [ADR 0006](./docs/adr/0006-the-filename-is-the-only-place-an-id-appears.md) assumes
+  ([ADR 0024](./docs/adr/0024-four-frontmatter-fields-and-the-body-is-prose.md)).

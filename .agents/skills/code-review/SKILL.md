@@ -25,10 +25,10 @@ Before going further, confirm the fixed point resolves (`git rev-parse <fixed-po
 Look for the originating spec, in this order:
 
 1. A path the user passed as an argument.
-2. A `build` ticket matching the branch name or feature. In this repo that is `.scratch/tickets/<slug>.md` or a project's own `tickets/<slug>.md`, carrying `type: build` and a **Done when** section — see [the tracker doc](../../ISSUE-TRACKER.md). Decision tickets are not specs: their outcome is an ADR, capability change, or other durable artifact, not a PR.
+2. Whatever the repo uses to track committed work, following its own conventions — a ticket file matching the branch name or feature, an issue in an external tracker, a linked PR description. Look for the one that states scope and what must be true when the work is done. Where a repo distinguishes work that ships as a diff from work that ships as a decision, only the former is a spec: a decision's outcome is an ADR or another durable artifact, not a PR.
 3. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
-There are no issue numbers to look for — [tickets are named by slug, never an index](../../ISSUE-TRACKER.md#names-not-numbers) — and a ticket whose work has merged is deleted rather than kept, so an older branch may have no spec left to find. That is the expected case, not a failure.
+Do not assume the spec is findable. A repo may name work by slug rather than by index, leaving no issue number in the branch to search for, and a repo that deletes tracked work once it merges will have nothing left for an older branch. Both are expected cases, not failures — read the repo's own conventions before concluding a spec is missing.
 
 ### 3. Identify the standards sources
 

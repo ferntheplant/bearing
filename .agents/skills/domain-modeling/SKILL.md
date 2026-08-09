@@ -5,84 +5,57 @@ description: Build and sharpen a project's domain model and the durable docs aro
 
 # Domain Modeling
 
-Actively build and sharpen the project's domain model as you design. This is the _active_ discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely _reading_ `CONTEXT.md` for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
+Actively build and sharpen the project's domain model as you design. This is the _active_ discipline —
+challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they
+crystallise. (Merely _reading_ `CONTEXT.md` for vocabulary is not this skill — that's a one-line habit any skill
+can do. This skill is for when you're changing the model, not just consuming it.)
 
-## Where writing goes
+## Where the formats live
 
-Four homes, and **nothing lives in two of them**. A piece of durable prose belongs to exactly one:
+**The repo owns the formats, not this skill.** Before writing anything durable:
 
-| The writing is…                                            | Home                 | Format                                         |
-| ---------------------------------------------------------- | -------------------- | ---------------------------------------------- |
-| What a word means, and which near-synonyms to avoid        | `CONTEXT.md`         | [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)       |
-| Why something is the way it is                             | `docs/adr/`          | [ADR-FORMAT.md](./ADR-FORMAT.md)               |
-| What the system does for its user, and how far along it is | `docs/capabilities/` | [CAPABILITY-FORMAT.md](./CAPABILITY-FORMAT.md) |
-| Why something that looks broken isn't                      | `docs/gotchas.md`    | [GOTCHAS-FORMAT.md](./GOTCHAS-FORMAT.md)       |
+- **If `docs/README.md` exists, read it and follow it.** It is the format spec for that repo — where each kind
+  of writing goes, how an ADR is structured, what a capability file must carry, how open questions are handled.
+  Where it disagrees with anything below, it wins.
+- **If it does not exist, bootstrap.** Read [references/bootstrap.md](./references/bootstrap.md) and follow its
+  steps to create `docs/README.md` before writing the first ADR, capability, or gotcha.
 
-The most common failure is a capability file that re-argues its own decision, or an ADR that grows a description
-of the feature. When a paragraph could sit in two homes, cut it down to a link from one to the other.
+Formats belong in the repo because a repo outlives any one agent's skill set: someone who has never heard of the
+`.agents/` convention still has to read and extend these files. This skill carries the seed and the practice;
+the repo carries the spec.
 
-An open question belongs in the **Still open** section of the capability it blocks, phrased as a question — not
-as a link to wherever it is being tracked.
-
-## File structure
-
-Most repos have a single context:
-
-```
-/
-├── CONTEXT.md
-├── docs/
-│   ├── adr/
-│   │   ├── 0001-event-sourced-orders.md
-│   │   └── 0002-postgres-for-write-model.md
-│   ├── capabilities/
-│   │   ├── README.md
-│   │   └── 01-placing-an-order.md
-│   └── gotchas.md
-└── src/
-```
-
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
-
-```
-/
-├── CONTEXT-MAP.md
-├── docs/
-│   └── adr/                          ← system-wide decisions
-├── src/
-│   ├── ordering/
-│   │   ├── CONTEXT.md
-│   │   └── docs/adr/                 ← context-specific decisions
-│   └── billing/
-│       ├── CONTEXT.md
-│       └── docs/adr/
-```
-
-Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed. Same for `docs/capabilities/` and `docs/gotchas.md`: a capability file the moment a capability is worth describing to its user, a gotcha the moment something looks like a defect and isn't.
+The one rule worth stating twice, because everything else follows from it: **nothing lives in two homes.** A
+capability file links the decision behind a behaviour rather than restating it; an ADR records why rather than
+describing the feature. When a paragraph could sit in two places, cut it to a link from one to the other.
 
 ## During the session
 
 ### Challenge against the glossary
 
-When the user uses a term that conflicts with the existing language in `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+When the user uses a term that conflicts with the existing language in `CONTEXT.md`, call it out immediately.
+"Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
 
 ### Sharpen fuzzy language
 
-When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
+When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do
+you mean the Customer or the User? Those are different things."
 
 ### Discuss concrete scenarios
 
-When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
+When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that
+probe edge cases and force the user to be precise about where one concept ends and the next begins.
 
 ### Cross-reference with code
 
-When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
+When the user states how something works, check whether the code agrees. If you find a contradiction, surface
+it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
 
-### Update CONTEXT.md inline
+### Update `CONTEXT.md` inline
 
-When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen.
 
-`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
+`CONTEXT.md` should be totally devoid of implementation details. Do not treat it as a spec, a scratch pad, or a
+repository for implementation decisions. It is a glossary and nothing else.
 
 ### Offer ADRs sparingly
 
@@ -92,9 +65,7 @@ Only offer to create an ADR when all three are true:
 2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
 3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
-If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
-
-Cite an ADR by **name and number, name first** — `[Readiness is a claim (ADR 0003)](./docs/adr/0003-readiness-is-a-claim-not-authority.md)`. The name is what reads at a glance; the number is what a file search finds. A bare `ADR 0003` is not a citation.
+If any of the three is missing, skip the ADR.
 
 ### Keep the capability catalogue honest
 
@@ -107,10 +78,8 @@ Two moves matter more than the writing:
 
 - **Route the question, don't answer it in place.** A decision that surfaces while writing a capability becomes
   an ADR the capability links. A term that surfaces becomes a `CONTEXT.md` entry.
-- **Close the loop when an ADR lands.** A new decision usually changes some capability's promise or its **Still
-  open** list. Check which one, and edit it.
-
-Use the format in [CAPABILITY-FORMAT.md](./CAPABILITY-FORMAT.md).
+- **Close the loop when an ADR lands.** A new decision usually changes some capability's promise. Check which
+  one, and edit it.
 
 ### Record gotchas as they bite
 
@@ -119,5 +88,10 @@ chose it, the registry chose it — write it down while the diagnosis is still i
 measurement or version that proves it. Name the obvious-looking simplification that reintroduces the problem;
 that sentence is what makes the entry worth keeping.
 
-Do not offer a gotcha for something we chose against a real alternative. That is an ADR. Use the format in
-[GOTCHAS-FORMAT.md](./GOTCHAS-FORMAT.md).
+Do not offer a gotcha for something we chose against a real alternative. That is an ADR.
+
+### Leave open questions where the project tracks them
+
+A question that surfaces and does not get settled does **not** go into durable prose as a parked note or a link
+to wherever it is tracked. Check `docs/README.md` for how that repo handles it. Absent any rule, say the
+question out loud to the user and let them decide where it goes.

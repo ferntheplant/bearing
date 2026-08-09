@@ -51,8 +51,3 @@ command) and **15** (repointing edits the ticket and leaves the map byte-for-byt
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
   — the two endings, and why there is no archive.
 - [Three flat directories, and a project is a map file (ADR 0005)](../adr/0005-three-flat-directories-and-a-project-is-a-map-file.md)
-
-## Still open
-
-- Fog has no lifecycle at all — no ids, no partial graduation, no record of a patch that half-cleared. That is
-  deliberate, and the question is whether it survives a project big enough to have twenty patches.

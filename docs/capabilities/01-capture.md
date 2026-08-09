@@ -34,8 +34,3 @@ invocation lists the backlog).
   scoping rather than volume is the test, and why unmoored fog waits here.
 - [The filename is the only place an id appears (ADR 0006)](../adr/0006-the-filename-is-the-only-place-an-id-appears.md)
   — why an item can be captured with no fields and still have identity.
-
-## Still open
-
-- Nothing blocking. Whether capture wants a way to attach a file or a pasted transcript is a question for the
-  first real week of use, not for now.

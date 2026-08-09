@@ -38,8 +38,3 @@ Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **26** (every error and war
   — why "a design ticket lives in a project" is a check here rather than a property of the filesystem.
 - [Fog links are advisory, not referential (ADR 0011)](../adr/0011-fog-links-are-advisory-not-referential.md) —
   why one dangling pointer is an error and another is a warning.
-
-## Still open
-
-- Should the integrity pass have an exit code that CI can gate on, and if so, do warnings count? Provisional
-  answer: errors fail, warnings do not, and a repo that wants stricter can grep.

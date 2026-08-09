@@ -1,11 +1,8 @@
 # Gotchas
 
-Behaviour that looks like a defect in our code and is not. Most of it was not chosen — the registry, the
-runtime, or the toolchain chose it for us, which is why none of it is an [ADR](./adr/). The rest is a constraint
-that looks like clutter, standing because deleting it silently removes a property something else depends on.
-
-Each entry names the obvious-looking simplification that reintroduces the problem. That is the point of the
-file.
+Most of what is here was not chosen — the registry, the runtime, or the toolchain chose it for us, which is why
+none of it is an [ADR](./adr/). The rest is a constraint that looks like clutter, standing because deleting it
+silently removes a property something else depends on. [`docs/README.md`](./README.md) has the format.
 
 **Nothing here is battle damage yet.** Bearing has no code, so these are registry and measurement findings taken
 on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1) rather than production scars. Re-measure before treating a
@@ -26,6 +23,28 @@ exporting `Command`, `Flag`, `Argument`, `Param`, `Primitive`, `GlobalFlag`, `He
 child-process spawner and there is an `effect/unstable/process` module; bearing needs neither, and
 [Bearing never spawns a subprocess (ADR 0018)](./adr/0018-bearing-never-spawns-a-subprocess.md) is why that
 matters more than it looks.
+
+**Bun's `Glob` skips dotfiles by default, and the tracker lives in a dotted directory.** `new
+Glob(".bearing/tickets/*.md").scan(".")` yields nothing at all — not an error, not a warning, an empty
+iteration — because `dot` defaults to `false` and every path component counts. `scan({ cwd: ".bearing/tickets",
+dot: true })` is the working form. Verified on bun 1.3.14 while checking this repo's own tracker by hand, which
+is how it was found: the check reported zero tickets and looked like it had passed. Writing the obvious glob and
+trusting an empty result is the tidying that reintroduces this, and it reintroduces it as a read path that
+silently believes the tracker is empty.
+
+**There is no standard for turning a Markdown heading into an anchor, and GitHub's is the one that matters.**
+CommonMark specifies no anchors at all; GitHub, GitLab, and VS Code's preview each grew their own, disagreeing
+on non-ASCII, on which punctuation survives, and on how duplicates are suffixed. Bearing stores fog links as
+anchor slugs
+([Four frontmatter fields (ADR 0024)](./adr/0024-four-frontmatter-fields-and-the-body-is-prose.md)), so the
+algorithm is part of the on-disk format rather than an implementation detail: lowercase, drop everything but
+word characters, spaces, and hyphens, then spaces to hyphens — GitHub's, because a map is read in a browser.
+Writing a "simpler" regex is the tidying that reintroduces this, and it fails silently in the worst direction —
+a link that resolves in the editor and 404s for the reader. **Two patches on one map whose headings slugify
+identically are undefined behaviour**, deliberately: GitHub would suffix the second one `-1`, bearing attaches
+every ticket to the first, and nothing warns. Detecting it would mean extending an error set that
+[the integrity pass](./capabilities/07-integrity.md) keeps deliberately closed, to cover a collision that a
+human staring at two identical headings would see first.
 
 **`unstable/` and a `beta` dist-tag are two separate warnings, and both are accurate.** The beta line was at
 `4.0.0-beta.106` while the `latest` tag still pointed at 3.22.1, so a dependency resolved by tag gets a

@@ -11,8 +11,8 @@ permanent documentation, which is the state ADR 0001 exists to prevent.
 
 ## Consequences
 
-An open question does not get recorded in durable prose as a link to where it is tracked. It gets recorded as a
-question, in the **Still open** section of the capability it blocks.
+An open question does not get recorded in durable prose as a link to where it is tracked. Where it does get
+recorded — and when the answer is nowhere — is [`docs/README.md`](../README.md)'s business, not this ADR's.
 
 The direction of reference is always tracker → repo. A ticket cites the artifacts that decided it; nothing cites
 the ticket.

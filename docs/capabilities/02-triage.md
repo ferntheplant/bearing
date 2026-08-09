@@ -19,6 +19,9 @@ come from.
   destination is verdict 5 — the destination is what draws the line, because naming one is the actual work.
 - **`bearing triage <id>` takes the verdict as a flag**, so triaging a backlog in one sitting is a series of
   short commands rather than a form.
+- **One id at a time, on purpose.** There is no bulk mode and no multi-id form. The verdict set is small enough
+  that a series of single-id commands is genuinely fast, and the only thing bulk triage would speed up is
+  triaging without reading — which is the failure this step exists to prevent.
 
 ## Where it stands
 
@@ -39,8 +42,3 @@ Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **5** (promotion to an unpr
   — the test that picks between verdicts 2 and 3.
 - [Backlog items carry no frontmatter (ADR 0008)](../adr/0008-backlog-items-carry-no-frontmatter.md) — why
   verdict 5 is a real answer.
-
-## Still open
-
-- Does triaging in bulk need its own affordance, or is a series of single-id commands genuinely fine? Provisional
-  answer: fine, and a bulk mode would mostly encourage triaging without reading.

@@ -51,9 +51,3 @@ nothing), **22** (the re-run deletes and strips blockers), **23** (refusal on a 
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
 - [No archaeology; git remembers (ADR 0017)](../adr/0017-no-archaeology-git-remembers.md) — what you get instead
   of an undo.
-
-## Still open
-
-- The undocumented second look is a nudge with good odds, not an enforcement mechanism: an agent that closed a
-  ticket earlier in the same session will skip straight past it. Whether the odds hold in practice is
-  unmeasured, and anything stronger would need state.

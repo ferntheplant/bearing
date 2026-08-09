@@ -48,9 +48,3 @@ first is a dependency that does not exist, the second is a grep over what ships.
   why this is the one command allowed to prompt.
 - [The confirmation flag is undocumented on purpose (ADR 0016)](../adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)
   — the constraint the skill's text has to respect, enforced in CI.
-
-## Still open
-
-- The boring parts of installation — detecting the convention, writing without clobbering, re-running to update
-  — are solved in [vercel-labs/skills](https://github.com/vercel-labs/skills). Reading how `skills add` handles
-  them is research, and it is the last thing standing between this capability and a build.

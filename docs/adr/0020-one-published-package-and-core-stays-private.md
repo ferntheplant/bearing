@@ -18,8 +18,10 @@ name hunt, and no competing with whoever holds a common English word.
 
 ## Consequences
 
-There is no application in the repository — a library and a shell around it, plus the skills the CLI installs.
-An `apps/` directory is not part of the layout.
+The repository holds a library and a shell around it, plus the skills the CLI installs. The shell is the one
+thing that ships, so it lives in `apps/cli` and the domain stays private in `packages/core` — the directory
+split tracks deployability, and the publishing decision above is what makes it a one-package release either
+way.
 
 Release mechanics stay simple because only one package publishes: a changelog discipline and a tag, published
 from CI with registry provenance, rather than a multi-package release orchestration.

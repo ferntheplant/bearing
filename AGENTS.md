@@ -6,28 +6,34 @@ don't know what that means. Nothing is built yet.
 
 ## Where things live
 
-| If you need                                | Read                                               |
-| ------------------------------------------ | -------------------------------------------------- |
-| What bearing is and what "done" looks like | [`ABSTRACT.md`](./ABSTRACT.md)                     |
-| What bearing does for its user             | [`docs/capabilities/`](./docs/capabilities/)       |
-| What a word means                          | [`CONTEXT.md`](./CONTEXT.md)                       |
-| Why something is the way it is             | [`docs/adr/`](./docs/adr/)                         |
-| Why something that looks broken isn't      | [`docs/gotchas.md`](./docs/gotchas.md)             |
-| What is still undecided                    | the **Still open** section of each capability file |
-| What is planned, in progress, or untriaged | the tracker — [`.bearing/`](./.bearing/)           |
+| If you need                                | Read                                         |
+| ------------------------------------------ | -------------------------------------------- |
+| What bearing is and what "done" looks like | [`ABSTRACT.md`](./ABSTRACT.md)               |
+| What bearing does for its user             | [`docs/capabilities/`](./docs/capabilities/) |
+| What a word means                          | [`CONTEXT.md`](./CONTEXT.md)                 |
+| Why something is the way it is             | [`docs/adr/`](./docs/adr/)                   |
+| Why something that looks broken isn't      | [`docs/gotchas.md`](./docs/gotchas.md)       |
+| What is still undecided                    | nothing — see the reading rule below         |
+| What is planned, in progress, or untriaged | the tracker — [`.bearing/`](./.bearing/)     |
+| How to write any of the above              | [`docs/README.md`](./docs/README.md)         |
 
 New writing goes to one of those homes from the start, and **nothing lives in two of them**: a capability file
-says what a user can expect and links the decision behind it rather than restating it. The
-[`domain-modeling`](./.agents/skills/domain-modeling/SKILL.md) skill owns the formats for the glossary,
-decisions, capabilities, and gotchas. `ABSTRACT.md` sits above all four and changes rarely — a claim about what
-the whole system is or when it is done, not a description of one capability.
+says what a user can expect and links the decision behind it rather than restating it. `ABSTRACT.md` sits above
+all four and changes rarely — a claim about what the whole system is or when it is done, not a description of
+one capability. [`docs/README.md`](./docs/README.md) holds the formats and is the only file about the
+documentation system rather than about bearing; the
+[`domain-modeling`](./.agents/skills/domain-modeling/SKILL.md) skill defers to it.
+
+**The reading rule: if something is not written in an ADR or a capability file, it is not decided.** Silence
+means open, and there is no third register to check — no parked questions, no provisional-answers appendix.
+Undecidedness that blocks a destination is fog on a map in the tracker; undecidedness that blocks nothing is
+simply absent. [`docs/README.md`](./docs/README.md) has the reasoning.
 
 ## The tracker
 
 Bearing tracks bearing. `.bearing/` holds what has been committed to and not yet finalized into this repository,
 and **this file is the only doorway to it** — nothing else links in. Durable prose cites the ADR, capability, or
-`CONTEXT.md` entry that holds a decision; an open question belongs in a capability's **Still open** section as a
-question, not as a link to where it is tracked.
+`CONTEXT.md` entry that holds a decision, never a ticket or a map.
 
 The live map is `.bearing/maps/mvp.md`. Its destination is bearing maintaining this directory itself: **until
 the CLI exists, every structured edit here — ids, filenames, frontmatter, blocker lists, trail rows — is made by
@@ -36,10 +42,6 @@ hand, and that is the experiment.** A hand-edit that feels clerical is evidence 
 
 Read the map's **Notes** before working a ticket on it. They say what counts as durable here, which is what
 decides when a design ticket is allowed to close.
-
-Cite an ADR by **name and number, name first**:
-`[Fog links are advisory (ADR 0011)](./docs/adr/0011-fog-links-are-advisory-not-referential.md)`. The name is
-what reads at a glance; the number is what a file search finds. A bare `ADR 0011` is not a citation.
 
 ## Vocabulary
 

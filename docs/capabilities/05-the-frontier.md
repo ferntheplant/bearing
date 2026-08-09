@@ -47,8 +47,3 @@ map leaves DECIDE), **19** (`--json` on every read) and **20** (under 50ms wall)
   backlog's age display was cut.
 - [Bun only, no node fallback (ADR 0021)](../adr/0021-bun-only-no-node-fallback.md) — where the 50ms budget
   comes from.
-
-## Still open
-
-- Ranking has never been run against a tracker with real spread. Whether gate count plus fog produces an order a
-  person agrees with is the first thing dogfooding should test.
