@@ -44,6 +44,12 @@ A row is a design ticket's closure and nothing else, so a decision settled witho
 
 ## Not yet specified
 
+### Fog graduation and map maintenance
+
+When a sharp question leaves this section, when a design ticket is a probe into broader fog rather than its
+replacement, and how mapping, closing, `clears`, and the trail keep the map low-resolution without duplicating
+live tickets.
+
 ### Skill installation mechanics
 
 Detecting the agent-directory convention, writing without clobbering a local edit, and re-running to update.
