@@ -8,8 +8,11 @@ tracker is live.
 
 - **Closing deletes the file and strips the id from every ticket blocked by it.** There is no completed state,
   no archive directory, and no recovery path — the deleting commit is the record.
+- **Closing is ordered, not atomic.** The closing ticket is deleted before blocker lists are cleaned. If the
+  apply is interrupted, the remaining references are satisfied blockers that `bearing check` reports, never
+  dependents made ready while their blocker still exists.
 - **A build ticket closes with no checks at all.** Its evidence is the diff it ships with, and that is
-  recoverable from history. Bearing does not inspect the working tree or the commit.
+  recoverable from history. Bearing does not inspect the working tree or the commit, and closes it immediately.
 - **A design ticket closes against its trail row.** The map's trail must have a row for it with a non-empty
   outcome, and that is a refusal rather than a warning.
 - **Closing a design ticket is a dry run first.** It prints the ticket, the trail row **verbatim**, the fog
@@ -18,19 +21,19 @@ tracker is live.
 - **The trail row is shown, not just checked.** A row written three commits ago and since invalidated passes an
   existence check and fails anyone who reads it; printing it at closing time is what catches that.
 - **Bearing cannot clear the fog for you.** It prints the patch and says so, because it never edits a map.
-- **Closing a map is the same operation.** It refuses while any ticket still names it, and otherwise deletes the
-  file. Nothing is written out to a permanent home on the way — by then every trail row already points at
-  something durable.
-- **`bearing rm` deletes without closing**, for the ticket that turned out not to be real.
-- **No prompts.** The second look is a dry run and a re-run, which is a transcript rather than a question an
-  agent cannot answer.
+- **Closing a map applies immediately.** It refuses while any ticket still names it, and otherwise deletes the
+  file on that invocation. Nothing is written out to a permanent home on the way — by then every trail row
+  already points at something durable.
+- **`bearing rm` deletes without closing**, immediately, for the ticket that turned out not to be real.
+- **No prompts.** A design close's second look is a dry run and a re-run, which is a transcript rather than a
+  question an agent cannot answer.
 - **Deleting the ticket inside the change that lands the work is deliberate.** A reviewer seeing the ticket
   disappear in the diff is seeing the change's claim about what it finished.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The asymmetry between the two types, the hard gate on the trail row, and the
-dry-run payload are settled.
+**Designed.** Nothing is built. The asymmetry between the two types, the hard gate and dry-run payload for a
+design close, and direct build and map closing are settled.
 
 ## Acceptance criteria
 
@@ -42,8 +45,8 @@ nothing), **22** (the re-run deletes and strips blockers), **23** (refusal on a 
 
 - [The tracker holds only what is not yet canonicalized (ADR 0001)](../adr/0001-the-tracker-holds-only-what-is-not-yet-canonicalized.md)
   — why closing is deletion.
-- [A dry run and a re-run, never a prompt (ADR 0015)](../adr/0015-a-dry-run-and-a-re-run-never-a-prompt.md) —
-  what the dry run puts on screen, and why a build-close warning was rejected.
+- [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
+  what earns the second look, and why build and map closing apply directly.
 - [The confirmation flag is undocumented on purpose (ADR 0016)](../adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)
   — which is why this file does not name it either.
 - [Bearing reads maps and never writes them (ADR 0009)](../adr/0009-bearing-reads-maps-and-never-writes-them.md)
@@ -51,3 +54,5 @@ nothing), **22** (the re-run deletes and strips blockers), **23** (refusal on a 
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
 - [No archaeology; git remembers (ADR 0017)](../adr/0017-no-archaeology-git-remembers.md) — what you get instead
   of an undo.
+- [Mutations are ordered, not atomic (ADR 0025)](../adr/0025-mutations-are-ordered-not-atomic.md) — what a caller
+  may assume after an interrupted close, and why bearing provides no transaction or rollback.

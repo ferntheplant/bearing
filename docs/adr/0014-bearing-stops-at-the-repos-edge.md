@@ -22,10 +22,10 @@ legible to an agent, it just is not a contract.
 
 ## Consequences
 
-**Configuration holds exactly one key: where the tracker lives.** Everything an earlier draft wanted config for
-— what counts as durable, the gate command, where specs live — turned out to be either prose a person writes in
-a map's notes or a thing bearing should not know. A tool with one key does not need a config format debate, and
-the config command exists mostly so first-time setup has somewhere to write.
+**There is no configuration.** Everything an earlier draft wanted config for — where the tracker lives, what
+counts as durable, the gate command, where specs live — became fixed mechanism, prose a person writes in a
+map's notes, or a thing bearing should not know. Tracker discovery is fixed by
+[`.bearing/` is fixed and discovered upward (ADR 0028)](./0028-dot-bearing-is-fixed-and-discovered-upward.md).
 
 **Bearing build tickets are not directly executable.** The step from ticket to spec is real work bearing does
 not do. That is the trade, and it is what keeps bearing usable in a repo that has never heard of specs.

@@ -20,7 +20,8 @@ only value it could ever hold, and a field with one value is not a field.
 
 The two types are checked asymmetrically at closing time, because they have structurally different evidence: a
 build ticket's evidence is the diff it ships with, and a design ticket's is a different file that no tool can
-derive. See [A dry run and a re-run, never a prompt (ADR 0015)](./0015-a-dry-run-and-a-re-run-never-a-prompt.md).
+derive. See
+[Only design-ticket closing is a dry run (ADR 0029)](./0029-only-design-ticket-closing-is-a-dry-run.md).
 
 Design tickets always name a project; build tickets may not. So the set of tickets with no project is always
 directly actionable — work that was specifiable from the start and that no map ever owned.

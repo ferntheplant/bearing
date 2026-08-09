@@ -1,6 +1,6 @@
 # The confirmation flag is undocumented on purpose
 
-The flag that applies a dry run is documented **in this repository and nowhere else**. It does not appear in
+The flag that applies a design-ticket close is documented **in this repository and nowhere else**. It does not appear in
 command help, it does not appear in the shipped skill, and no error message mentions it before a dry run has
 run. The only place a caller learns it is the last line of the dry-run output — the output that also contains
 the trail row and the fog patch.
@@ -18,8 +18,8 @@ kept in order to make a human look at something is worse than the mistake it pre
 
 ## Consequences
 
-The shipped skill describes the bare close command and stops. If the skill teaches the flag, every agent knows
-it before its first close and the mechanism is decorative.
+The shipped skill describes the bare design-close command and stops. If the skill teaches the flag, every agent
+knows it before its first design close and the mechanism is decorative.
 
 This is the kind of constraint that rots in six months when someone helpfully documents it, so CI greps the
 shipped skill and the generated help output for the flag and fails if it appears. The test's failure message has

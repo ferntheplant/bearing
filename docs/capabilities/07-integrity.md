@@ -7,13 +7,15 @@ find out when an edit broke a link.
 ## What you can expect
 
 - **`bearing check` is the whole of it.** It reads everything and reports; it is not a mode of another command.
-- **Errors, which mean the tracker is malformed:** a ticket blocked by an id that does not exist, a ticket
-  naming a project that does not exist, a design ticket with no project, an unknown type, a duplicate id.
+- **Parse failures are loud.** Every command refuses a tracker whose structure it cannot parse; `bearing check`
+  accumulates those failures rather than stopping at the first one.
+- **Integrity errors, which mean parsed values are inconsistent:** a ticket blocked by an id that does not
+  exist, a ticket naming a project that does not exist, a design ticket with no project, an unknown type, a
+  duplicate id.
 - **Warnings, which mean something has drifted:** a fog link naming a heading that is no longer there, a trail
   row for a ticket that still exists.
-- **There is no `--fix`.** Every warning prints the command that resolves it, which is better than a bulk fixer
-  for the same reason the closing dry run is better than a prompt: you end up with commands you chose and can
-  read back, rather than a diff a flag produced.
+- **There is no `--fix`.** Every warning prints the command that resolves it. Running that command applies its
+  one named edit directly, which is more legible than a bulk-produced diff.
 - **Drift gets a suggestion, never an edit.** For a broken fog link, the output names the closest current
   heading and the command that would repoint the ticket to it — with the target named explicitly, because a
   reworded heading and a cleared patch are indistinguishable to a tool.
@@ -23,7 +25,8 @@ find out when an edit broke a link.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The error and warning sets are settled, as is the no-bulk-fix rule.
+**Designed.** Nothing is built. Parse refusal, the integrity error and warning sets, and the no-bulk-fix rule are
+settled.
 
 ## Acceptance criteria
 
@@ -38,3 +41,7 @@ Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **26** (every error and war
   — why "a design ticket lives in a project" is a check here rather than a property of the filesystem.
 - [Fog links are advisory, not referential (ADR 0011)](../adr/0011-fog-links-are-advisory-not-referential.md) —
   why one dangling pointer is an error and another is a warning.
+- [Mutations are ordered, not atomic (ADR 0025)](../adr/0025-mutations-are-ordered-not-atomic.md) — why an
+  interrupted apply tends toward the duplicate ids and dangling blockers this command reports.
+- [Core exposes operations, not tracker internals (ADR 0027)](../adr/0027-core-exposes-operations-not-tracker-internals.md)
+  — why malformed documents remain evidence in the one tracker read instead of stopping it at the first error.

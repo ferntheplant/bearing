@@ -18,6 +18,9 @@ with what it cost:
 No git service to fake in tests, no child-process dependency, and no failure mode where the tool misbehaves
 inside a worktree, a submodule, or a directory that is not a repository at all.
 
+Tracker prose is edited directly rather than by launching an editor; see
+[Tracker files are edited directly (ADR 0030)](./0030-tracker-files-are-edited-directly.md).
+
 Bearing still **assumes** it lives in a git repository — deletion-on-close only makes sense where something
 remembers. It just never talks to it. The tracker is committed by the same hands and in the same commits as the
 work, which was always the design.

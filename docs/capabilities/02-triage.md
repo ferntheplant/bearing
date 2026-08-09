@@ -15,10 +15,13 @@ come from.
 - **Every verdict but the first is the same move**, out of the backlog and into tickets, differing only in what
   the ticket says about itself. Nothing moves across directory levels and nothing is renamed.
 - **The item's id survives triage**, so anything you wrote down referring to it still resolves.
+- **An interrupted triage fails toward duplication, not disappearance.** The promoted ticket is written before
+  the backlog item is deleted, so interruption between them leaves a duplicate id that resolution and
+  `bearing check` reject.
 - **Stub maps are allowed.** A destination and one patch of fog is a legitimate map. One patch and no
   destination is verdict 5 — the destination is what draws the line, because naming one is the actual work.
 - **`bearing triage <id>` takes the verdict as a flag**, so triaging a backlog in one sitting is a series of
-  short commands rather than a form.
+  short commands rather than a form. Each command applies its verdict immediately.
 - **One id at a time, on purpose.** There is no bulk mode and no multi-id form. The verdict set is small enough
   that a series of single-id commands is genuinely fast, and the only thing bulk triage would speed up is
   triaging without reading — which is the failure this step exists to prevent.
@@ -42,3 +45,7 @@ Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **5** (promotion to an unpr
   — the test that picks between verdicts 2 and 3.
 - [Backlog items carry no frontmatter (ADR 0008)](../adr/0008-backlog-items-carry-no-frontmatter.md) — why
   verdict 5 is a real answer.
+- [Mutations are ordered, not atomic (ADR 0025)](../adr/0025-mutations-are-ordered-not-atomic.md) — the failure
+  contract when promotion stops between its two filesystem operations.
+- [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
+  why a triage command plans and applies its verdict in one invocation.

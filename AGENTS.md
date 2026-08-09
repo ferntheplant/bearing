@@ -60,7 +60,8 @@ Most of these have an ADR behind them. If a rule seems wrong, look for its ADR b
 
 - The domain package returns values; only the CLI turns a value into a string. Nothing in the domain imports a
   terminal, formats output, or knows about colour.
-- Every mutation is a plan and an apply as separate operations. Bare commands run the plan.
+- Every mutation has separate planning and applying operations. Bare commands run both; a bare design close
+  runs only its plan.
 - The domain depends on the filesystem, path, and clock services and nothing else. The Bun implementations are
   supplied at the CLI's entry point.
 - No subprocesses, ever, and no dependency on git being installed.
@@ -68,8 +69,11 @@ Most of these have an ADR behind them. If a rule seems wrong, look for its ADR b
   ranged.
 - The prompt module may be imported by the setup command and nowhere else, enforced by lint.
 - Bearing never writes a map.
+- Tracker prose is edited directly; there is no edit command.
+- Tracker commands discover the nearest ancestor's `.bearing/` and fail on a malformed one rather than searching
+  past it. There is no configuration.
 - `--json` on every read, `NO_COLOR` respected, no interactive prompts outside first-time setup.
-- Nothing shipped — help text, skill, error messages — names the flag that applies a dry run.
+- Nothing shipped — help text, skill, error messages — names the flag that applies a design close.
 
 ## Definition of done
 
