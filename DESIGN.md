@@ -60,12 +60,12 @@ Three flat directories. **A project has no directory — a project _is_ a map fi
 frontmatter field naming its stem.
 
 An earlier draft nested tickets under `<project>/tickets/`, making membership a path. Two things were wrong
-with it. Promotion was a `git mv` across directory levels, so the cheapest triage verdict was the most
+with it. Promotion was a move across directory levels, so the cheapest triage verdict was the most
 disruptive edit. And the map ended up sitting in a directory whose only other content was the tickets the map
 deliberately does not list — a directory that implied a table of contents the design had already rejected.
 
-Flat, the map is the whole of the project: destination, fog, trail. Membership is a one-word edit, and `git mv`
-survives in exactly one place — `backlog/` to `tickets/`. The cost is that "design tickets live only in a
+Flat, the map is the whole of the project: destination, fog, trail. Membership is a one-word edit, and a file
+move survives in exactly one place — `backlog/` to `tickets/`. The cost is that "design tickets live only in a
 project" becomes a check rather than a property of the filesystem, which is a cheap check.
 
 ### Identity
@@ -73,7 +73,7 @@ project" becomes a check rather than a property of the filesystem, which is a ch
 Every item is named `<id>-<slug>.md`, where `id` is an 8-character nanoid over `[0-9a-z]` and `slug` is derived
 from the title. **The filename is canonical** — the id appears nowhere else, so it cannot desync.
 
-The id is identity for life. A backlog item promoted into a project keeps it across the `git mv`; a retitle
+The id is identity for life. A backlog item promoted into a project keeps it across the move; a retitle
 changes only the slug half. Because retitles change the filename, **bearing owns rename** — doing it by hand is
 how you get an id whose slug lies.
 
@@ -294,7 +294,7 @@ Give each backlog item the cheapest home that fits:
 4. **A new map** — a nameable destination plus at least one thing you cannot yet specify.
 5. **Leave it** — unmoored fog, waiting for a destination.
 
-Every verdict but the first is the same `git mv` from `backlog/` to `tickets/` plus frontmatter; they differ
+Every verdict but the first is the same move from `backlog/` to `tickets/` plus frontmatter; they differ
 only in what the frontmatter says. Verdict 4 additionally writes `maps/<project>.md`.
 
 **Stub maps are allowed**, which is verdict 4's low bar. Bebop used them as holding pens for real destinations
@@ -417,8 +417,10 @@ Derived on every run, never stored. Three sections:
 - **DECIDE** — open, unblocked design tickets, grouped by project, each group headed by its destination line
   and fog count. Ranked by gate count **plus fog cleared**. A fog-complete map has no design tickets, so it
   drops out of DECIDE while its build tickets are still running — the map goes quiet before it goes away.
-- **TRIAGE** — backlog count and oldest item by git-add date. Load-bearing rather than hygiene, since this is
-  where projects come from.
+- **TRIAGE** — the backlog count. Load-bearing rather than hygiene, since this is where projects come from.
+  An earlier draft also showed the oldest item's age, which meant asking git when each file was added: a
+  subprocess on the most frequently run command in the tool, to render a number whose only message is "there is
+  a backlog." The count already says that.
 
 Build outranks decide overall: something already specified and unbuilt is the answer to "what next."
 
@@ -435,7 +437,7 @@ bearing new <type> "title" [--project X]   # create a ticket  (alias: create, ad
 bearing ls [--build|--design|--blocked|--ready|--project X|--query "..."|--flat|--json]
 bearing show <id> [--full|--json]
 bearing edit <id>
-bearing retitle <id> "..."            # owns the git mv; id survives
+bearing retitle <id> "..."            # owns the rename; id survives
 bearing close <id>                    # asymmetric by type    (alias: done)
 bearing close --map <project>         # refuses while any ticket names it
 bearing rm <id>                       # delete without closing (alias: delete)

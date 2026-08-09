@@ -24,7 +24,8 @@ Effect into the tree.
 
 **`Terminal`, `FileSystem`, and `Path` are top-level core modules** (`effect/Terminal`, `effect/FileSystem`,
 `effect/Path`), with Bun implementations in `@effect/platform-bun` as `BunTerminal`, `BunFileSystem`,
-`BunPath`, plus `BunRuntime` and `BunChildProcessSpawner`. Subprocesses come from `effect/unstable/process`.
+`BunPath`, plus `BunRuntime`. There is also `BunChildProcessSpawner` and an `effect/unstable/process` module;
+bearing needs neither, and the section on git below is why that turned out to matter.
 
 Two things fall out of the module list for free. `Completions` means `bearing completion <shell>` is close to
 a one-liner. And `Prompt` is exactly what `bearing init` needs — which makes principle 8 mechanically
@@ -75,21 +76,49 @@ Budget to hold: **under 50ms wall for `bearing next` on a real tracker.** That l
 measured floor for reading and parsing every file in `.scratch/`, which is generous for a few dozen small
 Markdown files and will stay generous, since the tracker is bounded by what a person can hold in their head.
 
-One thing threatens it. TRIAGE reports "oldest backlog item by git-add date," which needs `git log` — a
-subprocess, tens of milliseconds, on a command that runs constantly. Options: cache it, drop the age and show
-only a count, or accept the cost on `next` alone. Flagged in open decisions; my inclination is that a count is
-most of the value.
+Nothing threatens it, now that git is gone — see below.
+
+### Bearing does not shell out to git
+
+This started as a hot-path worry and ended as a deletion. Two features wanted git, and neither survived
+contact with what it cost:
+
+- **TRIAGE's "oldest item by git-add date"** needed `git log` on every `bearing next`: tens of milliseconds on
+  the most frequent command in the tool, to render a number that says what the count already says. Cut from
+  `DESIGN.md`.
+- **`git mv` for moves and retitles** turned out to buy nothing. Git infers renames from content similarity at
+  commit time whether or not the move was staged through it, so a plain `fs.rename` produces the identical
+  diff. `git mv` only stages, and staging is the operator's business.
+
+So **bearing never spawns a subprocess and never depends on git being installed.** That is worth more than the
+two features: no `Git` service to fake in tests, no `ChildProcess` dependency, no failure mode where the tool
+misbehaves inside a worktree, a submodule, or a directory that is not a repository at all. Core's dependencies
+are `FileSystem`, `Path`, and `Clock`, and that is the complete list.
+
+Bearing still assumes it lives in a git repo — close-is-delete only makes sense where something remembers, and
+principle 1 says git does. It just never talks to it. The tracker is committed by the same hands and in the
+same commits as the work, which was always the design.
 
 ## Package layout
 
 ```
 bearing/
   packages/
-    core/          @bearing/core   — the domain. No terminal, no bun, no strings.
-    cli/           bearing-cli     — the terminal interface. Owns effect/unstable/cli.
+    core/          private   — the domain. No terminal, no bun, no strings, no git.
+    cli/           @fjorn/bearing — the terminal interface. Owns effect/unstable/cli.
   skills/          shipped skills, copied into target repos by `bearing init`
   docs/
 ```
+
+**One published package, `@fjorn/bearing`, exposing a `bin` named `bearing`.** Core stays `private: true` in
+the workspace and is bundled into the CLI at build time.
+
+That is a deliberate narrowing from the first draft, which had core published as a library. Publishing a
+library with no external consumer is a maintenance surface bought on speculation: a version number to bump, a
+public API to avoid breaking, and semver obligations to a future MCP server that does not exist. The seam below
+is what makes the future interface cheap, and the seam is a code-organization property that holds whether or
+not core has its own npm entry. If a second interface ever ships and wants core separately, publishing it then
+is a small change; un-publishing is not.
 
 `apps/` stays empty and should probably be deleted; there is no application here, only a library and a shell
 around it.
@@ -100,7 +129,7 @@ The rule that makes the separation real, rather than two folders that drift into
 
 > **Core returns values. Only the CLI turns a value into a string.**
 
-Nothing in `@bearing/core` imports `Terminal`, formats output, or knows about color. `close(id)` does not print
+Nothing in core imports `Terminal`, formats output, or knows about color. `close(id)` does not print
 a dry run — it returns a `ClosePlan` holding the ticket, the trail row it found, the fog patches still present,
 and the list of `blocked-by` edits it would make. The CLI renders that as the dry-run text. `--json` serializes
 the same value. A future MCP tool returns it directly.
@@ -118,8 +147,7 @@ This is worth being strict about because the design already depends on it in thr
   a 30s test timeout irrelevant.
 
 Core depends on the `FileSystem`, `Path`, and `Clock` services and nothing else. The Bun implementations are
-supplied by the CLI at its entry point. A `Git` service wraps the one or two git invocations behind an
-interface so tests can fake them.
+supplied by the CLI at its entry point.
 
 ### What lives in core
 
@@ -159,24 +187,27 @@ keeps it honest, and the test's failure message should explain why rather than j
 
 ## Publishing
 
-You have not published before, so this is the section with the most unknowns; treat it as a research plan
-rather than a decision.
+First time publishing, so the mechanics below are a research plan; the naming and distribution are decided.
 
-**The name `bearing` is taken** — an active package, last published 2026-08-08. `bearing-cli` and `@bearing/*`
-are both free. This matters less than it sounds: **the `bin` name is independent of the package name**, so
-`bearing-cli` still installs a command called `bearing`. Recommendation is `bearing-cli` publicly with
-`@bearing/core` as the library, but confirm the `@bearing` scope is actually claimable before committing —
-a 404 on `@bearing/core` proves the package does not exist, not that the scope is free.
+**`@fjorn/bearing`, with a `bin` named `bearing`.** The bare name `bearing` is taken by an active package (last
+published 2026-08-08), but that matters less than it looks: **the `bin` name is independent of the package
+name**, so the command is `bearing` regardless of what the tarball is called. A personal scope is the better
+answer anyway — one namespace for all your tools, no per-project name hunt, and no competing with whoever holds
+a common English word. `@fjorn/bearing` is unregistered. Claim the scope first; npm scopes are tied to the
+username, so this is free if `fjorn` is yours.
 
-**Distribution.** Given the measurements, ship a bundled JS entry point with a `bin`, and require bun. That is
-the fast path and the small one. The cost is a hard bun dependency, which is fine for your use and a barrier
-for anyone else — worth deciding whether bearing is a personal tool that happens to be public, or something
-meant to be installed by people who do not have bun. If the latter, the fallback is a node-compatible bundle
-(58ms floor, still acceptable) rather than compiled binaries.
+**Bun only, no node fallback.** Ship one bundled JS entry point and require bun. The fallback would have cost a
+second build target, a second set of platform assumptions to test, and the standing temptation to reach for a
+node-compatible API in core — permanent complexity to serve users who do not exist yet. Bearing is a personal
+tool that happens to be public; someone without bun can install bun. If that changes, the measurements say a
+node bundle lands around 58ms, so the door is open and cheap to walk through later.
 
-**Release mechanics.** Changesets for versioning and changelog across the two packages; publish from GitHub
-Actions with npm provenance via OIDC, which is the current default expectation for a new package and avoids
-long-lived tokens on your laptop.
+State it in `engines` and fail loudly rather than mysteriously if something execs the bin under node.
+
+**Release mechanics.** Only one package publishes, which simplifies this — Changesets is probably still worth
+it for the changelog discipline, but a single-package repo can also get by with `npm version` and a tag. Publish
+from GitHub Actions with npm provenance via OIDC, which is the current expectation for a new package and keeps
+long-lived tokens off your laptop.
 
 **Update broadcasting**, which you flagged and which is the genuinely interesting one. The reflex is an
 `update-notifier`-style check on startup. That is precisely wrong here: it adds a network call to a command
@@ -191,16 +222,26 @@ land on the hot path. Better options, roughly in order:
   unexpected banner text is noise in a transcript an agent is parsing. Any notice should be suppressed under
   `--json` and probably when stdout is not a TTY.
 
-## Open decisions
+## Settled
 
-- **Git on the hot path.** Whether TRIAGE keeps "oldest by git-add date" at the cost of a subprocess on every
-  `bearing next`, caches it, or degrades to a count. Leaning count.
-- **Node fallback.** Whether to ship a node-compatible bundle alongside the bun one, which decides whether
-  bearing is installable by people without bun.
-- **Whether `@bearing/core` is published at all.** It could stay private in the workspace and be bundled into
-  `bearing-cli`, which is simpler until there is a second interface actually consuming it. Publishing a library
-  nobody imports yet is a maintenance surface with no users.
-- **Rename vs `git mv`.** Plain `fs.rename` is simpler and git infers renames from content anyway; `git mv`
-  only stages the change. Probably plain rename, which removes git from the mutation path entirely and leaves
-  it needed for nothing but the backlog-age read above — which, if that read goes, removes git from bearing
-  altogether.
+All four decisions from the first pass of this document are closed, and three of them closed by subtraction:
+
+| Question            | Decision                                                                      |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Git on the hot path | **No git at all.** Age display cut; `fs.rename` for moves. No subprocesses.   |
+| Node fallback       | **Bun only.** One target. Node bundle stays possible and unbuilt.             |
+| Publish core?       | **No.** Private workspace package, bundled into the CLI.                      |
+| Rename vs `git mv`  | **`fs.rename`.** Git infers the rename anyway; staging is the operator's job. |
+
+The shape they add up to is worth naming, because it should hold as a bias for the next round of decisions:
+every one of them made bearing smaller. What is left is a single published package, with three service
+dependencies, no subprocesses, one runtime, one build target, and one interface — for a tool whose entire job
+is to hold a few dozen Markdown files in a directory and answer questions about them.
+
+## Where this stops
+
+This document is the outline, not the plan. The next round is the first vertical slice, and the natural one is
+the read path end to end: ids, the store, map parsing, and `bearing ls` — enough to point at a real `.scratch/`
+and get output, with the seam exercised (core returns values, CLI renders, `--json` free) before there is
+anything to unpick. `bearing next` follows once the graph and ranking exist, and mutations last, since they are
+the only part that can damage a tracker.
