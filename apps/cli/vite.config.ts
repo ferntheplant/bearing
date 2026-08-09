@@ -1,6 +1,13 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@bearing/core": fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url)),
+    },
+  },
   pack: {
     entry: ["src/cli.ts"],
     format: ["esm"],
@@ -16,12 +23,8 @@ export default defineConfig({
   run: {
     tasks: {
       build: { command: "vp pack", dependsOn: ["@bearing/core#build"] },
-      // Vitest runs under Bun, not the Node runtime `vp test` uses, because the
-      // code under test wires Bun's platform services. `scripts/bun-test.ts`
-      // resolves the bundled vitest copy (the one `vite-plus/test` imports) and
-      // runs it with Bun.
       test: {
-        command: "bun scripts/bun-test.ts run --reporter=minimal apps/cli",
+        command: "bunx --bun vp test run --reporter=minimal apps/cli",
         cwd: "../..",
       },
     },

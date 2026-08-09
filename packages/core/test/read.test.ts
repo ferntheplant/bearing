@@ -1,9 +1,8 @@
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { TrackerReadError } from "#src/read.ts";
+import type { Ticket, TrackerReadError } from "#src/read.ts";
 import { listTickets } from "#src/read.ts";
-import type { Ticket } from "#src/ticket.ts";
 
 const TICKETS: Record<string, string> = {
   "a1b2c3-first.md": `---
@@ -12,7 +11,7 @@ project: mvp
 clears: [a-patch]
 ---
 
-# First
+# This body is opaque
 
 Body.
 `,
@@ -21,22 +20,26 @@ type: build
 blockers: [a1b2c3]
 ---
 
-# Second
+# This heading is not the ticket title
 
 Body.
 `,
 };
 
-const run = (program: Effect.Effect<readonly Ticket[], TrackerReadError, FileSystem.FileSystem | Path.Path>) =>
+const run = (
+  program: Effect.Effect<readonly Ticket[], TrackerReadError, FileSystem.FileSystem | Path.Path>,
+  tickets = TICKETS,
+  names = ["b1c2d3-second.md", ".DS_Store", "a1b2c3-first.md"],
+) =>
   Effect.runPromise(
     Effect.provide(
       program,
       Layer.merge(
         FileSystem.layerNoop({
-          readDirectory: () => Effect.succeed(["b1c2d3-second.md", ".DS_Store", "a1b2c3-first.md"]),
+          readDirectory: () => Effect.succeed(names),
           readFileString: (path) => {
             const name = path.split("/").at(-1) ?? "";
-            return Effect.succeed(TICKETS[name] ?? "");
+            return Effect.succeed(tickets[name] ?? "");
           },
         }),
         Path.layer,
@@ -51,18 +54,18 @@ describe("listTickets", () => {
     expect(tickets[0]).toMatchObject({
       id: "a1b2c3",
       slug: "first",
-      title: "First",
       type: "design",
       project: "mvp",
+      blockers: [],
       clears: ["a-patch"],
     });
     expect(tickets[1]).toMatchObject({
       id: "b1c2d3",
       slug: "second",
-      title: "Second",
       type: "build",
       project: undefined,
       blockers: ["a1b2c3"],
+      clears: [],
     });
   });
 
@@ -86,6 +89,36 @@ describe("listTickets", () => {
       ),
     );
     await expect(Effect.runPromise(failing)).rejects.toMatchObject({ _tag: "TrackerReadError" });
+  });
+
+  it("rejects frontmatter fields outside the four-field format", async () => {
+    const invalid = {
+      "a1b2c3-unknown-field.md": `---
+type: build
+status: open
+---
+
+Body.
+`,
+    };
+    await expect(run(listTickets("some/tracker"), invalid, Object.keys(invalid))).rejects.toMatchObject({
+      message: expect.stringContaining("unknown frontmatter field: status"),
+    });
+  });
+
+  it("distinguishes an absent list from a null list", async () => {
+    const invalid = {
+      "a1b2c3-null-list.md": `---
+type: build
+blockers:
+---
+
+Body.
+`,
+    };
+    await expect(run(listTickets("some/tracker"), invalid, Object.keys(invalid))).rejects.toMatchObject({
+      _tag: "TrackerReadError",
+    });
   });
 
   it("fails when the tickets directory cannot be read", async () => {

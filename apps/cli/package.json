@@ -1,7 +1,6 @@
 {
   "name": "@bearing/cli",
   "version": "0.0.0",
-  "private": true,
   "bin": {
     "bearing": "./dist/cli.mjs"
   },

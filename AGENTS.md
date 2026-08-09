@@ -2,7 +2,7 @@
 
 Bearing is a file-based issue tracker and CLI for exploring a **fog of war**: work too large for one agent
 session, where the route to the destination is not yet visible. Read [`ABSTRACT.md`](./ABSTRACT.md) first if you
-don't know what that means. Nothing is built yet.
+don't know what that means.
 
 ## Where things live
 

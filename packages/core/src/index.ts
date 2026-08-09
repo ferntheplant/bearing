@@ -1,4 +1,2 @@
-export * from "./filename.ts";
-export * from "./frontmatter.ts";
-export * from "./read.ts";
-export * from "./ticket.ts";
+export { listTickets, TrackerReadError } from "./read.ts";
+export type { Ticket } from "./read.ts";

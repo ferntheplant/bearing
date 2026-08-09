@@ -4,9 +4,9 @@ Most of what is here was not chosen — the registry, the runtime, or the toolch
 none of it is an [ADR](./adr/). The rest is a constraint that looks like clutter, standing because deleting it
 silently removes a property something else depends on. [`docs/README.md`](./README.md) has the format.
 
-**Nothing here is battle damage yet.** Bearing has no code, so these are registry and measurement findings taken
-on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1) rather than production scars. Re-measure before treating a
-number as current, and delete an entry outright once its upstream reason stops being true.
+**Nothing here is production battle damage yet.** These are registry, toolchain, and measurement findings taken
+on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1). Re-measure before treating a number as current, and delete
+an entry outright once its upstream reason stops being true.
 
 ## The toolchain
 
@@ -46,14 +46,11 @@ every ticket to the first, and nothing warns. Detecting it would mean extending 
 [the integrity pass](./capabilities/07-integrity.md) keeps deliberately closed, to cover a collision that a
 human staring at two identical headings would see first.
 
-**Vitest runs from the copy `scripts/bun-test.ts` resolves, never from `node_modules/vitest`.** `vp test`
-executes the Vitest bundled with Vite+ — the same copy `vite-plus/test` imports re-export — and `node_modules/vitest`
-is a separate hoisted copy of the same version. Launching the hoisted binary (`bun node_modules/vitest/vitest.mjs
-run`) runs the suite against one module instance while the tests import another, and every suite dies with
-`runner.config is undefined`. `scripts/bun-test.ts` resolves the bundled copy the way `vp test` does and launches
-it under Bun — the runtime bearing targets, since `vp test` runs under the Node runtime Vite+ manages and the
-entrypoint wires Bun's platform services. Reaching for the hoisted binary because it is the obvious name is the
-tidying that reintroduces this.
+**Vitest runs as `bunx --bun vp test`, never from `node_modules/vitest`.** Vite+ executes the same Vitest copy
+that `vite-plus/test` re-exports, while the obvious hoisted binary is a separate module instance. Launching that
+binary (`bun node_modules/vitest/vitest.mjs run`) makes every suite die with `runner.config is undefined`.
+The `--bun` flag also keeps the runner on bearing's target runtime, which the CLI tests need for Bun's platform
+services. Reaching for the hoisted binary or dropping `--bun` is the tidying that reintroduces this.
 
 **`sortPackageJson` normalizes an `exports` map back to a plain string, silently dropping a `types` condition.**
 The repo's formatter rewrites `".": { "types": "./src/index.ts", "default": "./dist/index.mjs" }` to

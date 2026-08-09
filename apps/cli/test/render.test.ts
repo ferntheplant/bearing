@@ -7,7 +7,6 @@ const TICKETS: readonly Ticket[] = [
   {
     id: "t4frt1",
     slug: "the-first-slice",
-    title: "The first slice: ls over a real tracker",
     type: "build",
     project: "mvp",
     blockers: [],
@@ -16,7 +15,6 @@ const TICKETS: readonly Ticket[] = [
   {
     id: "2z1qew",
     slug: "skill-installation-mechanics",
-    title: "Skill installation mechanics",
     type: "design",
     project: "mvp",
     blockers: ["kwjvxc"],
@@ -25,7 +23,6 @@ const TICKETS: readonly Ticket[] = [
   {
     id: "a1b2c3",
     slug: "unprojected",
-    title: "No project",
     type: "build",
     project: undefined,
     blockers: [],
@@ -36,9 +33,9 @@ const TICKETS: readonly Ticket[] = [
 describe("renderText", () => {
   it("renders each ticket with its id, title, type, and project", () => {
     const text = renderText(TICKETS);
-    expect(text).toContain("t4frt1  The first slice: ls over a real tracker  build  mvp");
-    expect(text).toContain("2z1qew  Skill installation mechanics  design  mvp");
-    expect(text).toContain("a1b2c3  No project  build  -");
+    expect(text).toContain("t4frt1  the first slice  build  mvp");
+    expect(text).toContain("2z1qew  skill installation mechanics  design  mvp");
+    expect(text).toContain("a1b2c3  unprojected  build  -");
   });
 
   it("shows blockers and clears where present and omits the metadata line otherwise", () => {
@@ -61,7 +58,6 @@ describe("renderJson", () => {
     expect(parsed[1]).toMatchObject({
       id: "2z1qew",
       slug: "skill-installation-mechanics",
-      title: "Skill installation mechanics",
       type: "design",
       project: "mvp",
       blockers: ["kwjvxc"],

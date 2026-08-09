@@ -26,7 +26,7 @@ picks it up cold, human or agent.
 
 ## Where it stands
 
-**Designed; the read path's first slice is built.** `packages/core` reads `<tracker>/tickets/` into ticket
+**Partial.** `packages/core` reads `<tracker>/tickets/` into ticket
 values and `apps/cli` renders them or emits `--json` ([ADR 0019](../adr/0019-core-returns-values-only-the-cli-renders.md)
 is the seam between them). The command surface — filters, `show`, prefix resolution — remains settled, not
 built.

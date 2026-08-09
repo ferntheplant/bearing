@@ -6,29 +6,41 @@ import { Effect } from "effect";
 
 import { renderJson, renderText } from "./render.ts";
 
-const args = process.argv.slice(2);
-const json = args.includes("--json");
-const tracker = args.find((arg) => arg !== "--json");
-
-if (tracker === undefined) {
-  process.stderr.write("usage: bearing [--json] <tracker>\n");
-  process.exit(1);
+interface Writer {
+  write(text: string): unknown;
 }
 
-const program = Effect.gen(function* () {
-  const tickets = yield* listTickets(tracker);
-  return json ? renderJson(tickets) : renderText(tickets);
-});
+export const main = async (
+  args: readonly string[],
+  stdout: Writer = process.stdout,
+  stderr: Writer = process.stderr,
+): Promise<number> => {
+  const json = args.includes("--json");
+  const tracker = args.find((arg) => arg !== "--json");
 
-let output: string;
-try {
-  output = await Effect.runPromise(program.pipe(Effect.provide(BunFileSystem.layer), Effect.provide(BunPath.layer)));
-} catch (error) {
-  if (error instanceof TrackerReadError) {
-    process.stderr.write(`error: ${error.message}\n`);
-  } else {
-    process.stderr.write(`error: ${error instanceof Error ? error.message : String(error)}\n`);
+  if (tracker === undefined) {
+    stderr.write("usage: bearing [--json] <tracker>\n");
+    return 1;
   }
-  process.exit(1);
+
+  const program = Effect.gen(function* () {
+    const tickets = yield* listTickets(tracker);
+    return json ? renderJson(tickets) : renderText(tickets);
+  });
+
+  try {
+    const output = await Effect.runPromise(
+      program.pipe(Effect.provide(BunFileSystem.layer), Effect.provide(BunPath.layer)),
+    );
+    stdout.write(`${output}\n`);
+    return 0;
+  } catch (error) {
+    const message = error instanceof TrackerReadError || error instanceof Error ? error.message : String(error);
+    stderr.write(`error: ${message}\n`);
+    return 1;
+  }
+};
+
+if (import.meta.main) {
+  process.exitCode = await main(process.argv.slice(2));
 }
-process.stdout.write(`${output}\n`);
