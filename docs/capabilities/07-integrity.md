@@ -1,0 +1,45 @@
+# Integrity
+
+One command that reads the whole tracker and tells you what is inconsistent — and, for everything it can, prints
+the exact command that fixes it. This is what makes hand-editing safe: the files are yours, and this is how you
+find out when an edit broke a link.
+
+## What you can expect
+
+- **`bearing check` is the whole of it.** It reads everything and reports; it is not a mode of another command.
+- **Errors, which mean the tracker is malformed:** a ticket blocked by an id that does not exist, a ticket
+  naming a project that does not exist, a design ticket with no project, an unknown type, a duplicate id.
+- **Warnings, which mean something has drifted:** a fog link naming a heading that is no longer there, a trail
+  row for a ticket that still exists.
+- **There is no `--fix`.** Every warning prints the command that resolves it, which is better than a bulk fixer
+  for the same reason the closing dry run is better than a prompt: you end up with commands you chose and can
+  read back, rather than a diff a flag produced.
+- **Drift gets a suggestion, never an edit.** For a broken fog link, the output names the closest current
+  heading and the command that would repoint the ticket to it — with the target named explicitly, because a
+  reworded heading and a cleared patch are indistinguishable to a tool.
+- **Warnings stay meaningful.** The whole point of naming the fix is that nobody learns to ignore the output.
+- **Deliberate, infrequent, and therefore allowed to be slow.** This is where a version check belongs, not on
+  the frontier path.
+
+## Where it stands
+
+**Designed.** Nothing is built. The error and warning sets are settled, as is the no-bulk-fix rule.
+
+## Acceptance criteria
+
+Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **26** (every error and warning class is reported) and
+**27** (every warning carries the command that resolves it, and there is no bulk fix).
+
+## Decisions
+
+- [Anchor drift is detected and named, never repaired (ADR 0012)](../adr/0012-anchor-drift-is-detected-and-named-never-repaired.md)
+  — the pattern the whole command follows.
+- [Three flat directories, and a project is a map file (ADR 0005)](../adr/0005-three-flat-directories-and-a-project-is-a-map-file.md)
+  — why "a design ticket lives in a project" is a check here rather than a property of the filesystem.
+- [Fog links are advisory, not referential (ADR 0011)](../adr/0011-fog-links-are-advisory-not-referential.md) —
+  why one dangling pointer is an error and another is a warning.
+
+## Still open
+
+- Should the integrity pass have an exit code that CI can gate on, and if so, do warnings count? Provisional
+  answer: errors fail, warnings do not, and a repo that wants stricter can grep.

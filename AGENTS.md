@@ -1,3 +1,84 @@
+# Bearing
+
+Bearing is a file-based issue tracker and CLI for exploring a **fog of war**: work too large for one agent
+session, where the route to the destination is not yet visible. Read [`ABSTRACT.md`](./ABSTRACT.md) first if you
+don't know what that means. Nothing is built yet.
+
+## Where things live
+
+| If you need                                | Read                                               |
+| ------------------------------------------ | -------------------------------------------------- |
+| What bearing is and what "done" looks like | [`ABSTRACT.md`](./ABSTRACT.md)                     |
+| What bearing does for its user             | [`docs/capabilities/`](./docs/capabilities/)       |
+| What a word means                          | [`CONTEXT.md`](./CONTEXT.md)                       |
+| Why something is the way it is             | [`docs/adr/`](./docs/adr/)                         |
+| Why something that looks broken isn't      | [`docs/gotchas.md`](./docs/gotchas.md)             |
+| What is still undecided                    | the **Still open** section of each capability file |
+| What is planned, in progress, or untriaged | the tracker — [`.bearing/`](./.bearing/)           |
+
+New writing goes to one of those homes from the start, and **nothing lives in two of them**: a capability file
+says what a user can expect and links the decision behind it rather than restating it. The
+[`domain-modeling`](./.agents/skills/domain-modeling/SKILL.md) skill owns the formats for the glossary,
+decisions, capabilities, and gotchas. `ABSTRACT.md` sits above all four and changes rarely — a claim about what
+the whole system is or when it is done, not a description of one capability.
+
+## The tracker
+
+Bearing tracks bearing. `.bearing/` holds what has been committed to and not yet finalized into this repository,
+and **this file is the only doorway to it** — nothing else links in. Durable prose cites the ADR, capability, or
+`CONTEXT.md` entry that holds a decision; an open question belongs in a capability's **Still open** section as a
+question, not as a link to where it is tracked.
+
+The live map is `.bearing/maps/mvp.md`. Its destination is bearing maintaining this directory itself: **until
+the CLI exists, every structured edit here — ids, filenames, frontmatter, blocker lists, trail rows — is made by
+hand, and that is the experiment.** A hand-edit that feels clerical is evidence about which criterion in
+`ABSTRACT.md` §8 should remove it. Prose stays hand-written either way; that part never gets automated.
+
+Read the map's **Notes** before working a ticket on it. They say what counts as durable here, which is what
+decides when a design ticket is allowed to close.
+
+Cite an ADR by **name and number, name first**:
+`[Fog links are advisory (ADR 0011)](./docs/adr/0011-fog-links-are-advisory-not-referential.md)`. The name is
+what reads at a glance; the number is what a file search finds. A bare `ADR 0011` is not a citation.
+
+## Vocabulary
+
+Two glossaries are binding, and using their words exactly is the point of having them.
+
+- **Domain language** — [`CONTEXT.md`](./CONTEXT.md). A ticket is not an issue. A project is a map. Closing is
+  deleting. The trail is not a route. If you need a term that isn't there and the conversation settles it, add
+  it.
+- **Design language** — the [`codebase-design`](./.agents/skills/codebase-design/SKILL.md) skill. Say
+  **module**, **interface**, **implementation**, **adapter**, **seam**, **depth**. Not "component", "service",
+  "API" (for a module's interface), or **"boundary"** — that word is retired here.
+
+## Architectural rules
+
+Most of these have an ADR behind them. If a rule seems wrong, look for its ADR before working around it.
+
+- The domain package returns values; only the CLI turns a value into a string. Nothing in the domain imports a
+  terminal, formats output, or knows about colour.
+- Every mutation is a plan and an apply as separate operations. Bare commands run the plan.
+- The domain depends on the filesystem, path, and clock services and nothing else. The Bun implementations are
+  supplied at the CLI's entry point.
+- No subprocesses, ever, and no dependency on git being installed.
+- Every import of `effect/unstable/cli` lives in the CLI package. Effect versions are pinned exactly, never
+  ranged.
+- The prompt module may be imported by the setup command and nowhere else, enforced by lint.
+- Bearing never writes a map.
+- `--json` on every read, `NO_COLOR` respected, no interactive prompts outside first-time setup.
+- Nothing shipped — help text, skill, error messages — names the flag that applies a dry run.
+
+## Definition of done
+
+A change is done when its production path is reachable through a real entrypoint; success and expected failure
+are tested; the acceptance criteria in [`ABSTRACT.md`](./ABSTRACT.md) §8 are demonstrably closer to passing;
+`vp run ready` passes from a clean checkout; and the documentation is updated where implementation invalidated
+an assumption — a new decision means a new ADR, a new term means a `CONTEXT.md` entry, a changed promise means a
+capability edit, including its **Where it stands**.
+
+All commits follow Conventional Commits.
+
 <!--VITE PLUS START-->
 
 # Using Vite+, the Unified Toolchain for the Web
