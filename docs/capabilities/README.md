@@ -19,8 +19,9 @@ any of them.
 | 7   | [Integrity](./07-integrity.md)                             | Designed  | 26, 27         |
 | 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Designed  | 1, 2, 28, 29   |
 
-Everything is **Designed**. Bearing has no code: six rounds of design conversation settled the shape, and the
-next round is the first vertical slice — [`ABSTRACT.md`](../../ABSTRACT.md) §7 has the order it comes in.
+Everything is **Designed**, and the first vertical slice now exists: `packages/core` reads a tracker's tickets
+into values and `apps/cli` lists them or emits `--json`, per [`ABSTRACT.md`](../../ABSTRACT.md) §7 — the rest of
+the order is still to come.
 
 ## A note on command names
 

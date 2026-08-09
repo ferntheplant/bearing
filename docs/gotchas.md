@@ -46,6 +46,22 @@ every ticket to the first, and nothing warns. Detecting it would mean extending 
 [the integrity pass](./capabilities/07-integrity.md) keeps deliberately closed, to cover a collision that a
 human staring at two identical headings would see first.
 
+**Vitest runs from the copy `scripts/bun-test.ts` resolves, never from `node_modules/vitest`.** `vp test`
+executes the Vitest bundled with Vite+ — the same copy `vite-plus/test` imports re-export — and `node_modules/vitest`
+is a separate hoisted copy of the same version. Launching the hoisted binary (`bun node_modules/vitest/vitest.mjs
+run`) runs the suite against one module instance while the tests import another, and every suite dies with
+`runner.config is undefined`. `scripts/bun-test.ts` resolves the bundled copy the way `vp test` does and launches
+it under Bun — the runtime bearing targets, since `vp test` runs under the Node runtime Vite+ manages and the
+entrypoint wires Bun's platform services. Reaching for the hoisted binary because it is the obvious name is the
+tidying that reintroduces this.
+
+**`sortPackageJson` normalizes an `exports` map back to a plain string, silently dropping a `types` condition.**
+The repo's formatter rewrites `".": { "types": "./src/index.ts", "default": "./dist/index.mjs" }` to
+`".": "./dist/index.mjs"`, so a package that must type-resolve to source before its first build —
+`@bearing/core` on a clean checkout — cannot say so in `package.json`. The resolution lives in the importing
+workspace's tsconfig instead: a `paths` entry pointing at the source `index.ts`, which formatting leaves alone.
+Adding the condition and trusting it to survive `vp check --fix` is the tidying that reintroduces this.
+
 **`unstable/` and a `beta` dist-tag are two separate warnings, and both are accurate.** The beta line was at
 `4.0.0-beta.106` while the `latest` tag still pointed at 3.22.1, so a dependency resolved by tag gets a
 different major version than the one the code is written against. Every Effect dependency is pinned exactly in
