@@ -31,8 +31,9 @@ be interactive; later runs update the installation.
 
 ## Where it stands
 
-**Designed.** Nothing is built. Tracker discovery and skill installation are settled; the skill's text and the
-first release path remain active design tickets for this capability.
+**Partial.** Ticket listing walks upward from its current directory, uses the nearest `.bearing/`, and refuses a
+malformed tracker or collision there without searching farther. Setup, managed skill installation, completion,
+and the first release path remain settled, not built.
 
 ## Acceptance criteria
 

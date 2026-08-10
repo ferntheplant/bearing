@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { listTickets, TrackerReadError } from "@bearing/core";
+import { listTickets } from "@bearing/core";
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { Effect } from "effect";
 
@@ -14,17 +14,17 @@ export const main = async (
   args: readonly string[],
   stdout: Writer = process.stdout,
   stderr: Writer = process.stderr,
+  cwd: string = process.cwd(),
 ): Promise<number> => {
   const json = args.includes("--json");
-  const tracker = args.find((arg) => arg !== "--json");
 
-  if (tracker === undefined) {
-    stderr.write("usage: bearing [--json] <tracker>\n");
+  if (args.some((arg) => arg !== "--json")) {
+    stderr.write("usage: bearing [--json]\n");
     return 1;
   }
 
   const program = Effect.gen(function* () {
-    const tickets = yield* listTickets(tracker);
+    const tickets = yield* listTickets(cwd);
     return json ? renderJson(tickets) : renderText(tickets);
   });
 
@@ -35,7 +35,7 @@ export const main = async (
     stdout.write(`${output}\n`);
     return 0;
   } catch (error) {
-    const message = error instanceof TrackerReadError || error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
     stderr.write(`error: ${message}\n`);
     return 1;
   }

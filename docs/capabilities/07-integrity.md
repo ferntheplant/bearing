@@ -29,8 +29,9 @@ find out when an edit broke a link.
 
 ## Where it stands
 
-**Designed.** Nothing is built. Parse refusal, the error set, free-form trail outcomes, the single warning,
-no-bulk-fix behavior, binary process status, and the absence of update notices are settled.
+**Partial.** Tracker acquisition retains every malformed document and ticket listing refuses with accumulated
+filename, frontmatter, and local-document diagnostics. `bearing check`, cross-document integrity analysis, the
+single warning, and fix commands remain settled, not built.
 
 ## Acceptance criteria
 

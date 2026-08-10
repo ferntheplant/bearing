@@ -13,15 +13,15 @@ any of them.
 | 1   | [Capture](./01-capture.md)                                 | Designed  | 3, 4         |
 | 2   | [Triage](./02-triage.md)                                   | Designed  | 5, 6, 7      |
 | 3   | [Tickets](./03-tickets.md)                                 | Partial   | 8, 9, 10, 11 |
-| 4   | [Maps and fog](./04-maps-and-fog.md)                       | Designed  | 12, 13       |
+| 4   | [Maps and fog](./04-maps-and-fog.md)                       | Partial   | 12, 13       |
 | 5   | [The frontier](./05-the-frontier.md)                       | Designed  | 14–18        |
 | 6   | [Closing](./06-closing.md)                                 | Designed  | 19–23        |
-| 7   | [Integrity](./07-integrity.md)                             | Designed  | 24, 25       |
-| 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Designed  | 1, 2, 26, 27 |
+| 7   | [Integrity](./07-integrity.md)                             | Partial   | 24, 25       |
+| 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Partial   | 1, 2, 26, 27 |
 
-**Tickets is Partial; every other capability is Designed.** The first vertical slice has `packages/core` read a
-tracker's tickets into values and `apps/cli` list them or emit `--json`, per [`ABSTRACT.md`](../../ABSTRACT.md)
-§7. The rest of the order is still to come.
+**Tickets, maps and fog, integrity, and setup are Partial; the other capabilities are Designed.** The read path
+now discovers the nearest tracker, acquires all three directories without discarding malformed documents, and
+projects valid tickets for text or `--json`. Derived map, fog, trail, and integrity analysis is still to come.
 
 ## A note on command names
 
