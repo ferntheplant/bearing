@@ -2,7 +2,7 @@
 
 ## Destination
 
-Bearing tracks bearing. The 29 criteria in [`ABSTRACT.md`](../../ABSTRACT.md) §8 pass, and this directory is
+Bearing tracks bearing. The 28 criteria in [`ABSTRACT.md`](../../ABSTRACT.md) §8 pass, and this directory is
 maintained by the `bearing` binary rather than by hand — the only editing left is prose someone has to think to
 write: a ticket's question, this map's destination, notes, and fog, and the outcome text in a trail row.
 
@@ -24,9 +24,10 @@ seam is being placed.
 **Standing preferences.** Effect dependencies pinned exactly, never ranged. Core returns values; only the CLI
 renders. `vp check` and `vp test` before anything is called done. Conventional Commits.
 
-**This map charts design tickets only.** Specifiable work — deleting the empty `apps/` workspace, for instance —
-is a backlog item until someone commits to it and a build ticket after that. It is not fog and it does not get a
-patch here.
+**This map charts fog only.** Specifiable work — deleting the empty `apps/` workspace, for instance — is a
+backlog item until someone commits to it and a build ticket after that. It is not fog and it does not get a
+patch here. A mapping pass may well produce build tickets out of a patch; what it never does is write
+specifiable work down as fog.
 
 **Dogfooding rule, and the reason this map exists.** Until the CLI exists, every structured edit in this
 directory is made by hand: ids, filenames, frontmatter, blocker lists, trail rows. That is the experiment, not
@@ -35,26 +36,15 @@ criterion in §8 should remove it — write the observation down where it belong
 
 ## Trail
 
-| id     | Decision                  | Outcome                                                                                                                        |
-| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| kwjvxc | Mutation atomicity        | [Mutations are ordered, not atomic (ADR 0025)](../../docs/adr/0025-mutations-are-ordered-not-atomic.md)                        |
-| tdw9km | Default tracker directory | [`.bearing/` is the default tracker directory (ADR 0026)](../../docs/adr/0026-dot-bearing-is-the-default-tracker-directory.md) |
+| id     | Decision                           | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| kwjvxc | Mutation atomicity                 | [Mutations are ordered, not atomic (ADR 0025)](../../docs/adr/0025-mutations-are-ordered-not-atomic.md)                                                                                                                                                                                                                                                                                                                                    |
+| tdw9km | Tracker location                   | [`.bearing/` is fixed and discovered upward (ADR 0028)](../../docs/adr/0028-dot-bearing-is-fixed-and-discovered-upward.md)                                                                                                                                                                                                                                                                                                                 |
+| m3w8hz | Fog graduation and map maintenance | [Mapping and walking alternate (ADR 0031)](../../docs/adr/0031-mapping-and-walking-alternate.md), [Structure in the map is written only at completion (ADR 0032)](../../docs/adr/0032-structure-in-the-map-is-written-only-at-completion.md), [Nothing points at a fog patch (ADR 0033)](../../docs/adr/0033-nothing-points-at-a-fog-patch.md), [A fogbound map is reported (ADR 0034)](../../docs/adr/0034-a-fogbound-map-is-reported.md) |
 
 A row is a design ticket's closure and nothing else, so a decision settled without a ticket never appears here.
 
 ## Not yet specified
-
-### Fog graduation and map maintenance
-
-When a sharp question leaves this section, when a design ticket is a probe into broader fog rather than its
-replacement, and how mapping, closing, `clears`, and the trail keep the map low-resolution without duplicating
-live tickets.
-
-### Skill installation mechanics
-
-Detecting the agent-directory convention, writing without clobbering a local edit, and re-running to update.
-Charted as research against an existing implementation; what stays fog until that reading happens is how much of
-it bearing needs at all.
 
 ### Publishing for the first time
 
@@ -89,12 +79,6 @@ moving**, and the moment there is a migration tool the format has a compatibilit
 So this patch is really a question about ordering — how late this can be left, and what signal says the format
 has stopped moving.
 
-### What the skill teaches versus what the repo documents
-
-Which sentences belong in the shipped wayfinder skill, which belong in a target repo's own docs, and which
-belong in neither. The allocation is charted. What stays fog is the text itself — not a line of the skill has
-been written, and `ABSTRACT.md` §6 lists a `skills/` directory that does not exist.
-
 ### Exit codes and the failure contract
 
 Nothing anywhere records what any command returns. The integrity pass has a provisional answer — errors fail,
@@ -103,6 +87,33 @@ what a refused design close returns against a failed one, whether a no-op direct
 changes a file, or what an ambiguous id prefix exits with. An agent is the primary caller and will branch on
 these, which makes them a shipped contract rather than an implementation detail. One slice of real CLI code now
 makes the cases concrete enough to chart next.
+
+### What the status dashboard shows
+
+Bare `bearing` is a dashboard in [`ABSTRACT.md`](../../ABSTRACT.md) §6 and nothing anywhere says what is on it.
+Fogbound is what made that matter — it is the first thing that belongs on a dashboard and not in a work queue,
+which means the dashboard now has at least one job nothing else does. Survives this pass because `bearing next`
+has never printed anything: specifying a second view before the first one exists would be guessing at the shape
+of output nobody has seen.
+
+### Whether a trail row's pointer is checked
+
+Consolidating the superseded ADRs broke a trail row and nothing noticed — `tdw9km` pointed at ADR 0026, which
+had been folded into 0028, and the row was repointed by hand only because someone happened to be reading it. A
+dangling blocker and a dangling project are both errors; a trail row pointing at a file that no longer exists is
+nothing at all. The tension is real in both directions: durable artifacts get renamed and merged, which is an
+argument for checking, and the outcome cell is deliberately free prose that bearing does not parse
+([Three frontmatter fields, and the body is prose (ADR 0024)](../../docs/adr/0024-three-frontmatter-fields-and-the-body-is-prose.md)
+draws the same line for a ticket body), which is an argument against. Survives this pass because it is the first
+instance, one instance is not a pattern, and the fix would extend a deliberately closed error set.
+
+### A design ticket that turns out to be premature
+
+[The trail is append-only and a row is a pointer (ADR 0010)](../../docs/adr/0010-the-trail-is-append-only-and-a-row-is-a-pointer.md)
+says a question that ended badly still gets a row. What it does not say is what happens to the question when the
+answer is "not until something is built" — whether the ticket closes with a row and the question returns to this
+section as fresh fog, or stays open as a blocked ticket until the build work lands. Survives this pass because
+both readings are defensible on paper and this repo has not hit a real instance yet.
 
 ## Out of scope
 

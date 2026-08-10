@@ -11,12 +11,9 @@ writing them _is_ the thinking.
 
 ## Consequences
 
-Closing a design ticket cannot clear the fog patch it burned off. Bearing prints the patch and says so; the edit
-is the operator's. Same for the trail row, which must exist before a design ticket can close — bearing checks
-for it rather than writing it.
-
-Repointing a drifted fog link edits the **ticket**, never the map. See
-[Anchor drift is detected and named, never repaired (ADR 0012)](./0012-anchor-drift-is-detected-and-named-never-repaired.md).
+Every edit a map needs is the operator's: the fog a ticket revealed, the patches a mapping pass consumed, and
+the trail row that must exist before a design ticket can close. Bearing checks for the row rather than writing
+it.
 
 Policy — what counts as durable here, which skills a session should read — can live in the map's Notes as prose
 precisely because nothing parses it.

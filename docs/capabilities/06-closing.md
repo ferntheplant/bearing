@@ -15,12 +15,12 @@ tracker is live.
   recoverable from history. Bearing does not inspect the working tree or the commit, and closes it immediately.
 - **A design ticket closes against its trail row.** The map's trail must have a row for it with a non-empty
   outcome, and that is a refusal rather than a warning.
-- **Closing a design ticket is a dry run first.** It prints the ticket, the trail row **verbatim**, the fog
-  patches it claimed to clear and whether they are still present, the file it would delete, and the tickets it
-  would unblock. Re-running the same command applies it.
+- **Closing a design ticket is a dry run first.** It prints the ticket, the trail row **verbatim**, the file it
+  would delete, and the tickets it would unblock. Re-running the same command applies it.
 - **The trail row is shown, not just checked.** A row written three commits ago and since invalidated passes an
   existence check and fails anyone who reads it; printing it at closing time is what catches that.
-- **Bearing cannot clear the fog for you.** It prints the patch and says so, because it never edits a map.
+- **New fog is yours to write.** Working a ticket routinely reveals more of it. Bearing never edits a map, so
+  that lands in `Not yet specified` by hand — and stays unsorted there until the next mapping pass.
 - **Closing a map applies immediately.** It refuses while any ticket still names it, and otherwise deletes the
   file on that invocation. Nothing is written out to a permanent home on the way — by then every trail row
   already points at something durable.
@@ -37,9 +37,9 @@ design close, and direct build and map closing are settled.
 
 ## Acceptance criteria
 
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **21** (the dry run shows the row verbatim and changes
-nothing), **22** (the re-run deletes and strips blockers), **23** (refusal on a missing or empty trail row),
-**24** (a build ticket closes with no inspection) and **25** (closing a map refuses while anything names it).
+Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **20** (the dry run shows the row verbatim and changes
+nothing), **21** (the re-run deletes and strips blockers), **22** (refusal on a missing or empty trail row),
+**23** (a build ticket closes with no inspection) and **24** (closing a map refuses while anything names it).
 
 ## Decisions
 
@@ -50,7 +50,9 @@ nothing), **22** (the re-run deletes and strips blockers), **23** (refusal on a 
 - [The confirmation flag is undocumented on purpose (ADR 0016)](../adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)
   — which is why this file does not name it either.
 - [Bearing reads maps and never writes them (ADR 0009)](../adr/0009-bearing-reads-maps-and-never-writes-them.md)
-  — why clearing the fog patch stays yours.
+  — why writing down the fog a ticket revealed stays yours.
+- [Structure in the map is written only at completion (ADR 0032)](../adr/0032-structure-in-the-map-is-written-only-at-completion.md)
+  — why the trail row is written as the ticket closes and never in advance.
 - [A map lives until its last ticket closes (ADR 0013)](../adr/0013-a-map-lives-until-its-last-ticket-closes.md)
 - [No archaeology; git remembers (ADR 0017)](../adr/0017-no-archaeology-git-remembers.md) — what you get instead
   of an undo.

@@ -5,12 +5,10 @@ re-run. Every other mutation plans and applies within one invocation. Bearing st
 outside first-time setup: the design-close dry run is output followed by a separate command, never a question
 waiting on stdin.
 
-This replaces [A dry run and a re-run, never a prompt (ADR 0015)](./0015-a-dry-run-and-a-re-run-never-a-prompt.md).
 A second look earns its cost only for a design close, where bearing can check that a trail outcome exists but
 cannot judge whether the human-authored outcome is true or useful. Showing that row verbatim before deletion
-puts the unautomatable bookkeeping on screen. Creation, triage, retitle, repointing, removal, build close, and
-map close are fully described by their command and repository diff; previewing them adds ceremony without new
-information.
+puts the unautomatable bookkeeping on screen. Creation, triage, retitle, removal, build close, and map close are
+fully described by their command and repository diff; previewing them adds ceremony without new information.
 
 ## Consequences
 

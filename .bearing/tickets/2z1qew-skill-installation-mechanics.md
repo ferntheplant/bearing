@@ -1,7 +1,6 @@
 ---
 type: design
 project: mvp
-clears: [skill-installation-mechanics]
 ---
 
 # Skill installation mechanics

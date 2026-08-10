@@ -12,35 +12,36 @@ find out when an edit broke a link.
 - **Integrity errors, which mean parsed values are inconsistent:** a ticket blocked by an id that does not
   exist, a ticket naming a project that does not exist, a design ticket with no project, an unknown type, a
   duplicate id.
-- **Warnings, which mean something has drifted:** a fog link naming a heading that is no longer there, a trail
-  row for a ticket that still exists.
-- **There is no `--fix`.** Every warning prints the command that resolves it. Running that command applies its
-  one named edit directly, which is more legible than a bulk-produced diff.
-- **Drift gets a suggestion, never an edit.** For a broken fog link, the output names the closest current
-  heading and the command that would repoint the ticket to it — with the target named explicitly, because a
-  reworded heading and a cleared patch are indistinguishable to a tool.
-- **Warnings stay meaningful.** The whole point of naming the fix is that nobody learns to ignore the output.
+- **One warning, which means the map got ahead of itself:** a trail row for a ticket that still exists. A row is
+  written as its ticket closes and never before, so one standing alone is either a close that stopped halfway or
+  a row someone wrote in advance.
+- **There is no `--fix`.** The warning prints the command that resolves it. Running that command applies its one
+  named edit directly, which is more legible than a bulk-produced diff.
+- **The warning stays meaningful.** The whole point of naming the fix is that nobody learns to ignore the
+  output, which is also why there is only one warning left to ignore.
 - **Deliberate, infrequent, and therefore allowed to be slow.** This is where a version check belongs, not on
   the frontier path.
 
 ## Where it stands
 
-**Designed.** Nothing is built. Parse refusal, the integrity error and warning sets, and the no-bulk-fix rule are
+**Designed.** Nothing is built. Parse refusal, the error set, the single warning, and the no-bulk-fix rule are
 settled.
 
 ## Acceptance criteria
 
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **26** (every error and warning class is reported) and
-**27** (every warning carries the command that resolves it, and there is no bulk fix).
+Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **25** (every error class and the warning are reported) and
+**26** (the warning carries the command that resolves it, and there is no bulk fix).
 
 ## Decisions
 
-- [Anchor drift is detected and named, never repaired (ADR 0012)](../adr/0012-anchor-drift-is-detected-and-named-never-repaired.md)
+- [Every warning names its fix, and there is no bulk mode (ADR 0012)](../adr/0012-every-warning-names-its-fix.md)
   — the pattern the whole command follows.
+- [Structure in the map is written only at completion (ADR 0032)](../adr/0032-structure-in-the-map-is-written-only-at-completion.md)
+  — what the one remaining warning is actually catching.
+- [Nothing points at a fog patch (ADR 0033)](../adr/0033-nothing-points-at-a-fog-patch.md) — why there is no
+  drift diagnostic left.
 - [Three flat directories, and a project is a map file (ADR 0005)](../adr/0005-three-flat-directories-and-a-project-is-a-map-file.md)
   — why "a design ticket lives in a project" is a check here rather than a property of the filesystem.
-- [Fog links are advisory, not referential (ADR 0011)](../adr/0011-fog-links-are-advisory-not-referential.md) —
-  why one dangling pointer is an error and another is a warning.
 - [Mutations are ordered, not atomic (ADR 0025)](../adr/0025-mutations-are-ordered-not-atomic.md) — why an
   interrupted apply tends toward the duplicate ids and dangling blockers this command reports.
 - [Core exposes operations, not tracker internals (ADR 0027)](../adr/0027-core-exposes-operations-not-tracker-internals.md)

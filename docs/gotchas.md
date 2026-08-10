@@ -32,20 +32,6 @@ is how it was found: the check reported zero tickets and looked like it had pass
 trusting an empty result is the tidying that reintroduces this, and it reintroduces it as a read path that
 silently believes the tracker is empty.
 
-**There is no standard for turning a Markdown heading into an anchor, and GitHub's is the one that matters.**
-CommonMark specifies no anchors at all; GitHub, GitLab, and VS Code's preview each grew their own, disagreeing
-on non-ASCII, on which punctuation survives, and on how duplicates are suffixed. Bearing stores fog links as
-anchor slugs
-([Four frontmatter fields (ADR 0024)](./adr/0024-four-frontmatter-fields-and-the-body-is-prose.md)), so the
-algorithm is part of the on-disk format rather than an implementation detail: lowercase, drop everything but
-word characters, spaces, and hyphens, then spaces to hyphens — GitHub's, because a map is read in a browser.
-Writing a "simpler" regex is the tidying that reintroduces this, and it fails silently in the worst direction —
-a link that resolves in the editor and 404s for the reader. **Two patches on one map whose headings slugify
-identically are undefined behaviour**, deliberately: GitHub would suffix the second one `-1`, bearing attaches
-every ticket to the first, and nothing warns. Detecting it would mean extending an error set that
-[the integrity pass](./capabilities/07-integrity.md) keeps deliberately closed, to cover a collision that a
-human staring at two identical headings would see first.
-
 **Vitest runs as `bunx --bun vp test`, never from `node_modules/vitest`.** Vite+ executes the same Vitest copy
 that `vite-plus/test` re-exports, while the obvious hoisted binary is a separate module instance. Launching that
 binary (`bun node_modules/vitest/vitest.mjs run`) makes every suite die with `runner.config is undefined`.
