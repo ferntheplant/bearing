@@ -320,8 +320,10 @@ The design commits to:
   [ADR 0022](./docs/adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md),
   [ADR 0027](./docs/adr/0027-core-exposes-operations-not-tracker-internals.md)).
 - **Bearing installs its own skill**, versioned with the binary, in one owned location that updates only while
-  untouched ([Bearing installs its own skill (ADR 0023)](./docs/adr/0023-bearing-installs-its-own-skill.md),
-  [One owned skill installation, updated only while untouched (ADR 0036)](./docs/adr/0036-one-owned-skill-installation-updated-only-while-untouched.md)).
+  untouched, carrying the portable method alone and leaving every repo-specific referent to the repo
+  ([Bearing installs its own skill (ADR 0023)](./docs/adr/0023-bearing-installs-its-own-skill.md),
+  [One owned skill installation, updated only while untouched (ADR 0036)](./docs/adr/0036-one-owned-skill-installation-updated-only-while-untouched.md),
+  [The skill teaches method; the repo supplies the referents (ADR 0037)](./docs/adr/0037-the-skill-teaches-method-and-the-repo-supplies-the-referents.md)).
 - **Three frontmatter fields, and the body is prose**, with the id and slug rules that
   [ADR 0006](./docs/adr/0006-the-filename-is-the-only-place-an-id-appears.md) assumes
   ([ADR 0024](./docs/adr/0024-three-frontmatter-fields-and-the-body-is-prose.md)).
