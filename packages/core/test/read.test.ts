@@ -169,6 +169,22 @@ blockers:
     });
   });
 
+  it("rejects ticket and backlog slugs longer than 60 characters", async () => {
+    const slug = "a".repeat(61);
+    const files = fixture({
+      backlog: { [`c1d2e3-${slug}.md`]: "Captured.\n" },
+      tickets: { [`a1b2c3-${slug}.md`]: VALID_TICKETS["a1b2c3-first.md"] ?? "" },
+    });
+
+    const observation = await runAcquisition(files);
+
+    expect(observation.diagnostics).toEqual([
+      expect.objectContaining({ source: "filename", message: "slug must be at most 60 characters" }),
+      expect.objectContaining({ source: "filename", message: "slug must be at most 60 characters" }),
+    ]);
+    await expect(runList(files)).rejects.toMatchObject({ _tag: "MalformedTrackerError" });
+  });
+
   it("refuses listing when a backlog item and map are malformed", async () => {
     const files = fixture({
       backlog: {
@@ -248,7 +264,6 @@ describe("listTickets", () => {
         type: "design",
         project: "mvp",
         blockers: [],
-        clears: [],
       },
       {
         id: "b1c2d3",
@@ -256,7 +271,6 @@ describe("listTickets", () => {
         type: "build",
         project: undefined,
         blockers: ["a1b2c3"],
-        clears: [],
       },
     ]);
   });

@@ -32,7 +32,8 @@ legible to whoever picks it up cold, human or agent.
 
 **Partial.** `packages/core` acquires all three tracker directories losslessly, refuses malformed documents, and
 projects valid ticket values for `apps/cli` to render or emit as `--json`
-([ADR 0019](../adr/0019-core-returns-values-only-the-cli-renders.md) is the seam between them). The command
+([Core returns values (ADR 0019)](../adr/0019-core-returns-values-only-the-cli-renders.md) is the seam between
+them). The command
 surface — filters, `show`, creation, retitling, and prefix resolution — remains settled, not built.
 
 ## Acceptance criteria

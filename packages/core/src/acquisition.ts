@@ -5,6 +5,7 @@ const TRACKER_DIRECTORIES = ["backlog", "tickets", "maps"] as const;
 const FRONTMATTER_FIELDS = new Set(["type", "project", "blockers"]);
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const ITEM_FILENAME_PATTERN = /^([0-9abcdefghjkmnpqrstvwxyz]{6})-([a-z0-9_]+(?:-[a-z0-9_]+)*)\.md$/;
+const MAX_SLUG_LENGTH = 60;
 const MAP_SECTIONS = ["Destination", "Notes", "Trail", "Not yet specified", "Out of scope"] as const;
 
 type TrackerDirectory = (typeof TRACKER_DIRECTORIES)[number];
@@ -43,6 +44,12 @@ interface MapDocument {
   readonly project: string;
 }
 
+interface DocumentInput {
+  readonly filename: string;
+  readonly path: string;
+  readonly source: string;
+}
+
 export type TicketType = "design" | "build";
 
 export interface Ticket {
@@ -51,7 +58,6 @@ export interface Ticket {
   readonly type: TicketType;
   readonly project: string | undefined;
   readonly blockers: readonly string[];
-  readonly clears: readonly string[];
 }
 
 export interface DocumentObservation<Value> {
@@ -91,15 +97,19 @@ const diagnostic = (path: string, source: DiagnosticSource, message: string): Tr
   message,
 });
 
-const parseItemIdentity = (
-  path: string,
-  filename: string,
-): Result.Result<ItemIdentity, readonly TrackerDiagnostic[]> => {
+const parseItemIdentity = ({
+  path,
+  filename,
+}: DocumentInput): Result.Result<ItemIdentity, readonly TrackerDiagnostic[]> => {
   const match = ITEM_FILENAME_PATTERN.exec(filename);
   if (match === null) {
     return Result.fail([diagnostic(path, "filename", "filename is not <six-character-id>-<slug>.md")]);
   }
-  return Result.succeed({ id: match[1] ?? "", slug: match[2] ?? "" });
+  const slug = match[2] ?? "";
+  if (slug.length > MAX_SLUG_LENGTH) {
+    return Result.fail([diagnostic(path, "filename", `slug must be at most ${MAX_SLUG_LENGTH} characters`)]);
+  }
+  return Result.succeed({ id: match[1] ?? "", slug });
 };
 
 const parseStringList = (
@@ -118,13 +128,10 @@ const parseStringList = (
   return value;
 };
 
-const parseTicket = (
-  path: string,
-  filename: string,
-  source: string,
-): Result.Result<Ticket, readonly TrackerDiagnostic[]> => {
+const parseTicket = (document: DocumentInput): Result.Result<Ticket, readonly TrackerDiagnostic[]> => {
+  const { path, source } = document;
   const diagnostics: TrackerDiagnostic[] = [];
-  const identity = parseItemIdentity(path, filename);
+  const identity = parseItemIdentity(document);
   if (Result.isFailure(identity)) {
     diagnostics.push(...identity.failure);
   }
@@ -172,16 +179,12 @@ const parseTicket = (
     type: fields.type as Ticket["type"],
     project: fields.project as string | undefined,
     blockers,
-    clears: [],
   });
 };
 
-const parseBacklogItem = (
-  path: string,
-  filename: string,
-  source: string,
-): Result.Result<BacklogItem, readonly TrackerDiagnostic[]> => {
-  const identity = parseItemIdentity(path, filename);
+const parseBacklogItem = (document: DocumentInput): Result.Result<BacklogItem, readonly TrackerDiagnostic[]> => {
+  const { path, source } = document;
+  const identity = parseItemIdentity(document);
   const diagnostics = Result.isFailure(identity) ? [...identity.failure] : [];
   if (source.startsWith("---\n") || source.startsWith("---\r\n")) {
     diagnostics.push(diagnostic(path, "document", "backlog items must not have frontmatter"));
@@ -189,11 +192,11 @@ const parseBacklogItem = (
   return diagnostics.length > 0 ? Result.fail(diagnostics) : identity;
 };
 
-const parseMap = (
-  path: string,
-  filename: string,
-  source: string,
-): Result.Result<MapDocument, readonly TrackerDiagnostic[]> => {
+const parseMap = ({
+  path,
+  filename,
+  source,
+}: DocumentInput): Result.Result<MapDocument, readonly TrackerDiagnostic[]> => {
   const diagnostics: TrackerDiagnostic[] = [];
   const project = filename.slice(0, -3);
   if (project.length === 0) {
@@ -260,14 +263,14 @@ const parseMap = (
   return diagnostics.length > 0 ? Result.fail(diagnostics) : Result.succeed({ project });
 };
 
-const parseDocument = (directory: TrackerDirectory, path: string, filename: string, source: string) => {
+const parseDocument = (directory: TrackerDirectory, document: DocumentInput) => {
   switch (directory) {
     case "backlog":
-      return parseBacklogItem(path, filename, source);
+      return parseBacklogItem(document);
     case "tickets":
-      return parseTicket(path, filename, source);
+      return parseTicket(document);
     case "maps":
-      return parseMap(path, filename, source);
+      return parseMap(document);
   }
 };
 
@@ -279,7 +282,11 @@ const malformedError = (diagnostics: readonly TrackerDiagnostic[]): MalformedTra
 
 export const discoverTracker = (
   startDirectory: string,
-): Effect.Effect<string, TrackerReadError | TrackerNotFoundError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  string,
+  TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -288,6 +295,12 @@ export const discoverTracker = (
 
     while (true) {
       const candidate = path.join(current, ".bearing");
+      const link = yield* Effect.result(fs.readLink(candidate));
+      if (Result.isSuccess(link)) {
+        return yield* Effect.fail(
+          malformedError([diagnostic(candidate, "structure", ".bearing must not be a symbolic link")]),
+        );
+      }
       const exists = yield* fs
         .exists(candidate)
         .pipe(Effect.mapError((error) => readError("discover", candidate, error.message)));
@@ -343,11 +356,10 @@ const readDocuments = (
           const source = yield* fs
             .readFileString(documentPath)
             .pipe(Effect.mapError((error) => readError("read-file", documentPath, error.message)));
+          const document = { filename, path: documentPath, source };
           return {
-            filename,
-            path: documentPath,
-            source,
-            parsed: parseDocument(directory, documentPath, filename, source),
+            ...document,
+            parsed: parseDocument(directory, document),
           };
         }),
       { concurrency: 1 },

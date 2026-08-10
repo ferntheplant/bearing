@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -115,7 +115,6 @@ describe("main", () => {
         slug: "first-ticket",
         type: "build",
         blockers: [],
-        clears: [],
       },
       {
         id: "b1c2d3",
@@ -123,7 +122,6 @@ describe("main", () => {
         type: "design",
         project: "mvp",
         blockers: ["a1b2c3"],
-        clears: [],
       },
     ]);
   });
@@ -184,6 +182,38 @@ describe("main", () => {
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
     expect(stderr.read()).toContain(".bearing must be a directory");
+    expect(stderr.read()).not.toContain("first ticket");
+  });
+
+  it("refuses a .bearing symlink to a valid tracker", async () => {
+    const nearestRoot = join(fixtureRoot, "symlink-nearest");
+    const cwd = join(nearestRoot, "inside");
+    await mkdir(cwd, { recursive: true });
+    await symlink(join(fixtureRoot, ".bearing"), join(nearestRoot, ".bearing"), "dir");
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain(".bearing must not be a symbolic link");
+    expect(stderr.read()).not.toContain("first ticket");
+  });
+
+  it("refuses a dangling .bearing symlink instead of searching farther upward", async () => {
+    const nearestRoot = join(fixtureRoot, "dangling-symlink-nearest");
+    const cwd = join(nearestRoot, "inside");
+    await mkdir(cwd, { recursive: true });
+    await symlink(join(nearestRoot, "missing"), join(nearestRoot, ".bearing"), "dir");
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain(".bearing must not be a symbolic link");
     expect(stderr.read()).not.toContain("first ticket");
   });
 
