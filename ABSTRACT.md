@@ -231,7 +231,8 @@ one.
 
 1. `bearing init` in a directory with no tracker creates `.bearing/` and installs the skill into whichever agent
    directory the repository already uses.
-2. Re-running `bearing init` over a locally edited skill updates without discarding the edit.
+2. Re-running `bearing init` updates an untouched installed skill; a locally edited skill is left byte-for-byte
+   unchanged and reported as a skipped update.
 3. `bearing backlog "..."` writes an item carrying an id and no frontmatter, in one command with no other input.
 4. Bare `bearing backlog` lists the backlog.
 5. `bearing triage <id> --ticket` promotes an item to an unprojected build ticket, with the id unchanged.
@@ -319,8 +320,9 @@ The design commits to:
   [ADR 0021](./docs/adr/0021-bun-only-no-node-fallback.md),
   [ADR 0022](./docs/adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md),
   [ADR 0027](./docs/adr/0027-core-exposes-operations-not-tracker-internals.md)).
-- **Bearing installs its own skill**, versioned with the binary
-  ([ADR 0023](./docs/adr/0023-bearing-installs-its-own-skill.md)).
+- **Bearing installs its own skill**, versioned with the binary, in one owned location that updates only while
+  untouched ([Bearing installs its own skill (ADR 0023)](./docs/adr/0023-bearing-installs-its-own-skill.md),
+  [One owned skill installation, updated only while untouched (ADR 0036)](./docs/adr/0036-one-owned-skill-installation-updated-only-while-untouched.md)).
 - **Three frontmatter fields, and the body is prose**, with the id and slug rules that
   [ADR 0006](./docs/adr/0006-the-filename-is-the-only-place-an-id-appears.md) assumes
   ([ADR 0024](./docs/adr/0024-three-frontmatter-fields-and-the-body-is-prose.md)).
