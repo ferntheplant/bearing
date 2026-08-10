@@ -15,7 +15,8 @@ legible to whoever picks it up cold, human or agent.
   column to keep honest.
 - **Blocking is by id and crosses projects freely**, because the decision frontier runs ahead of the build
   frontier. A ticket is unblocked when every id it names no longer exists, so an absorbed or invalidated blocker
-  is a satisfied one.
+  is a satisfied one. A design question that needs concrete build work to land remains a design ticket blocked
+  by that build ticket; `bearing rm` is for a commitment that turned out not to be real.
 - **`bearing new design` with no project is an error** that names the maps that exist so the next command is
   obvious. Not a prompt, not a default, not a map created behind your back.
 - **Ticket content is edited directly.** Bearing has no `edit` command and never launches an editor. Bodies and

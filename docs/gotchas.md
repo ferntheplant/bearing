@@ -53,7 +53,7 @@ reintroduces this, and it fails at the next publish rather than at the next inst
 
 ## Startup
 
-Bearing is invoked on every agent turn, so these numbers are the reason for the budget in
+Bearing is invoked on every agent turn, so these numbers informed the runtime choice in
 [Bun only, no node fallback (ADR 0021)](./adr/0021-bun-only-no-node-fallback.md). Fifteen runs each, `--minify`
 where bundled, against a measured shell-harness floor of 14ms:
 
@@ -89,13 +89,11 @@ an unscoped `bin`. Renaming the command to match a scope, or hunting for an avai
 solving a problem that does not exist.
 
 **A version check on startup is a network call on the hot path.** The reflex for a published CLI is an
-update-notifier at boot; here it lands a DNS lookup inside a command budgeted at 50ms and invoked on every agent
-turn, with offline, slow-DNS, and corporate-proxy failure modes all landing on the same path. Version checks
-belong in the commands that are run deliberately and infrequently — the integrity pass and setup. If a passive
-notice is ever wanted, it reads a cached file with a day-long TTL and refreshes it detached, never inline. Worth
-remembering that **agents are the primary caller and will not act on a banner**; unexpected banner text is noise
-in a transcript something is parsing, so any notice is suppressed under JSON output and when stdout is not a
-TTY.
+update-notifier at boot; here it adds DNS, offline, slow-proxy, and registry failure modes to a command invoked on
+every agent turn. The MVP emits no update notice from setup, the integrity pass, or ordinary commands. If that
+decision changes, reaching for an inline notifier rather than an explicitly designed mechanism is the tidying
+that reintroduces the hot-path network call. Agents are the primary caller and will not act on a banner;
+unexpected banner text is noise in a transcript something may be parsing.
 
 ## Constraints that look like clutter
 

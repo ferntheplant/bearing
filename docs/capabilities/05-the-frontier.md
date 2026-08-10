@@ -26,21 +26,19 @@ and the one an agent runs on every turn.
 - **Nothing is stored.** No file says what is next, so there is no rebuild step, no stale view, and no way for
   the frontier to disagree with the tracker.
 - **`--json` on every read**, and `NO_COLOR` respected, because the primary caller is an agent.
-- **A status dashboard is the default command**, so bare `bearing` is useful and `bearing next` is the frontier
-  itself.
+- **The frontier is the default command.** Bare `bearing` and `bearing next` render the same value; there is no
+  second dashboard to specify or keep consistent.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The three sections, the ranking input, the ordering between them, and the
-fogbound status line are settled. The performance budget — under 50ms wall on a real tracker — is a target
-measured against a prototype, not against bearing.
+**Designed.** Nothing is built. The three sections, the ranking input, the ordering between them, the default
+command, and the fogbound status line are settled.
 
 ## Acceptance criteria
 
 Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **14** (the three sections, in order), **15** (blocked work
 is absent, and deleting the blocker is the only edit needed), **16** (a fog-complete map leaves DECIDE), **17**
-(`--json` on every read), **18** (under 50ms wall) and **19** (a fogbound map is reported, including when the
-frontier is otherwise empty).
+(`--json` on every read) and **18** (a fogbound map is reported, including when the frontier is otherwise empty).
 
 ## Decisions
 
@@ -53,5 +51,5 @@ frontier is otherwise empty).
   sits above the sections instead of becoming a fourth one.
 - [Bearing never spawns a subprocess (ADR 0018)](../adr/0018-bearing-never-spawns-a-subprocess.md) — why the
   backlog's age display was cut.
-- [Bun only, no node fallback (ADR 0021)](../adr/0021-bun-only-no-node-fallback.md) — where the 50ms budget
-  comes from.
+- [Bun only, no node fallback (ADR 0021)](../adr/0021-bun-only-no-node-fallback.md) — why startup remains a
+  concern without becoming a numeric release gate.

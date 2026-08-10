@@ -4,7 +4,7 @@ What bearing does for the person using it, one capability per file — first the
 through in order, then the two that hold across all of them.
 
 This is the catalogue of what bearing is **for**. [`ABSTRACT.md`](../../ABSTRACT.md) says what bearing is in one
-page and holds the 28 acceptance criteria; [`CONTEXT.md`](../../CONTEXT.md) says what each word means;
+page and holds the 27 acceptance criteria; [`CONTEXT.md`](../../CONTEXT.md) says what each word means;
 [`docs/adr/`](../adr/) says why each thing is the way it is; [`docs/README.md`](../README.md) says how to write
 any of them.
 
@@ -14,10 +14,10 @@ any of them.
 | 2   | [Triage](./02-triage.md)                                   | Designed  | 5, 6, 7      |
 | 3   | [Tickets](./03-tickets.md)                                 | Partial   | 8, 9, 10, 11 |
 | 4   | [Maps and fog](./04-maps-and-fog.md)                       | Designed  | 12, 13       |
-| 5   | [The frontier](./05-the-frontier.md)                       | Designed  | 14–19        |
-| 6   | [Closing](./06-closing.md)                                 | Designed  | 20–24        |
-| 7   | [Integrity](./07-integrity.md)                             | Designed  | 25, 26       |
-| 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Designed  | 1, 2, 27, 28 |
+| 5   | [The frontier](./05-the-frontier.md)                       | Designed  | 14–18        |
+| 6   | [Closing](./06-closing.md)                                 | Designed  | 19–23        |
+| 7   | [Integrity](./07-integrity.md)                             | Designed  | 24, 25       |
+| 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Designed  | 1, 2, 26, 27 |
 
 **Tickets is Partial; every other capability is Designed.** The first vertical slice has `packages/core` read a
 tracker's tickets into values and `apps/cli` list them or emit `--json`, per [`ABSTRACT.md`](../../ABSTRACT.md)

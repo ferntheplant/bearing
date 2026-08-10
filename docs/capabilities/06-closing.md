@@ -37,9 +37,9 @@ design close, and direct build and map closing are settled.
 
 ## Acceptance criteria
 
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **20** (the dry run shows the row verbatim and changes
-nothing), **21** (the re-run deletes and strips blockers), **22** (refusal on a missing or empty trail row),
-**23** (a build ticket closes with no inspection) and **24** (closing a map refuses while anything names it).
+Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **19** (the dry run shows the row verbatim and changes
+nothing), **20** (the re-run deletes and strips blockers), **21** (refusal on a missing or empty trail row),
+**22** (a build ticket closes with no inspection) and **23** (closing a map refuses while anything names it).
 
 ## Decisions
 
