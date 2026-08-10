@@ -8,7 +8,8 @@ be interactive; later runs update the installation.
 - **`bearing init` creates `.bearing/` and installs the skill**, in one gesture, in the directory where it runs.
   A repo that adopts bearing gets the method at the same moment as the tracker.
 - **There is no configuration.** Every tracker command walks upward from its current directory and uses the
-  nearest `.bearing/`. A malformed nearest tracker is an error, never a reason to skip to another ancestor.
+  nearest `.bearing/`. A symbolic link or malformed tracker at the nearest path is an error, never a reason to
+  skip to another ancestor.
 - **The skill has one repository-local home.** Bearing recognizes `.agents/skills` and `.claude/skills`, resolves
   symlink aliases to one physical destination, uses the sole existing convention, and defaults to `.agents` when
   neither exists. First-time setup asks for one when both exist at distinct locations.
@@ -31,8 +32,9 @@ be interactive; later runs update the installation.
 
 ## Where it stands
 
-**Designed.** Nothing is built. Tracker discovery and skill installation are settled; the skill's text and the
-first release path remain active design tickets for this capability.
+**Partial.** Ticket listing walks upward from its current directory, uses the nearest `.bearing/`, and refuses a
+malformed tracker or collision there without searching farther. Setup, managed skill installation, completion,
+and the first release path remain settled, not built.
 
 ## Acceptance criteria
 

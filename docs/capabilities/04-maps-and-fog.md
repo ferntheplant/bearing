@@ -34,8 +34,9 @@ picks up the work next.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The map's sections, the two-pronged fog test, the mapping-pass lifecycle, and
-both terminal states are settled.
+**Partial.** Ticket listing now acquires every map and refuses one whose filename or five-section local shape is
+malformed. Fog and trail parsing, map analysis, `bearing fog`, and both terminal states remain settled, not
+built.
 
 ## Acceptance criteria
 

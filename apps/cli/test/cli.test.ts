@@ -1,10 +1,27 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { main } from "#src/cli.ts";
+
+const VALID_MAP = `# MVP
+
+## Destination
+
+Ship bearing.
+
+## Notes
+
+## Trail
+
+## Not yet specified
+
+### Reader depth
+
+## Out of scope
+`;
 
 const capture = () => {
   let text = "";
@@ -18,56 +35,69 @@ const capture = () => {
   };
 };
 
-let fixtureRoot: string;
-let tracker: string;
+const ticketSource = (type: "design" | "build", project?: string) => `---
+type: ${type}
+${project === undefined ? "" : `project: ${project}\n`}---
 
-beforeAll(async () => {
-  fixtureRoot = await mkdtemp(join(tmpdir(), "bearing-cli-"));
-  tracker = join(fixtureRoot, ".bearing");
-  const tickets = join(tracker, "tickets");
-  await mkdir(tickets, { recursive: true });
-  await Promise.all([
-    writeFile(
-      join(tickets, "a1b2c3-first-ticket.md"),
-      `---
-type: build
----
+Body.
+`;
 
-# Body headings are opaque
-`,
-    ),
-    writeFile(
-      join(tickets, "b1c2d3-design-question.md"),
-      `---
+const createTracker = async (
+  root: string,
+  tickets: Readonly<Record<string, string>> = {
+    "a1b2c3-first-ticket.md": ticketSource("build"),
+    "b1c2d3-design-question.md": `---
 type: design
 project: mvp
 blockers: [a1b2c3]
-clears: [a-patch]
 ---
 
 Question body.
 `,
-    ),
+  },
+) => {
+  const tracker = join(root, ".bearing");
+  await Promise.all([
+    mkdir(join(tracker, "backlog"), { recursive: true }),
+    mkdir(join(tracker, "tickets"), { recursive: true }),
+    mkdir(join(tracker, "maps"), { recursive: true }),
   ]);
+  await Promise.all([
+    ...Object.entries(tickets).map(([name, source]) => writeFile(join(tracker, "tickets", name), source)),
+    writeFile(join(tracker, "maps", "mvp.md"), VALID_MAP),
+  ]);
+  return tracker;
+};
+
+let fixtureRoot: string;
+let noTrackerRoot: string;
+
+beforeAll(async () => {
+  fixtureRoot = await mkdtemp(join(tmpdir(), "bearing-cli-"));
+  noTrackerRoot = await mkdtemp(join(tmpdir(), "bearing-cli-none-"));
+  await createTracker(fixtureRoot);
 });
 
 afterAll(async () => {
-  await rm(fixtureRoot, { recursive: true, force: true });
+  await Promise.all([
+    rm(fixtureRoot, { recursive: true, force: true }),
+    rm(noTrackerRoot, { recursive: true, force: true }),
+  ]);
 });
 
 describe("main", () => {
-  it("lists a real tracker through the entrypoint", async () => {
+  it("discovers and lists a real tracker from a nested directory", async () => {
+    const cwd = join(fixtureRoot, "one", "two");
+    await mkdir(cwd, { recursive: true });
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([tracker], stdout.writer, stderr.writer);
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
 
     expect(exitCode).toBe(0);
     expect(stderr.read()).toBe("");
     expect(stdout.read()).toBe(
-      "a1b2c3  first ticket  build  -\n" +
-        "b1c2d3  design question  design  mvp\n" +
-        "        blockers: [a1b2c3]  clears: [a-patch]\n",
+      "a1b2c3  first ticket  build  -\n" + "b1c2d3  design question  design  mvp\n" + "        blockers: [a1b2c3]\n",
     );
   });
 
@@ -75,7 +105,7 @@ describe("main", () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main(["--json", tracker], stdout.writer, stderr.writer);
+    const exitCode = await main(["--json"], stdout.writer, stderr.writer, fixtureRoot);
 
     expect(exitCode).toBe(0);
     expect(stderr.read()).toBe("");
@@ -85,7 +115,6 @@ describe("main", () => {
         slug: "first-ticket",
         type: "build",
         blockers: [],
-        clears: [],
       },
       {
         id: "b1c2d3",
@@ -93,30 +122,109 @@ describe("main", () => {
         type: "design",
         project: "mvp",
         blockers: ["a1b2c3"],
-        clears: ["a-patch"],
       },
     ]);
   });
 
-  it("returns a usage error when the tracker argument is absent", async () => {
+  it("uses the nearest ancestor tracker", async () => {
+    const nestedRoot = join(fixtureRoot, "nearest");
+    const cwd = join(nestedRoot, "inside");
+    await createTracker(nestedRoot, { "c1d2e3-nearest.md": ticketSource("build") });
+    await mkdir(cwd, { recursive: true });
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer);
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
 
-    expect(exitCode).toBe(1);
-    expect(stdout.read()).toBe("");
-    expect(stderr.read()).toBe("usage: bearing [--json] <tracker>\n");
+    expect(exitCode).toBe(0);
+    expect(stderr.read()).toBe("");
+    expect(stdout.read()).toBe("c1d2e3  nearest  build  -\n");
   });
 
-  it("returns a read error when the tracker does not exist", async () => {
+  it("fails when no ancestor contains a tracker", async () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([join(fixtureRoot, "missing")], stdout.writer, stderr.writer);
+    const exitCode = await main([], stdout.writer, stderr.writer, noTrackerRoot);
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
-    expect(stderr.read()).toContain("error: cannot read");
+    expect(stderr.read()).toContain("error: no .bearing tracker found");
+  });
+
+  it("refuses a malformed nearest tracker instead of searching farther upward", async () => {
+    const nearestRoot = join(fixtureRoot, "malformed-nearest");
+    const cwd = join(nearestRoot, "inside");
+    await mkdir(join(nearestRoot, ".bearing", "tickets"), { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain("error: malformed tracker:");
+    expect(stderr.read()).toContain("backlog directory is missing");
+    expect(stderr.read()).not.toContain("first ticket");
+  });
+
+  it("refuses a .bearing file collision instead of searching farther upward", async () => {
+    const nearestRoot = join(fixtureRoot, "collision-nearest");
+    const cwd = join(nearestRoot, "inside");
+    await mkdir(cwd, { recursive: true });
+    await writeFile(join(nearestRoot, ".bearing"), "not a tracker\n");
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain(".bearing must be a directory");
+    expect(stderr.read()).not.toContain("first ticket");
+  });
+
+  it("refuses a .bearing symlink to a valid tracker", async () => {
+    const nearestRoot = join(fixtureRoot, "symlink-nearest");
+    const cwd = join(nearestRoot, "inside");
+    await mkdir(cwd, { recursive: true });
+    await symlink(join(fixtureRoot, ".bearing"), join(nearestRoot, ".bearing"), "dir");
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain(".bearing must not be a symbolic link");
+    expect(stderr.read()).not.toContain("first ticket");
+  });
+
+  it("refuses a dangling .bearing symlink instead of searching farther upward", async () => {
+    const nearestRoot = join(fixtureRoot, "dangling-symlink-nearest");
+    const cwd = join(nearestRoot, "inside");
+    await mkdir(cwd, { recursive: true });
+    await symlink(join(nearestRoot, "missing"), join(nearestRoot, ".bearing"), "dir");
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain(".bearing must not be a symbolic link");
+    expect(stderr.read()).not.toContain("first ticket");
+  });
+
+  it("rejects the removed positional tracker argument", async () => {
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([join(fixtureRoot, ".bearing")], stdout.writer, stderr.writer, fixtureRoot);
+
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toBe("usage: bearing [--json]\n");
   });
 });

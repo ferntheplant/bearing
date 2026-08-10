@@ -10,7 +10,6 @@ const TICKETS: readonly Ticket[] = [
     type: "build",
     project: "mvp",
     blockers: [],
-    clears: [],
   },
   {
     id: "2z1qew",
@@ -18,7 +17,6 @@ const TICKETS: readonly Ticket[] = [
     type: "design",
     project: "mvp",
     blockers: ["kwjvxc"],
-    clears: ["skill-installation-mechanics"],
   },
   {
     id: "a1b2c3",
@@ -26,7 +24,6 @@ const TICKETS: readonly Ticket[] = [
     type: "build",
     project: undefined,
     blockers: [],
-    clears: [],
   },
 ];
 
@@ -38,12 +35,10 @@ describe("renderText", () => {
     expect(text).toContain("a1b2c3  unprojected  build  -");
   });
 
-  it("shows blockers and clears where present and omits the metadata line otherwise", () => {
+  it("shows blockers where present and omits empty blocker metadata", () => {
     const text = renderText(TICKETS);
     expect(text).toContain("blockers: [kwjvxc]");
-    expect(text).toContain("clears: [skill-installation-mechanics]");
     expect(text).not.toContain("blockers: []");
-    expect(text).not.toContain("clears: []");
   });
 
   it("renders an empty list as an empty string", () => {
@@ -61,7 +56,6 @@ describe("renderJson", () => {
       type: "design",
       project: "mvp",
       blockers: ["kwjvxc"],
-      clears: ["skill-installation-mechanics"],
     });
   });
 

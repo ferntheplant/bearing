@@ -8,15 +8,8 @@ const renderTicket = (ticket: Ticket): string => {
   const project = ticket.project ?? "-";
   const title = ticket.slug.replaceAll("-", " ");
   const lines = [`${ticket.id}  ${title}  ${ticket.type}  ${project}`];
-  if (ticket.blockers.length > 0 || ticket.clears.length > 0) {
-    const metadata: string[] = [];
-    if (ticket.blockers.length > 0) {
-      metadata.push(`blockers: [${ticket.blockers.join(", ")}]`);
-    }
-    if (ticket.clears.length > 0) {
-      metadata.push(`clears: [${ticket.clears.join(", ")}]`);
-    }
-    lines.push(`        ${metadata.join("  ")}`);
+  if (ticket.blockers.length > 0) {
+    lines.push(`        blockers: [${ticket.blockers.join(", ")}]`);
   }
   return lines.join("\n");
 };
