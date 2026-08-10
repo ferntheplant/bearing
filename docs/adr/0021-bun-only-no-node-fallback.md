@@ -8,17 +8,14 @@ users who do not exist yet. Bearing is a personal tool that happens to be public
 install Bun. The runtime requirement is stated in package metadata and fails loudly rather than mysteriously if
 something executes the binary under node.
 
-The measurements say the door stays open and cheap to walk through later: a node bundle lands around 58ms
-against Bun's 22ms net, both well inside any budget that matters. The gap is real but second-order, and it is
-not where the win is — see [Gotchas: startup](../gotchas.md#startup).
+The measurements say a node bundle lands around 58ms against Bun's 22ms net. The gap is real but second-order,
+and it is not where the win is — see [Gotchas: startup](../gotchas.md#startup).
 
 ## Consequences
 
-**The budget to hold is under 50ms wall for the frontier command on a real tracker.** Bearing is invoked on
-every agent turn, so startup is a feature rather than a nicety. That leaves roughly 25ms over the measured floor
-for reading and parsing every file in the tracker, which is generous for a few dozen small Markdown files and
-stays generous, because the tracker is bounded by what a person can hold in their head.
+Startup remains a product concern because bearing is invoked on every agent turn, but it is not a numeric release
+gate. If the bundled Bun implementation becomes materially slow on real trackers, profile that implementation
+and reconsider the runtime rather than carrying a speculative fallback meanwhile.
 
-Anything that would put work on that path — a subprocess, a network call, a version check — is ruled out by the
-budget rather than by taste. See
+Subprocesses remain ruled out independently; see
 [Bearing never spawns a subprocess (ADR 0018)](./0018-bearing-never-spawns-a-subprocess.md).

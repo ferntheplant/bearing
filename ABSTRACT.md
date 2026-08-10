@@ -60,8 +60,8 @@ read. Bearing's answer is that an item leaves when its reasoning lands somewhere
 archived. Git already holds history, and holds it with the diff attached.
 
 **The caller is an agent.** Every command has to be answerable without a human at the keyboard, which rules out
-prompts and rules out anything that blocks. It also puts a hard budget on startup, because the tool is invoked
-on every turn.
+prompts and rules out anything that blocks. It also makes startup performance a product concern, because the
+tool is invoked on every turn.
 
 Bearing descends from bebop's local Markdown tracker, where the tracker was scaffolding deliberately excluded
 from the product. Here it is the product, so what bebop hardcoded splits into three layers: **mechanism** ships
@@ -186,7 +186,7 @@ read; `NO_COLOR` respected. This is what `--help` shows, which is why the flag t
 from it:
 
 ```text
-bearing                                    # status dashboard (default command)
+bearing                                    # the frontier (default; same output as `bearing next`)
 bearing next                               # the frontier: BUILD / DECIDE / TRIAGE
 bearing backlog "..."                      # drop a backlog item, zero ceremony
 bearing backlog                            # bare: list the backlog
@@ -252,25 +252,24 @@ one.
 16. Between two ready tickets, the one that transitively unblocks more ranks higher; a fog-complete map is
     absent from DECIDE while its build tickets remain open.
 17. Every read command accepts `--json` and emits the values it rendered.
-18. `bearing next` completes in under 50ms wall on a tracker of a few dozen items.
-19. A map with fog and no open design tickets is reported as fogbound, including when BUILD and DECIDE are both
+18. A map with fog and no open design tickets is reported as fogbound, including when BUILD and DECIDE are both
     empty.
-20. `bearing close <id>` on a design ticket prints the trail row verbatim, the file it would delete, and the
+19. `bearing close <id>` on a design ticket prints the trail row verbatim, the file it would delete, and the
     tickets it would unblock — and changes nothing.
-21. Re-running that close deletes the file and strips the id from every blocker list.
-22. Closing a design ticket refuses when its map has no trail row for the id, or when that row's outcome is
+20. Re-running that close deletes the file and strips the id from every blocker list.
+21. Closing a design ticket refuses when its map has no trail row for the id, or when that row's outcome is
     empty.
-23. Closing a build ticket deletes it on the first invocation without inspecting the working tree, the commit,
+22. Closing a build ticket deletes it on the first invocation without inspecting the working tree, the commit,
     or the map.
-24. `bearing close --map <project>` refuses while any ticket names the map, and otherwise deletes the file on
+23. `bearing close --map <project>` refuses while any ticket names the map, and otherwise deletes the file on
     the first invocation.
-25. `bearing check` reports every parse failure and every integrity error class — dangling blocker, dangling
+24. `bearing check` reports every parse failure and every integrity error class — dangling blocker, dangling
     project, design ticket with no project, unknown type, duplicate id — and the one warning class, a trail row
     for a ticket that still exists.
-26. That warning prints the exact command that resolves it, and there is no bulk-fix flag.
-27. Starting in any nested directory, every tracker command finds the nearest ancestor's `.bearing/` without
+25. That warning prints the exact command that resolves it, and there is no bulk-fix flag.
+26. Starting in any nested directory, every tracker command finds the nearest ancestor's `.bearing/` without
     git; no command spawns a subprocess, and a missing or malformed nearest tracker fails loudly.
-28. Every mutation except design-ticket closing applies on its first invocation, and no shipped artifact — help
+27. Every mutation except design-ticket closing applies on its first invocation, and no shipped artifact — help
     output, skill text, error message — names the flag that applies a design close.
 
 ## 9. Decision summary
@@ -311,6 +310,8 @@ The design commits to:
 - **No archaeology and no subprocesses**
   ([ADR 0017](./docs/adr/0017-no-archaeology-git-remembers.md),
   [ADR 0018](./docs/adr/0018-bearing-never-spawns-a-subprocess.md)).
+- **Process exit status is binary** — zero when the requested operation succeeds, one for every refusal or
+  failure ([Exit status is binary (ADR 0035)](./docs/adr/0035-exit-status-is-binary.md)).
 - **Core exposes operations and returns values, one package publishes, Bun only**, on Effect's pinned and
   confined unstable CLI
   ([ADR 0019](./docs/adr/0019-core-returns-values-only-the-cli-renders.md),

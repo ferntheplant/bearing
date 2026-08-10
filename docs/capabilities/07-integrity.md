@@ -15,22 +15,27 @@ find out when an edit broke a link.
 - **One warning, which means the map got ahead of itself:** a trail row for a ticket that still exists. A row is
   written as its ticket closes and never before, so one standing alone is either a close that stopped halfway or
   a row someone wrote in advance.
+- **Trail outcome prose stays prose.** Bearing checks that the row exists and has a non-empty outcome when a
+  design ticket closes; it does not parse or follow links embedded in that outcome.
 - **There is no `--fix`.** The warning prints the command that resolves it. Running that command applies its one
   named edit directly, which is more legible than a bulk-produced diff.
 - **The warning stays meaningful.** The whole point of naming the fix is that nobody learns to ignore the
   output, which is also why there is only one warning left to ignore.
-- **Deliberate, infrequent, and therefore allowed to be slow.** This is where a version check belongs, not on
-  the frontier path.
+- **No update broadcasting in the MVP.** `bearing check`, setup, and ordinary commands stay local and print no
+  version notice.
+- **Process status is binary across the CLI.** Zero means the requested operation succeeded, including a valid
+  no-op and a warnings-only integrity check; one covers every refusal, invalid invocation, integrity error, and
+  operational failure. Structured diagnostics carry the distinction.
 
 ## Where it stands
 
-**Designed.** Nothing is built. Parse refusal, the error set, the single warning, and the no-bulk-fix rule are
-settled.
+**Designed.** Nothing is built. Parse refusal, the error set, free-form trail outcomes, the single warning,
+no-bulk-fix behavior, binary process status, and the absence of update notices are settled.
 
 ## Acceptance criteria
 
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **25** (every error class and the warning are reported) and
-**26** (the warning carries the command that resolves it, and there is no bulk fix).
+Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **24** (every error class and the warning are reported) and
+**25** (the warning carries the command that resolves it, and there is no bulk fix).
 
 ## Decisions
 
@@ -46,3 +51,5 @@ Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **25** (every error class a
   interrupted apply tends toward the duplicate ids and dangling blockers this command reports.
 - [Core exposes operations, not tracker internals (ADR 0027)](../adr/0027-core-exposes-operations-not-tracker-internals.md)
   — why malformed documents remain evidence in the one tracker read instead of stopping it at the first error.
+- [Exit status is binary (ADR 0035)](../adr/0035-exit-status-is-binary.md) — why diagnostics, rather than a
+  growing set of process statuses, distinguish failures.

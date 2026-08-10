@@ -31,11 +31,11 @@ installation mechanics remain the two active design tickets for this capability.
 ## Acceptance criteria
 
 Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **1** (setup creates the tracker and installs the skill),
-**2** (re-running does not discard a local edit), **27** (upward discovery, no subprocesses, and commands work
-outside a git repository) and **28** (direct mutations apply immediately and nothing shipped names the flag that
+**2** (re-running does not discard a local edit), **26** (upward discovery, no subprocesses, and commands work
+outside a git repository) and **27** (direct mutations apply immediately and nothing shipped names the flag that
 applies a design close).
 
-Criteria 27 and 28 are properties of the whole binary rather than of setup specifically. They sit here because
+Criteria 26 and 27 are properties of the whole binary rather than of setup specifically. They sit here because
 this is the capability that puts bearing into a repository, and because both are checked by the packaging: the
 first is a dependency that does not exist, the second is a grep over what ships.
 
