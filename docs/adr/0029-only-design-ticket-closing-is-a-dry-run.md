@@ -2,8 +2,7 @@
 
 Closing a design ticket is the only mutation that changes nothing on its first invocation and applies on a
 re-run. Every other mutation plans and applies within one invocation. Bearing still has no interactive prompts
-outside first-time setup: the design-close dry run is output followed by a separate command, never a question
-waiting on stdin.
+at all: the design-close dry run is output followed by a separate command, never a question waiting on stdin.
 
 A second look earns its cost only for a design close, where bearing can check that a trail outcome exists but
 cannot judge whether the human-authored outcome is true or useful. Showing that row verbatim before deletion

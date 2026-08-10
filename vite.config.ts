@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vite-plus";
 
+import { packagedSkillPlugin } from "./apps/cli/scripts/packaged-skill-plugin.ts";
+
 const IGNORE_PATTERNS = ["**/*.gen.ts", "**/dist/**", "**/build/**", "**/coverage/**", ".tanstack/**", ".wrangler/**"];
 
 export default defineConfig({
@@ -11,6 +13,7 @@ export default defineConfig({
       "@bearing/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
     },
   },
+  plugins: [packagedSkillPlugin(fileURLToPath(new URL("./skills/bearing-wayfinder", import.meta.url)))],
   logLevel: "error",
   staged: {
     "*": "vp check --fix",
@@ -75,6 +78,11 @@ export default defineConfig({
             {
               group: ["../**/*"],
               message: "Use absolute imports (unless import is sibling)",
+            },
+            {
+              group: ["effect/unstable/cli"],
+              importNames: ["Prompt"],
+              message: "Bearing never prompts interactively (ADR 0022)",
             },
           ],
         },

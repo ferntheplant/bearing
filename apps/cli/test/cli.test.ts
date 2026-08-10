@@ -225,6 +225,6 @@ describe("main", () => {
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
-    expect(stderr.read()).toBe("usage: bearing [--json]\n");
+    expect(stderr.read()).toBe("usage: bearing [--json] | bearing init\n");
   });
 });

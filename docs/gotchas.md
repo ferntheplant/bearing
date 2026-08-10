@@ -97,11 +97,10 @@ unexpected banner text is noise in a transcript something may be parsing.
 
 ## Constraints that look like clutter
 
-**The lint rule restricting the prompt module to the setup command is what makes agent-operability
-mechanical.** Without it, "no interactive prompts anywhere but setup" is a sentence in a document that the next
-convenient prompt quietly violates, and the failure is invisible until an agent hangs waiting on stdin. It is
-one entry in the restricted-imports rule the repo already configures. Deleting it as redundant with the
-convention is the tidying that reintroduces this.
+**The lint rule prohibiting the prompt module is what makes agent-operability mechanical.** Without it, "no
+interactive prompts" is a sentence in a document that the next convenient prompt quietly violates, and the
+failure is invisible until an agent hangs waiting on stdin. It is one entry in the restricted-imports rule the
+repo already configures. Deleting it as redundant with the convention is the tidying that reintroduces this.
 
 **CI greps the shipped skill and the generated help output for the confirmation flag.** The design-close dry run
 in [The confirmation flag is undocumented on purpose (ADR 0016)](./adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)

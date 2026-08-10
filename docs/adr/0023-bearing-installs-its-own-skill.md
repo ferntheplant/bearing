@@ -1,8 +1,7 @@
 # Bearing installs its own skill
 
 Bearing ships the wayfinder method as a skill inside its own package and writes it into the target repository
-during setup, detecting which agent-directory convention that repo uses. It is not distributed as a separate
-plugin or marketplace entry.
+during setup. It is not distributed as a separate plugin or marketplace entry.
 
 Owning installation keeps the skill versioned with the tracker it describes. The skill teaches the command
 surface, so a skill that ships separately is a skill that eventually teaches a surface that no longer exists.

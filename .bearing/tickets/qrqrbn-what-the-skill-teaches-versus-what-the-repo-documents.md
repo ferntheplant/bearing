@@ -5,7 +5,7 @@ project: mvp
 
 # What the skill teaches versus what the repo documents
 
-**Which sentences belong in the wayfinder skill, which belong in the docs bearing's own repo keeps, and which
+**Which sentences belong in the bearing-wayfinder skill, which belong in the docs bearing's own repo keeps, and which
 belong in neither?**
 
 `ABSTRACT.md` §6 lists a `skills/` directory that does not exist. ADR 0023 is unusually specific about what the
@@ -27,7 +27,7 @@ The question is an allocation, and there are three destinations:
 There is a decided precedent to apply rather than re-derive: this repo settled that a skill carries the portable
 method and a seed, and the repo carries the instantiated spec, with the skill deferring to the repo wherever the
 repo has spoken — see [`docs/README.md`](../../docs/README.md) and the `domain-modeling` skill it governs.
-Whether the wayfinder skill should work the same way is the first thing to test, and the answer may differ,
+Whether the bearing-wayfinder skill should work the same way is the first thing to test, and the answer may differ,
 because wayfinder ships to repos that will never have a `docs/README.md` at all.
 
 Two constraints the text inherits: it stops at a ticket someone could pick up and hands off rather than
