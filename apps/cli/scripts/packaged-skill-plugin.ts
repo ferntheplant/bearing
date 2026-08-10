@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { relative } from "node:path";
 
 const VIRTUAL_ID = "\0bearing-packaged-skill";
@@ -8,7 +8,10 @@ const walkSkillTree = (skillRoot: string): readonly { path: string; content: str
   const walk = (directory: string): void => {
     for (const entry of readdirSync(directory).sort()) {
       const entryPath = `${directory}/${entry}`;
-      const info = statSync(entryPath);
+      const info = lstatSync(entryPath);
+      if (info.isSymbolicLink()) {
+        throw new Error(`packaged skill must not contain a symbolic link: ${entryPath}`);
+      }
       if (info.isDirectory()) {
         walk(entryPath);
       } else if (info.isFile()) {
@@ -21,8 +24,8 @@ const walkSkillTree = (skillRoot: string): readonly { path: string; content: str
 };
 
 /**
- * Serves the packaged wayfinder skill to the CLI bundle as a virtual module that
- * embeds every file of the `skills/wayfinder` tree. The tsdown pack this workspace
+ * Serves the packaged bearing-wayfinder skill to the CLI bundle as a virtual module that
+ * embeds every file of the `skills/bearing-wayfinder` tree. The tsdown pack this workspace
  * builds the binary with does not process `?raw` imports or inline glob raw content,
  * so the tree is read here, at build time, and shipped inside the bundle.
  */

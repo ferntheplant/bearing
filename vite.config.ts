@@ -13,7 +13,7 @@ export default defineConfig({
       "@bearing/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
     },
   },
-  plugins: [packagedSkillPlugin(fileURLToPath(new URL("./skills/wayfinder", import.meta.url)))],
+  plugins: [packagedSkillPlugin(fileURLToPath(new URL("./skills/bearing-wayfinder", import.meta.url)))],
   logLevel: "error",
   staged: {
     "*": "vp check --fix",
@@ -82,21 +82,13 @@ export default defineConfig({
             {
               group: ["effect/unstable/cli"],
               importNames: ["Prompt"],
-              message: "The prompt module may be imported by the setup command and nowhere else (ADR 0022)",
+              message: "Bearing never prompts interactively (ADR 0022)",
             },
           ],
         },
       ],
       "typescript/no-floating-promises": "error",
     },
-    overrides: [
-      {
-        files: ["apps/cli/src/setup.ts"],
-        rules: {
-          "eslint/no-restricted-imports": "off",
-        },
-      },
-    ],
     env: {
       builtin: true,
     },

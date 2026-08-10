@@ -4,7 +4,7 @@ import { defineConfig } from "vite-plus";
 
 import { packagedSkillPlugin } from "./scripts/packaged-skill-plugin.ts";
 
-const SKILL_ROOT = fileURLToPath(new URL("../../skills/wayfinder", import.meta.url));
+const SKILL_ROOT = fileURLToPath(new URL("../../skills/bearing-wayfinder", import.meta.url));
 
 export default defineConfig({
   resolve: {

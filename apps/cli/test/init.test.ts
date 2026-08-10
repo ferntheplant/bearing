@@ -2,11 +2,11 @@ import { mkdir, mkdtemp, readFile, rm, stat, symlink, unlink, writeFile } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { digestSkillTree, OWNERSHIP_MARKER_FILE, SKILL_DIRECTORY } from "@bearing/core";
+import { digestSkillTree, OWNERSHIP_MARKER_FILE, SetupWriteError, SKILL_DIRECTORY } from "@bearing/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { main } from "#src/cli.ts";
-import type { AskDestination } from "#src/setup.ts";
+import type { SetupRunner } from "#src/setup.ts";
 import { packagedSkill } from "#src/skill.ts";
 
 const capture = () => {
@@ -21,23 +21,19 @@ const capture = () => {
   };
 };
 
-const neverAsk: AskDestination = async () => {
-  throw new Error("ask must not be called");
-};
-
-const init = async (cwd: string, ask: AskDestination = neverAsk) => {
+const init = async (cwd: string) => {
   const stdout = capture();
   const stderr = capture();
-  const exitCode = await main(["init"], stdout.writer, stderr.writer, cwd, ask);
+  const exitCode = await main(["init"], stdout.writer, stderr.writer, cwd);
   return { exitCode, stdout: stdout.read(), stderr: stderr.read() };
 };
 
-const wayfinder = (root: string, convention = ".agents") => join(root, convention, "skills", SKILL_DIRECTORY);
+const installedSkill = (root: string) => join(root, ".agents", "skills", SKILL_DIRECTORY);
 
-const markerPath = (root: string, convention = ".agents") => join(wayfinder(root, convention), OWNERSHIP_MARKER_FILE);
+const markerPath = (root: string) => join(installedSkill(root), OWNERSHIP_MARKER_FILE);
 
-const readMarker = async (root: string, convention = ".agents") =>
-  JSON.parse(await readFile(markerPath(root, convention), "utf8")) as { version: string; digest: string };
+const readMarker = async (root: string) =>
+  JSON.parse(await readFile(markerPath(root), "utf8")) as { version: string; digest: string };
 
 const packaged = () => {
   const skill = packagedSkill();
@@ -62,7 +58,7 @@ describe("bearing init", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("created .bearing and installed the wayfinder skill at .agents/skills");
+    expect(result.stdout).toContain("created .bearing and installed the bearing-wayfinder skill at .agents/skills");
 
     await assertDirectory(join(root, ".bearing", "backlog"));
     await assertDirectory(join(root, ".bearing", "tickets"));
@@ -75,67 +71,60 @@ describe("bearing init", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("uses the sole existing .agents convention", async () => {
+  it("uses an existing physical .agents/skills home", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-agents-"));
     await mkdir(join(root, ".agents", "skills"), { recursive: true });
 
     const result = await init(root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("installed the wayfinder skill at .agents/skills");
+    expect(result.stdout).toContain("installed the bearing-wayfinder skill at .agents/skills");
     await assertFile(join(root, ".agents", "skills", SKILL_DIRECTORY, "SKILL.md"));
     await rm(root, { recursive: true, force: true });
   });
 
-  it("uses the sole existing .claude convention", async () => {
+  it("ignores an existing .claude convention and installs into .agents", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-claude-"));
     await mkdir(join(root, ".claude", "skills"), { recursive: true });
 
     const result = await init(root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("installed the wayfinder skill at .claude/skills");
-    await assertFile(join(root, ".claude", "skills", SKILL_DIRECTORY, "SKILL.md"));
+    expect(result.stdout).toContain("installed the bearing-wayfinder skill at .agents/skills");
+    await assertFile(join(root, ".agents", "skills", SKILL_DIRECTORY, "SKILL.md"));
+    await expect(stat(join(root, ".claude", "skills", SKILL_DIRECTORY))).rejects.toMatchObject({ code: "ENOENT" });
     await rm(root, { recursive: true, force: true });
   });
 
-  it("asks which destination when both conventions exist distinctly and installs there", async () => {
+  it("uses .agents when both convention directories exist", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-both-"));
     await mkdir(join(root, ".agents", "skills"), { recursive: true });
     await mkdir(join(root, ".claude", "skills"), { recursive: true });
 
-    const asked: string[][] = [];
-    const ask: AskDestination = async (candidates) => {
-      asked.push([...candidates]);
-      return ".claude/skills";
-    };
-
-    const result = await init(root, ask);
+    const result = await init(root);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(asked).toEqual([[".agents/skills", ".claude/skills"]]);
-    await assertFile(join(root, ".claude", "skills", SKILL_DIRECTORY, "SKILL.md"));
-    await expect(stat(join(root, ".agents", "skills", SKILL_DIRECTORY))).rejects.toMatchObject({ code: "ENOENT" });
+    await assertFile(join(root, ".agents", "skills", SKILL_DIRECTORY, "SKILL.md"));
+    await expect(stat(join(root, ".claude", "skills", SKILL_DIRECTORY))).rejects.toMatchObject({ code: "ENOENT" });
     await rm(root, { recursive: true, force: true });
   });
 
-  it("treats a .claude -> .agents alias as one destination without prompting or duplicating", async () => {
+  it("refuses an .agents symlink without writing through it", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-alias-"));
-    await mkdir(join(root, ".agents", "skills"), { recursive: true });
-    await symlink(join(root, ".agents"), join(root, ".claude"), "dir");
+    const outside = await mkdtemp(join(tmpdir(), "bearing-init-outside-"));
+    await writeFile(join(outside, "untouched.md"), "outside\n");
+    await symlink(outside, join(root, ".agents"), "dir");
 
-    const result = await init(root, neverAsk);
+    const result = await init(root);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("installed the wayfinder skill at .agents/skills");
-    await assertFile(join(root, ".agents", "skills", SKILL_DIRECTORY, "SKILL.md"));
-
-    const direct = await stat(join(root, ".agents", "skills", SKILL_DIRECTORY));
-    const viaAlias = await stat(join(root, ".claude", "skills", SKILL_DIRECTORY));
-    expect(viaAlias.ino).toBe(direct.ino);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("must not contain a symbolic link");
+    expect(await readFile(join(outside, "untouched.md"), "utf8")).toBe("outside\n");
+    await expect(stat(join(root, ".bearing"))).rejects.toMatchObject({ code: "ENOENT" });
     await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   });
 
   it("updates an untouched older installation and its marker on re-run", async () => {
@@ -145,7 +134,7 @@ describe("bearing init", () => {
       mkdir(join(root, ".bearing", "tickets"), { recursive: true }),
       mkdir(join(root, ".bearing", "maps"), { recursive: true }),
     ]);
-    const wf = wayfinder(root);
+    const wf = installedSkill(root);
     await mkdir(wf, { recursive: true });
     const old = "# Old skill\n";
     await writeFile(join(wf, "SKILL.md"), old);
@@ -158,7 +147,7 @@ describe("bearing init", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("updated the wayfinder skill at .agents/skills");
+    expect(result.stdout).toContain("updated the bearing-wayfinder skill at .agents/skills");
     await assertFile(join(wf, "SKILL.md"), packaged().files[0]?.content ?? "");
     const marker = await readMarker(root);
     expect(marker.version).toBe(packaged().version);
@@ -169,14 +158,14 @@ describe("bearing init", () => {
   it("preserves a locally edited skill byte-for-byte and reports a skipped update", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-skip-edit-"));
     expect((await init(root)).exitCode).toBe(0);
-    const wf = wayfinder(root);
+    const wf = installedSkill(root);
     const edited = "# My local edit\n";
     await writeFile(join(wf, "SKILL.md"), edited);
 
     const result = await init(root);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("left the wayfinder skill at .agents/skills untouched (locally modified)");
+    expect(result.stdout).toContain("left the bearing-wayfinder skill at .agents/skills untouched (locally modified)");
     expect(await readFile(join(wf, "SKILL.md"), "utf8")).toBe(edited);
     await rm(root, { recursive: true, force: true });
   });
@@ -184,7 +173,7 @@ describe("bearing init", () => {
   it("preserves a skill with an added file and reports a skipped update", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-skip-add-"));
     expect((await init(root)).exitCode).toBe(0);
-    const wf = wayfinder(root);
+    const wf = installedSkill(root);
     await writeFile(join(wf, "notes.md"), "# Notes\n");
 
     const result = await init(root);
@@ -198,7 +187,7 @@ describe("bearing init", () => {
   it("preserves a skill with a removed file and reports a skipped update", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-skip-remove-"));
     expect((await init(root)).exitCode).toBe(0);
-    const wf = wayfinder(root);
+    const wf = installedSkill(root);
     await unlink(join(wf, "SKILL.md"));
 
     const result = await init(root);
@@ -211,7 +200,7 @@ describe("bearing init", () => {
 
   it("refuses an unowned same-name collision before writing the tracker or skill", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-collision-"));
-    const wf = wayfinder(root);
+    const wf = installedSkill(root);
     await mkdir(wf, { recursive: true });
     await writeFile(join(wf, "SKILL.md"), "# User's own skill\n");
 
@@ -227,7 +216,7 @@ describe("bearing init", () => {
 
   it("refuses a malformed ownership marker before writing the tracker or skill", async () => {
     const root = await mkdtemp(join(tmpdir(), "bearing-init-malformed-"));
-    const wf = wayfinder(root);
+    const wf = installedSkill(root);
     await mkdir(wf, { recursive: true });
     await writeFile(join(wf, "SKILL.md"), "# Skill\n");
     await writeFile(join(wf, OWNERSHIP_MARKER_FILE), "not json\n");
@@ -242,25 +231,23 @@ describe("bearing init", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("refuses two physical owned installations before writing the tracker", async () => {
-    const root = await mkdtemp(join(tmpdir(), "bearing-init-two-owned-"));
-    const skill = packaged();
-    for (const convention of [".agents", ".claude"] as const) {
-      const wf = wayfinder(root, convention);
-      await mkdir(wf, { recursive: true });
-      await writeFile(join(wf, "SKILL.md"), skill.files[0]?.content ?? "");
-      await writeFile(
-        join(wf, OWNERSHIP_MARKER_FILE),
-        `${JSON.stringify({ version: skill.version, digest: skill.digest }, null, 2)}\n`,
-      );
-    }
+  it("renders setup write failures with exit status 1", async () => {
+    const root = await mkdtemp(join(tmpdir(), "bearing-init-write-failure-"));
+    const stdout = capture();
+    const stderr = capture();
+    const setup: SetupRunner = async () => {
+      throw new SetupWriteError({
+        operation: "write-file",
+        path: join(root, ".agents", "skills", SKILL_DIRECTORY, "SKILL.md"),
+        message: "cannot write packaged skill",
+      });
+    };
 
-    const result = await init(root);
+    const exitCode = await main(["init"], stdout.writer, stderr.writer, root, setup);
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("multiple owned");
-    await expect(stat(join(root, ".bearing"))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(exitCode).toBe(1);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toBe("error: cannot write packaged skill\n");
     await rm(root, { recursive: true, force: true });
   });
 

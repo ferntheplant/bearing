@@ -105,8 +105,7 @@ builds, tests, or validates itself.
 ### 3.8 Every command is operable by an agent
 
 No prompts, no TTY assumptions, no question a non-human caller cannot answer. Where a second look matters, it is
-a dry run and a re-run: closing a design ticket. First-time setup is the single interactive exception, and it
-runs once.
+a dry run and a re-run: closing a design ticket.
 
 ## 4. Goals
 
@@ -149,7 +148,7 @@ The MVP will not:
 - write the repository's own execution contract for a build ticket;
 - search git history, recover a deleted ticket, or wrap git in any way;
 - edit a map;
-- prompt interactively outside first-time setup;
+- prompt interactively;
 - ship a web interface, a daemon, or a server.
 
 ## 6. Shape
@@ -157,7 +156,7 @@ The MVP will not:
 ```text
 packages/core     the domain — no terminal, no strings, no bun, no git
 apps/cli          the interface — owns effect/unstable/cli, published as the binary
-skills/           the wayfinder method, copied into a target repo at setup
+skills/           the bearing-wayfinder skill, copied into a target repo at setup
 ```
 
 One rule makes the separation real: **core returns values, and only the CLI turns a value into a string.**
@@ -229,8 +228,8 @@ The MVP is acceptable when each of these holds. Every criterion is owned by exac
 [`docs/capabilities/`](./docs/capabilities/), so a criterion nobody claims is a visible gap rather than a silent
 one.
 
-1. `bearing init` in a directory with no tracker creates `.bearing/` and installs the skill into whichever agent
-   directory the repository already uses.
+1. `bearing init` in a directory with no tracker creates `.bearing/` and installs `bearing-wayfinder` at the
+   literal physical path `.agents/skills/bearing-wayfinder`.
 2. Re-running `bearing init` updates an untouched installed skill; a locally edited skill is left byte-for-byte
    unchanged and reported as a skipped update.
 3. `bearing backlog "..."` writes an item carrying an id and no frontmatter, in one command with no other input.

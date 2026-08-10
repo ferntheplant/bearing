@@ -8,12 +8,12 @@ export const renderSetupOutcome = (outcome: SetupOutcome): string => {
   switch (outcome.tag) {
     case "installed": {
       const prefix = outcome.trackerCreated ? "created .bearing and installed" : "installed";
-      return `${prefix} the wayfinder skill at ${outcome.home.label}`;
+      return `${prefix} the bearing-wayfinder skill at ${outcome.home.label}`;
     }
     case "updated":
-      return `updated the wayfinder skill at ${outcome.home.label}`;
+      return `updated the bearing-wayfinder skill at ${outcome.home.label}`;
     case "skipped":
-      return `left the wayfinder skill at ${outcome.home.label} untouched (locally modified)`;
+      return `left the bearing-wayfinder skill at ${outcome.home.label} untouched (locally modified)`;
   }
 };
 

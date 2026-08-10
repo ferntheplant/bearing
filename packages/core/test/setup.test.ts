@@ -6,8 +6,8 @@ import {
   digestSkillTree,
   OWNERSHIP_MARKER_FILE,
   planSetup,
-  resolveSetupDestination,
   SKILL_DIRECTORY,
+  SKILL_HOME_LABEL,
 } from "#src/setup.ts";
 
 const WORKSPACE = "/workspace";
@@ -45,10 +45,19 @@ const notFound = (method: string, path: string) =>
 const invalid = (method: string, path: string) =>
   PlatformError.systemError({ _tag: "InvalidData", module: "FileSystem", method, pathOrDescriptor: path });
 
+interface InjectedFailure {
+  readonly operation: "make-directory" | "write-file" | "remove";
+  readonly path: string;
+}
+
 class Harness {
   readonly entries: Map<string, FsEntry>;
 
-  constructor(entries: Readonly<Record<string, FsEntry>>) {
+  constructor(
+    entries: Readonly<Record<string, FsEntry>>,
+    readonly failure?: InjectedFailure,
+    readonly afterMakeDirectory?: (path: string) => void,
+  ) {
     this.entries = new Map();
     for (const [path, entry] of Object.entries(entries)) {
       this.entries.set(normalize(path), entry);
@@ -80,6 +89,10 @@ class Harness {
       }
     }
     return resolved;
+  }
+
+  fails(operation: InjectedFailure["operation"], path: string): boolean {
+    return this.failure?.operation === operation && normalize(this.failure.path) === normalize(path);
   }
 }
 
@@ -143,23 +156,30 @@ const makeMethods = (harness: Harness): Partial<FileSystem.FileSystem> => ({
       return entry.target;
     }),
   makeDirectory: (path) =>
-    Effect.sync(() => {
-      harness.entries.set(normalize(path), directory());
-    }),
+    harness.fails("make-directory", path)
+      ? Effect.fail(invalid("makeDirectory", path))
+      : Effect.sync(() => {
+          harness.entries.set(normalize(path), directory());
+          harness.afterMakeDirectory?.(normalize(path));
+        }),
   writeFileString: (path, data) =>
-    Effect.sync(() => {
-      harness.entries.set(normalize(path), file(data));
-    }),
+    harness.fails("write-file", path)
+      ? Effect.fail(invalid("writeFileString", path))
+      : Effect.sync(() => {
+          harness.entries.set(normalize(path), file(data));
+        }),
   remove: (path) =>
-    Effect.sync(() => {
-      const normalized = normalize(path);
-      harness.entries.delete(normalized);
-      for (const key of harness.entries.keys()) {
-        if (key.startsWith(`${normalized}/`)) {
-          harness.entries.delete(key);
-        }
-      }
-    }),
+    harness.fails("remove", path)
+      ? Effect.fail(invalid("remove", path))
+      : Effect.sync(() => {
+          const normalized = normalize(path);
+          harness.entries.delete(normalized);
+          for (const key of harness.entries.keys()) {
+            if (key.startsWith(`${normalized}/`)) {
+              harness.entries.delete(key);
+            }
+          }
+        }),
 });
 
 const layer = (harness: Harness) => Layer.merge(FileSystem.layerNoop(makeMethods(harness)), Path.layer);
@@ -182,9 +202,22 @@ const marker = (version: string, skill: typeof fixtureSkill) => ({
 const markerFile = (version: string, skill: typeof fixtureSkill) =>
   `${JSON.stringify(marker(version, skill), null, 2)}\n`;
 
-const ownedAgents = (skill = fixtureSkill, version = "0.0.0") => ({
-  [`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/SKILL.md`]: file(skill.files[0]?.content ?? ""),
+const ownedAgents = (skill = fixtureSkill, version = "0.0.0"): Record<string, FsEntry> => ({
+  ...Object.fromEntries(
+    skill.files.map((skillFile) => [
+      `${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/${skillFile.path}`,
+      file(skillFile.content),
+    ]),
+  ),
   [`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/${OWNERSHIP_MARKER_FILE}`]: file(markerFile(version, skill)),
+});
+
+const skillHome = { label: SKILL_HOME_LABEL, path: `${WORKSPACE}/.agents/skills` };
+
+const updateDecision = (skill = fixtureSkill) => ({
+  tag: "update" as const,
+  home: skillHome,
+  expectedDigest: digestSkillTree(skill.files),
 });
 
 describe("digestSkillTree", () => {
@@ -211,52 +244,23 @@ describe("planSetup", () => {
     expect(plan).toEqual({
       workingDirectory: WORKSPACE,
       tracker: "create",
-      skill: { tag: "install", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } },
+      skill: { tag: "install", home: skillHome },
     });
   });
 
-  it("uses the sole existing convention", async () => {
+  it("ignores .claude/skills and installs at the fixed .agents/skills home", async () => {
     const plan = await runPlan({
       [`${WORKSPACE}/.claude/skills`]: directory(),
     });
     expect(plan.skill).toEqual({
       tag: "install",
-      home: { label: ".claude/skills", path: `${WORKSPACE}/.claude/skills` },
+      home: skillHome,
     });
   });
 
-  it("asks which destination when both conventions exist distinctly", async () => {
-    const plan = await runPlan({
-      [`${WORKSPACE}/.agents/skills`]: directory(),
-      [`${WORKSPACE}/.claude/skills`]: directory(),
-    });
-    expect(plan.skill).toEqual({
-      tag: "choose",
-      candidates: [
-        { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` },
-        { label: ".claude/skills", path: `${WORKSPACE}/.claude/skills` },
-      ],
-    });
-  });
-
-  it("treats a .claude -> .agents alias as one destination without a prompt", async () => {
-    const plan = await runPlan({
-      [`${WORKSPACE}/.agents`]: directory(),
-      [`${WORKSPACE}/.agents/skills`]: directory(),
-      [`${WORKSPACE}/.claude`]: link(`${WORKSPACE}/.agents`),
-    });
-    expect(plan.skill).toEqual({
-      tag: "install",
-      home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` },
-    });
-  });
-
-  it("finds an owned installation before convention detection and updates an untouched tree", async () => {
+  it("updates an untouched owned installation", async () => {
     const plan = await runPlan(ownedAgents());
-    expect(plan.skill).toEqual({
-      tag: "update",
-      home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` },
-    });
+    expect(plan.skill).toEqual(updateDecision());
   });
 
   it("skips an owned installation whose tree no longer matches the recorded digest", async () => {
@@ -268,7 +272,7 @@ describe("planSetup", () => {
     });
     expect(plan.skill).toEqual({
       tag: "skip",
-      home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` },
+      home: skillHome,
     });
   });
 
@@ -277,7 +281,15 @@ describe("planSetup", () => {
       ...ownedAgents(),
       [`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/extra`]: link("/somewhere"),
     });
-    expect(plan.skill).toEqual({ tag: "skip", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } });
+    expect(plan.skill).toEqual({ tag: "skip", home: skillHome });
+  });
+
+  it("treats a nested ownership-marker name as an added local file", async () => {
+    const plan = await runPlan({
+      ...ownedAgents(),
+      [`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/references/${OWNERSHIP_MARKER_FILE}`]: file("local\n"),
+    });
+    expect(plan.skill).toEqual({ tag: "skip", home: skillHome });
   });
 
   it("refuses an unowned same-name collision before writing anything", async () => {
@@ -312,19 +324,35 @@ describe("planSetup", () => {
     ).rejects.toMatchObject({ _tag: "SkillRefusalError", reason: "malformed-marker" });
   });
 
-  it("refuses two physical owned installations", async () => {
+  it("refuses a symbolic link at .agents without following it", async () => {
     await expect(
       runPlan({
-        ...ownedAgents(),
-        [`${WORKSPACE}/.claude/skills/${SKILL_DIRECTORY}/SKILL.md`]: file("# Skill\n"),
-        [`${WORKSPACE}/.claude/skills/${SKILL_DIRECTORY}/${OWNERSHIP_MARKER_FILE}`]: file(
-          markerFile("0.0.0", fixtureSkill),
-        ),
+        [`${WORKSPACE}/.agents`]: link("/outside"),
+        "/outside/skills/bearing-wayfinder/SKILL.md": file("# Outside\n"),
       }),
     ).rejects.toMatchObject({
       _tag: "SkillRefusalError",
-      reason: "multiple-owned",
+      reason: "symbolic-link",
     });
+  });
+
+  it("refuses a symbolic link at .agents/skills without following it", async () => {
+    await expect(
+      runPlan({
+        [`${WORKSPACE}/.agents`]: directory(),
+        [`${WORKSPACE}/.agents/skills`]: link("/outside"),
+        "/outside/bearing-wayfinder/SKILL.md": file("# Outside\n"),
+      }),
+    ).rejects.toMatchObject({ _tag: "SkillRefusalError", reason: "symbolic-link" });
+  });
+
+  it("refuses a symbolic link at the skill root without following it", async () => {
+    await expect(
+      runPlan({
+        [`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}`]: link("/outside"),
+        "/outside/SKILL.md": file("# Outside\n"),
+      }),
+    ).rejects.toMatchObject({ _tag: "SkillRefusalError", reason: "symbolic-link" });
   });
 
   it("treats a .bearing symlink as a collision", async () => {
@@ -356,38 +384,6 @@ describe("planSetup", () => {
   });
 });
 
-describe("resolveSetupDestination", () => {
-  it("resolves a choose plan to the chosen convention", () => {
-    const plan = {
-      workingDirectory: WORKSPACE,
-      tracker: "create" as const,
-      skill: {
-        tag: "choose" as const,
-        candidates: [
-          { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` },
-          { label: ".claude/skills", path: `${WORKSPACE}/.claude/skills` },
-        ],
-      },
-    };
-    expect(resolveSetupDestination(plan, ".claude/skills")).toEqual({
-      ...plan,
-      skill: { tag: "install", home: { label: ".claude/skills", path: `${WORKSPACE}/.claude/skills` } },
-    });
-  });
-
-  it("rejects a label that is not a candidate", () => {
-    const plan = {
-      workingDirectory: WORKSPACE,
-      tracker: "create" as const,
-      skill: {
-        tag: "choose" as const,
-        candidates: [{ label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` }],
-      },
-    };
-    expect(() => resolveSetupDestination(plan, ".agents")).toThrow("no convention named .agents");
-  });
-});
-
 describe("applySetup", () => {
   it("creates the tracker and writes the skill tree and marker", async () => {
     const harness = new Harness({});
@@ -397,7 +393,7 @@ describe("applySetup", () => {
           {
             workingDirectory: WORKSPACE,
             tracker: "create",
-            skill: { tag: "install", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } },
+            skill: { tag: "install", home: skillHome },
           },
           fixtureSkill,
         ),
@@ -407,7 +403,7 @@ describe("applySetup", () => {
 
     expect(outcome).toEqual({
       tag: "installed",
-      home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` },
+      home: skillHome,
       trackerCreated: true,
     });
     expect(harness.entries.has(`${WORKSPACE}/.bearing/backlog`)).toBe(true);
@@ -425,24 +421,33 @@ describe("applySetup", () => {
     ).toEqual(marker("0.0.0", fixtureSkill));
   });
 
-  it("replaces the whole tree on an update, removing stale files", async () => {
-    const harness = new Harness(ownedAgents());
+  it("replaces the whole tree when a packaged path changes from a directory to a file", async () => {
+    const oldSkill = {
+      version: "0.0.0",
+      files: [{ path: "node/child.md", content: "old\n" }],
+    };
+    const newSkill = {
+      version: "0.0.1",
+      files: [{ path: "node", content: "new\n" }],
+    };
+    const harness = new Harness(ownedAgents(oldSkill));
     const outcome = await Effect.runPromise(
       Effect.provide(
         applySetup(
           {
             workingDirectory: WORKSPACE,
             tracker: "leave",
-            skill: { tag: "update", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } },
+            skill: updateDecision(oldSkill),
           },
-          fixtureSkill,
+          newSkill,
         ),
         layer(harness),
       ),
     );
 
-    expect(outcome).toEqual({ tag: "updated", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } });
-    expect(harness.entries.has(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/SKILL.md`)).toBe(true);
+    expect(outcome).toEqual({ tag: "updated", home: skillHome });
+    expect(harness.entries.get(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/node`)).toEqual(file("new\n"));
+    expect(harness.entries.has(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/node/child.md`)).toBe(false);
   });
 
   it("returns a skipped outcome without touching the installed tree", async () => {
@@ -457,7 +462,7 @@ describe("applySetup", () => {
           {
             workingDirectory: WORKSPACE,
             tracker: "leave",
-            skill: { tag: "skip", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } },
+            skill: { tag: "skip", home: skillHome },
           },
           fixtureSkill,
         ),
@@ -465,40 +470,114 @@ describe("applySetup", () => {
       ),
     );
 
-    expect(outcome).toEqual({ tag: "skipped", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } });
+    expect(outcome).toEqual({ tag: "skipped", home: skillHome });
     expect(harness.entries.get(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/SKILL.md`)).toEqual(file("# Edited\n"));
   });
 
-  it("removes a stale installed file that is not part of the packaged tree", async () => {
-    const stale = {
-      ...ownedAgents(),
-      [`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/references/old.md`]: file("# Old reference\n"),
-    };
-    const harness = new Harness(stale);
-    const updatedSkill = {
+  it("rechecks an update plan and skips when the installed tree changed", async () => {
+    const harness = new Harness(ownedAgents());
+    const plan = await Effect.runPromise(Effect.provide(planSetup(WORKSPACE), layer(harness)));
+    harness.entries.set(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/SKILL.md`, file("# Edited after planning\n"));
+
+    const outcome = await Effect.runPromise(Effect.provide(applySetup(plan, fixtureSkill), layer(harness)));
+
+    expect(outcome).toEqual({ tag: "skipped", home: skillHome });
+    expect(harness.entries.get(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/SKILL.md`)).toEqual(
+      file("# Edited after planning\n"),
+    );
+  });
+
+  it("rechecks again after tracker creation before replacing the skill", async () => {
+    const skillFile = `${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/SKILL.md`;
+    const harness = new Harness(ownedAgents(), undefined, (path) => {
+      if (path === `${WORKSPACE}/.bearing/maps`) {
+        harness.entries.set(skillFile, file("# Edited during tracker creation\n"));
+      }
+    });
+    const plan = await Effect.runPromise(Effect.provide(planSetup(WORKSPACE), layer(harness)));
+
+    const outcome = await Effect.runPromise(Effect.provide(applySetup(plan, fixtureSkill), layer(harness)));
+
+    expect(outcome).toEqual({ tag: "skipped", home: skillHome });
+    expect(harness.entries.get(skillFile)).toEqual(file("# Edited during tracker creation\n"));
+  });
+
+  it("reports a remove failure and leaves the old owned tree intact", async () => {
+    const skillDirectory = `${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}`;
+    const harness = new Harness(ownedAgents(), { operation: "remove", path: skillDirectory });
+
+    await expect(
+      Effect.runPromise(
+        Effect.provide(
+          applySetup({ workingDirectory: WORKSPACE, tracker: "leave", skill: updateDecision() }, fixtureSkill),
+          layer(harness),
+        ),
+      ),
+    ).rejects.toMatchObject({ _tag: "SetupWriteError", operation: "remove", path: skillDirectory });
+    expect(harness.entries.get(`${skillDirectory}/SKILL.md`)).toEqual(file("# Skill\n"));
+  });
+
+  it("reports a make-directory failure after creating the tracker", async () => {
+    const skillDirectory = `${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}`;
+    const harness = new Harness({}, { operation: "make-directory", path: skillDirectory });
+
+    await expect(
+      Effect.runPromise(
+        Effect.provide(
+          applySetup(
+            { workingDirectory: WORKSPACE, tracker: "create", skill: { tag: "install", home: skillHome } },
+            fixtureSkill,
+          ),
+          layer(harness),
+        ),
+      ),
+    ).rejects.toMatchObject({ _tag: "SetupWriteError", operation: "make-directory", path: skillDirectory });
+    expect(harness.entries.has(`${WORKSPACE}/.bearing/backlog`)).toBe(true);
+    expect(harness.entries.has(skillDirectory)).toBe(false);
+  });
+
+  it("reports a write failure with only the completed prefix left on disk", async () => {
+    const oldSkill = {
       version: "0.0.0",
+      files: [{ path: "old.md", content: "old\n" }],
+    };
+    const updatedSkill = {
+      version: "0.0.1",
       files: [
-        { path: "SKILL.md", content: "# Skill\n" },
-        { path: "references/new.md", content: "# New reference\n" },
+        { path: "a.md", content: "first\n" },
+        { path: "b.md", content: "second\n" },
       ],
     };
-    await Effect.runPromise(
-      Effect.provide(
-        applySetup(
-          {
-            workingDirectory: WORKSPACE,
-            tracker: "leave",
-            skill: { tag: "update", home: { label: ".agents/skills", path: `${WORKSPACE}/.agents/skills` } },
-          },
-          updatedSkill,
-        ),
-        layer(harness),
-      ),
-    );
+    const skillDirectory = `${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}`;
+    const failedPath = `${skillDirectory}/b.md`;
+    const harness = new Harness(ownedAgents(oldSkill), { operation: "write-file", path: failedPath });
 
-    expect(harness.entries.has(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/references/old.md`)).toBe(false);
-    expect(harness.entries.get(`${WORKSPACE}/.agents/skills/${SKILL_DIRECTORY}/references/new.md`)).toEqual(
-      file("# New reference\n"),
-    );
+    await expect(
+      Effect.runPromise(
+        Effect.provide(
+          applySetup({ workingDirectory: WORKSPACE, tracker: "leave", skill: updateDecision(oldSkill) }, updatedSkill),
+          layer(harness),
+        ),
+      ),
+    ).rejects.toMatchObject({ _tag: "SetupWriteError", operation: "write-file", path: failedPath });
+
+    expect(harness.entries.get(`${skillDirectory}/a.md`)).toEqual(file("first\n"));
+    expect(harness.entries.has(`${skillDirectory}/b.md`)).toBe(false);
+    expect(harness.entries.has(`${skillDirectory}/old.md`)).toBe(false);
+    expect(harness.entries.has(`${skillDirectory}/${OWNERSHIP_MARKER_FILE}`)).toBe(false);
+  });
+
+  it("does not write through a symlink introduced after an install plan", async () => {
+    const harness = new Harness({});
+    const plan = await Effect.runPromise(Effect.provide(planSetup(WORKSPACE), layer(harness)));
+    harness.entries.set(`${WORKSPACE}/.agents`, link("/outside"));
+    harness.entries.set("/outside/untouched.md", file("outside\n"));
+
+    await expect(
+      Effect.runPromise(Effect.provide(applySetup(plan, fixtureSkill), layer(harness))),
+    ).rejects.toMatchObject({ _tag: "SkillRefusalError", reason: "symbolic-link" });
+
+    expect(harness.entries.get("/outside/untouched.md")).toEqual(file("outside\n"));
+    expect(harness.entries.has(`${WORKSPACE}/.bearing`)).toBe(false);
   });
 });

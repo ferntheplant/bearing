@@ -174,7 +174,7 @@ _Avoid_: priority, severity, points, weight.
 **dry run**:
 The first invocation of closing a design ticket: it prints the trail row and planned edits, and the same command
 re-run takes effect. Every other mutation applies directly.
-_Avoid_: preview, confirmation prompt (bearing has none outside first-time setup).
+_Avoid_: preview, confirmation prompt (bearing has none).
 
 **spec**:
 The repo's own execution contract for a piece of work — its testing seam, its gate command, its acceptance
@@ -184,5 +184,5 @@ _Avoid_: using "spec" for a build ticket, or "ticket" for a spec.
 
 **wayfinder**:
 The method for working a fog of war — charting a map from a loose idea, then alternating mapping passes and
-walks until the destination is reached. Bearing ships it as a skill and installs it into the repo it is
-tracking.
+walks until the destination is reached. Bearing ships it as the `bearing-wayfinder` skill and installs it into
+the repo it is tracking.

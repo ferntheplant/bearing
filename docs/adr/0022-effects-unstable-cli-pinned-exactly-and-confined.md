@@ -18,9 +18,8 @@ right fit:
 
 ## Consequences
 
-The framework's prompt module is exactly what first-time setup needs, which makes the no-interactive-prompts
-rule mechanically enforceable rather than aspirational: **the prompt module may be imported by the setup command
-and nowhere else**, as a lint rule on restricted imports. See
+Bearing has no interactive prompts. The prompt module is prohibited by a restricted-import lint rule so that
+agent-operability is mechanical rather than aspirational. See
 [Only design-ticket closing is a dry run (ADR 0029)](./0029-only-design-ticket-closing-is-a-dry-run.md).
 
 Shell completion generation comes with the framework, so that command is close to a one-liner rather than a

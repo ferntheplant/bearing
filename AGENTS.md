@@ -67,12 +67,12 @@ Most of these have an ADR behind them. If a rule seems wrong, look for its ADR b
 - No subprocesses, ever, and no dependency on git being installed.
 - Every import of `effect/unstable/cli` lives in the CLI package. Effect versions are pinned exactly, never
   ranged.
-- The prompt module may be imported by the setup command and nowhere else, enforced by lint.
+- Bearing never prompts interactively; the prompt module is prohibited by lint.
 - Bearing never writes a map.
 - Tracker prose is edited directly; there is no edit command.
 - Tracker commands discover the nearest ancestor's `.bearing/` and fail on a malformed one rather than searching
   past it. There is no configuration.
-- `--json` on every read, `NO_COLOR` respected, no interactive prompts outside first-time setup.
+- `--json` on every read, `NO_COLOR` respected, no interactive prompts.
 - Nothing shipped — help text, skill, error messages — names the flag that applies a design close.
 
 ## Definition of done

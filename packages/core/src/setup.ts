@@ -9,20 +9,11 @@ import {
 } from "./acquisition.ts";
 import { sha256Hex } from "./sha256.ts";
 
-export const SKILL_DIRECTORY = "wayfinder";
+export const SKILL_DIRECTORY = "bearing-wayfinder";
 export const OWNERSHIP_MARKER_FILE = ".bearing-owner.json";
+export const SKILL_HOME_LABEL = ".agents/skills";
 
 const TRACKER_DIRECTORIES = ["backlog", "tickets", "maps"] as const;
-
-interface Convention {
-  readonly label: string;
-  readonly agentDirectory: string;
-}
-
-const CONVENTIONS: readonly Convention[] = [
-  { label: ".agents/skills", agentDirectory: ".agents" },
-  { label: ".claude/skills", agentDirectory: ".claude" },
-];
 
 export interface SkillFile {
   readonly path: string;
@@ -45,7 +36,7 @@ export interface OwnershipMarker {
 }
 
 export class SkillRefusalError extends Data.TaggedError("SkillRefusalError")<{
-  readonly reason: "unowned-collision" | "malformed-marker" | "multiple-owned";
+  readonly reason: "unowned-collision" | "malformed-marker" | "path-collision" | "symbolic-link" | "changed-after-plan";
   readonly paths: readonly string[];
   readonly message: string;
 }> {}
@@ -62,20 +53,13 @@ export type TrackerAction = "create" | "leave";
 
 export type SkillDecision =
   | { readonly tag: "install"; readonly home: SkillHome }
-  | { readonly tag: "update"; readonly home: SkillHome }
-  | { readonly tag: "skip"; readonly home: SkillHome }
-  | { readonly tag: "choose"; readonly candidates: readonly SkillHome[] };
-
-export type ResolvedSkillDecision = Exclude<SkillDecision, { readonly tag: "choose" }>;
+  | { readonly tag: "update"; readonly home: SkillHome; readonly expectedDigest: string }
+  | { readonly tag: "skip"; readonly home: SkillHome };
 
 export interface SetupPlan {
   readonly workingDirectory: string;
   readonly tracker: TrackerAction;
   readonly skill: SkillDecision;
-}
-
-export interface ResolvedSetupPlan extends SetupPlan {
-  readonly skill: ResolvedSkillDecision;
 }
 
 export type SetupOutcome =
@@ -111,8 +95,12 @@ const refusalMessage = (reason: SkillRefusalError["reason"], paths: readonly str
       return `a skill named ${SKILL_DIRECTORY} already exists at ${listed} without a bearing ownership marker; refusing to overwrite it`;
     case "malformed-marker":
       return `the bearing ownership marker at ${listed} is malformed`;
-    case "multiple-owned":
-      return `multiple owned ${SKILL_DIRECTORY} installations found at ${listed}; refusing to choose one`;
+    case "path-collision":
+      return `the bearing skill installation path is occupied by a non-directory at ${listed}`;
+    case "symbolic-link":
+      return `the bearing skill installation path must not contain a symbolic link: ${listed}`;
+    case "changed-after-plan":
+      return `the bearing skill installation changed after setup was planned: ${listed}`;
   }
 };
 
@@ -122,7 +110,7 @@ const structuralError = (path: string, message: string): MalformedTrackerError =
     message: `malformed tracker:\n${path}: ${message}`,
   });
 
-type EntryKind = "directory" | "file" | "other" | "missing";
+type EntryKind = "directory" | "file" | "other" | "missing" | "symbolic-link";
 
 const statKind = (path: string): Effect.Effect<EntryKind, TrackerReadError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
@@ -144,32 +132,14 @@ const statKind = (path: string): Effect.Effect<EntryKind, TrackerReadError, File
     }
   });
 
-/**
- * Resolves symlinks along every path component. The final component may not exist; the
- * deepest existing prefix is resolved and the remaining tail is appended literally.
- */
-const physicalPath = (target: string): Effect.Effect<string, TrackerReadError, FileSystem.FileSystem | Path.Path> =>
+const literalKind = (target: string): Effect.Effect<EntryKind, TrackerReadError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const segments = path
-      .resolve(target)
-      .split(path.sep)
-      .filter((segment) => segment.length > 0);
-    let resolved = path.sep;
-    for (const segment of segments) {
-      const candidate = path.join(resolved, segment);
-      const link = yield* Effect.result(fs.readLink(candidate));
-      if (Result.isSuccess(link)) {
-        const linked = path.isAbsolute(link.success)
-          ? link.success
-          : path.resolve(path.dirname(candidate), link.success);
-        resolved = yield* physicalPath(linked);
-      } else {
-        resolved = candidate;
-      }
+    const link = yield* Effect.result(fs.readLink(target));
+    if (Result.isSuccess(link)) {
+      return "symbolic-link";
     }
-    return resolved;
+    return yield* statKind(target);
   });
 
 /**
@@ -246,22 +216,18 @@ const readSkillTree = (
           .pipe(Effect.mapError((error) => readError("read-directory", directory, error.message)));
         for (const entry of [...entries].sort()) {
           const entryPath = path.join(directory, entry);
-          if (path.basename(entryPath) === OWNERSHIP_MARKER_FILE) {
+          if (directory === skillDirectory && entry === OWNERSHIP_MARKER_FILE) {
             continue;
           }
-          const info = yield* Effect.result(fs.stat(entryPath));
-          if (Result.isFailure(info)) {
-            hasNonFile = true;
-            continue;
-          }
-          if (info.success.type === "File") {
+          const kind = yield* literalKind(entryPath);
+          if (kind === "file") {
             const content = yield* Effect.result(fs.readFileString(entryPath));
             if (Result.isFailure(content)) {
               hasNonFile = true;
               continue;
             }
             files.push({ path: path.relative(skillDirectory, entryPath), content: content.success });
-          } else if (info.success.type === "Directory") {
+          } else if (kind === "directory") {
             yield* walk(entryPath);
           } else {
             hasNonFile = true;
@@ -270,30 +236,6 @@ const readSkillTree = (
       });
     yield* walk(skillDirectory);
     return { files, hasNonFile };
-  });
-
-interface ConventionObservation {
-  readonly label: string;
-  readonly skillDirectory: string;
-  readonly kind: "present" | "absent" | "collision";
-}
-
-const inspectConvention = (
-  workingDirectory: string,
-  convention: Convention,
-): Effect.Effect<ConventionObservation, TrackerReadError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const skillDirectory = path.join(workingDirectory, convention.agentDirectory, "skills", SKILL_DIRECTORY);
-    const kind = yield* statKind(skillDirectory);
-    if (kind === "missing") {
-      return { label: convention.label, skillDirectory, kind: "absent" };
-    }
-    if (kind !== "directory") {
-      return { label: convention.label, skillDirectory, kind: "collision" };
-    }
-    const physical = yield* physicalPath(skillDirectory);
-    return { label: convention.label, skillDirectory: physical, kind: "present" };
   });
 
 type MarkerObservation =
@@ -309,11 +251,12 @@ const inspectMarker = (
     const path = yield* Path.Path;
     const skillDirectory = path.join(home.path, SKILL_DIRECTORY);
     const markerPath = path.join(skillDirectory, OWNERSHIP_MARKER_FILE);
-    const exists = yield* fs
-      .exists(markerPath)
-      .pipe(Effect.mapError((error) => readError("stat", markerPath, error.message)));
-    if (!exists) {
+    const kind = yield* literalKind(markerPath);
+    if (kind === "missing") {
       return { tag: "unowned", home, skillDirectory };
+    }
+    if (kind !== "file") {
+      return { tag: "malformed", home, markerPath };
     }
     const source = yield* fs
       .readFileString(markerPath)
@@ -325,112 +268,66 @@ const inspectMarker = (
     return { tag: "owned", home, marker };
   });
 
+type SkillObservation =
+  | { readonly tag: "absent"; readonly home: SkillHome }
+  | Extract<MarkerObservation, { readonly tag: "owned" | "unowned" | "malformed" }>;
+
+const inspectSkill = (
+  workingDirectory: string,
+): Effect.Effect<SkillObservation, SetupError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const agentDirectory = path.join(workingDirectory, ".agents");
+    const home: SkillHome = { label: SKILL_HOME_LABEL, path: path.join(agentDirectory, "skills") };
+    const skillDirectory = path.join(home.path, SKILL_DIRECTORY);
+
+    for (const directory of [agentDirectory, home.path]) {
+      const kind = yield* literalKind(directory);
+      if (kind === "symbolic-link") {
+        return yield* Effect.fail(refusal("symbolic-link", [directory]));
+      }
+      if (kind === "missing") {
+        return { tag: "absent", home };
+      }
+      if (kind !== "directory") {
+        return yield* Effect.fail(refusal("path-collision", [directory]));
+      }
+    }
+
+    const skillKind = yield* literalKind(skillDirectory);
+    if (skillKind === "missing") {
+      return { tag: "absent", home };
+    }
+    if (skillKind === "symbolic-link") {
+      return yield* Effect.fail(refusal("symbolic-link", [skillDirectory]));
+    }
+    if (skillKind !== "directory") {
+      return yield* Effect.fail(refusal("unowned-collision", [skillDirectory]));
+    }
+    return yield* inspectMarker(home);
+  });
+
 const planSkill = (
   workingDirectory: string,
 ): Effect.Effect<SkillDecision, SetupError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const observations = yield* Effect.forEach(CONVENTIONS, (convention) =>
-      inspectConvention(workingDirectory, convention),
-    );
-
-    const collisions = observations.filter((observation) => observation.kind === "collision");
-    if (collisions.length > 0) {
-      return yield* Effect.fail(
-        refusal(
-          "unowned-collision",
-          collisions.map((observation) => observation.skillDirectory),
-        ),
-      );
-    }
-
-    const present = new Map<string, ConventionObservation>();
-    for (const observation of observations) {
-      if (observation.kind === "present" && !present.has(observation.skillDirectory)) {
-        present.set(observation.skillDirectory, observation);
-      }
-    }
-
-    const owned: Extract<MarkerObservation, { readonly tag: "owned" }>[] = [];
-    const unowned: Extract<MarkerObservation, { readonly tag: "unowned" }>[] = [];
-    const malformed: Extract<MarkerObservation, { readonly tag: "malformed" }>[] = [];
-    for (const observation of present.values()) {
-      const home: SkillHome = { label: observation.label, path: path.dirname(observation.skillDirectory) };
-      const marker = yield* inspectMarker(home);
-      switch (marker.tag) {
-        case "owned":
-          owned.push(marker);
-          break;
-        case "unowned":
-          unowned.push(marker);
-          break;
-        case "malformed":
-          malformed.push(marker);
-          break;
-      }
-    }
-
-    if (malformed.length > 0) {
-      return yield* Effect.fail(
-        refusal(
-          "malformed-marker",
-          malformed.map((marker) => marker.markerPath),
-        ),
-      );
-    }
-    if (unowned.length > 0) {
-      return yield* Effect.fail(
-        refusal(
-          "unowned-collision",
-          unowned.map((marker) => marker.skillDirectory),
-        ),
-      );
-    }
-    if (owned.length > 1) {
-      return yield* Effect.fail(
-        refusal(
-          "multiple-owned",
-          owned.map((marker) => marker.home.path),
-        ),
-      );
-    }
-    if (owned.length === 1) {
-      const only = owned[0];
-      if (only === undefined) {
-        throw new Error("internal error: exactly one owned installation was expected");
-      }
-      const installed = yield* readSkillTree(path.join(only.home.path, SKILL_DIRECTORY));
-      if (installed.hasNonFile || digestSkillTree(installed.files) !== only.marker.digest) {
-        return { tag: "skip", home: only.home };
-      }
-      return { tag: "update", home: only.home };
-    }
-
-    const homes: SkillHome[] = [];
-    for (const convention of CONVENTIONS) {
-      const homePath = path.join(workingDirectory, convention.agentDirectory, "skills");
-      const kind = yield* statKind(homePath);
-      if (kind === "directory") {
-        const physical = yield* physicalPath(homePath);
-        if (!homes.some((home) => home.path === physical)) {
-          homes.push({ label: convention.label, path: physical });
+    const observation = yield* inspectSkill(workingDirectory);
+    switch (observation.tag) {
+      case "absent":
+        return { tag: "install", home: observation.home };
+      case "unowned":
+        return yield* Effect.fail(refusal("unowned-collision", [observation.skillDirectory]));
+      case "malformed":
+        return yield* Effect.fail(refusal("malformed-marker", [observation.markerPath]));
+      case "owned": {
+        const installed = yield* readSkillTree(path.join(observation.home.path, SKILL_DIRECTORY));
+        if (installed.hasNonFile || digestSkillTree(installed.files) !== observation.marker.digest) {
+          return { tag: "skip", home: observation.home };
         }
+        return { tag: "update", home: observation.home, expectedDigest: observation.marker.digest };
       }
     }
-    if (homes.length === 0) {
-      return {
-        tag: "install",
-        home: { label: ".agents/skills", path: path.join(workingDirectory, ".agents", "skills") },
-      };
-    }
-    if (homes.length === 1) {
-      const home = homes[0];
-      if (home === undefined) {
-        throw new Error("internal error: exactly one convention was expected");
-      }
-      return { tag: "install", home };
-    }
-    return { tag: "choose", candidates: homes };
   });
 
 export const planSetup = (
@@ -442,18 +339,7 @@ export const planSetup = (
     return { workingDirectory, tracker, skill };
   });
 
-export const resolveSetupDestination = (plan: SetupPlan, label: string | undefined): ResolvedSetupPlan => {
-  if (plan.skill.tag === "choose") {
-    const chosen = plan.skill.candidates.find((candidate) => candidate.label === label);
-    if (chosen === undefined) {
-      throw new Error(`no convention named ${label}`);
-    }
-    return { ...plan, skill: { tag: "install", home: chosen } };
-  }
-  return { ...plan, skill: plan.skill };
-};
-
-const applySkill = (
+const writeSkill = (
   home: SkillHome,
   skill: PackagedSkill,
 ): Effect.Effect<void, SetupError, FileSystem.FileSystem | Path.Path> =>
@@ -464,17 +350,6 @@ const applySkill = (
     yield* fs
       .makeDirectory(skillDirectory, { recursive: true })
       .pipe(Effect.mapError((error) => writeError("make-directory", skillDirectory, error.message)));
-
-    const installed = yield* readSkillTree(skillDirectory);
-    const packagedPaths = new Set(skill.files.map((file) => file.path));
-    for (const file of installed.files) {
-      if (!packagedPaths.has(file.path)) {
-        const stalePath = path.join(skillDirectory, file.path);
-        yield* fs
-          .remove(stalePath, { recursive: true })
-          .pipe(Effect.mapError((error) => writeError("remove", stalePath, error.message)));
-      }
-    }
 
     for (const file of skill.files) {
       const filePath = path.join(skillDirectory, file.path);
@@ -493,13 +368,56 @@ const applySkill = (
       .pipe(Effect.mapError((error) => writeError("write-file", markerPath, error.message)));
   });
 
+const preflightSkill = (plan: SetupPlan): Effect.Effect<SkillDecision, SetupError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    if (plan.skill.tag === "skip") {
+      return plan.skill;
+    }
+
+    const current = yield* inspectSkill(plan.workingDirectory);
+    if (plan.skill.tag === "install") {
+      if (current.tag === "absent") {
+        return plan.skill;
+      }
+      const changedPath =
+        current.tag === "owned"
+          ? current.home.path
+          : current.tag === "unowned"
+            ? current.skillDirectory
+            : current.markerPath;
+      return yield* Effect.fail(refusal("changed-after-plan", [changedPath]));
+    }
+
+    switch (current.tag) {
+      case "absent":
+        return yield* Effect.fail(refusal("changed-after-plan", [path.join(current.home.path, SKILL_DIRECTORY)]));
+      case "unowned":
+        return yield* Effect.fail(refusal("unowned-collision", [current.skillDirectory]));
+      case "malformed":
+        return yield* Effect.fail(refusal("malformed-marker", [current.markerPath]));
+      case "owned": {
+        const installed = yield* readSkillTree(path.join(current.home.path, SKILL_DIRECTORY));
+        if (
+          current.marker.digest !== plan.skill.expectedDigest ||
+          installed.hasNonFile ||
+          digestSkillTree(installed.files) !== current.marker.digest
+        ) {
+          return { tag: "skip", home: current.home };
+        }
+        return plan.skill;
+      }
+    }
+  });
+
 export const applySetup = (
-  plan: ResolvedSetupPlan,
+  plan: SetupPlan,
   skill: PackagedSkill,
 ): Effect.Effect<SetupOutcome, SetupError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    let skillDecision = yield* preflightSkill(plan);
     let trackerCreated = false;
     if (plan.tracker === "create") {
       for (const directory of TRACKER_DIRECTORIES) {
@@ -510,14 +428,22 @@ export const applySetup = (
       }
       trackerCreated = true;
     }
-    switch (plan.skill.tag) {
+    if (skillDecision.tag !== "skip") {
+      skillDecision = yield* preflightSkill({ ...plan, skill: skillDecision });
+    }
+    switch (skillDecision.tag) {
       case "install":
-        yield* applySkill(plan.skill.home, skill);
-        return { tag: "installed", home: plan.skill.home, trackerCreated };
-      case "update":
-        yield* applySkill(plan.skill.home, skill);
-        return { tag: "updated", home: plan.skill.home };
+        yield* writeSkill(skillDecision.home, skill);
+        return { tag: "installed", home: skillDecision.home, trackerCreated };
+      case "update": {
+        const skillDirectory = path.join(skillDecision.home.path, SKILL_DIRECTORY);
+        yield* fs
+          .remove(skillDirectory, { recursive: true })
+          .pipe(Effect.mapError((error) => writeError("remove", skillDirectory, error.message)));
+        yield* writeSkill(skillDecision.home, skill);
+        return { tag: "updated", home: skillDecision.home };
+      }
       case "skip":
-        return { tag: "skipped", home: plan.skill.home };
+        return { tag: "skipped", home: skillDecision.home };
     }
   });

@@ -1,7 +1,7 @@
 # Setup and the shipped skill
 
-Adopting bearing in a repository, and getting the method along with the tool. This is the only command that may
-be interactive; later runs update the installation.
+Adopting bearing in a repository, and getting the method along with the tool. Setup is non-interactive; later
+runs update the installation.
 
 ## What you can expect
 
@@ -10,9 +10,9 @@ be interactive; later runs update the installation.
 - **There is no configuration.** Every tracker command walks upward from its current directory and uses the
   nearest `.bearing/`. A symbolic link or malformed tracker at the nearest path is an error, never a reason to
   skip to another ancestor.
-- **The skill has one repository-local home.** Bearing recognizes `.agents/skills` and `.claude/skills`, resolves
-  symlink aliases to one physical destination, uses the sole existing convention, and defaults to `.agents` when
-  neither exists. First-time setup asks for one when both exist at distinct locations.
+- **The skill has one repository-local home.** Bearing installs `bearing-wayfinder` at the literal path
+  `.agents/skills/bearing-wayfinder`. It ignores `.claude/skills` and refuses symbolic links rather than following
+  them.
 - **The installed skill carries bearing's ownership marker.** A re-run keeps using that location even if the
   repository later gains the other convention. A same-named skill bearing does not own is a collision, not
   something setup adopts or overwrites.
@@ -32,11 +32,12 @@ be interactive; later runs update the installation.
 
 ## Where it stands
 
-**Partial.** `bearing init` creates the tracker and installs the packaged skill, re-running against an untouched
-installation updates it and rewrites the ownership marker, and an edited installation is preserved byte-for-byte
-with a successful skipped-update result. Ticket listing walks upward from its current directory, uses the nearest
-`.bearing/`, and refuses a malformed tracker or collision there without searching farther. Completion and the
-first release path remain settled, not built.
+**Partial.** `bearing init` creates the tracker and installs the packaged stub at its fixed physical path,
+re-running against an untouched installation updates it and rewrites the ownership marker, and an edited
+installation is preserved byte-for-byte with a successful skipped-update result. Ticket listing walks upward
+from its current directory, uses the nearest `.bearing/`, and refuses a malformed tracker or collision there
+without searching farther. The final skill contents, completion, and the first release path remain settled, not
+built.
 
 ## Acceptance criteria
 
@@ -60,6 +61,6 @@ first is a dependency that does not exist, the second is a grep over what ships.
 - [`.bearing/` is fixed and discovered upward (ADR 0028)](../adr/0028-dot-bearing-is-fixed-and-discovered-upward.md)
   — where setup creates the tracker and how every other command finds it.
 - [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
-  why setup is still the one command allowed to prompt.
+  why setup applies directly without prompting.
 - [The confirmation flag is undocumented on purpose (ADR 0016)](../adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)
   — the constraint the skill's text has to respect, enforced in CI.
