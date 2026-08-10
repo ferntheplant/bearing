@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vite-plus";
 
+import { packagedSkillPlugin } from "./apps/cli/scripts/packaged-skill-plugin.ts";
+
 const IGNORE_PATTERNS = ["**/*.gen.ts", "**/dist/**", "**/build/**", "**/coverage/**", ".tanstack/**", ".wrangler/**"];
 
 export default defineConfig({
@@ -11,6 +13,7 @@ export default defineConfig({
       "@bearing/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
     },
   },
+  plugins: [packagedSkillPlugin(fileURLToPath(new URL("./skills/wayfinder", import.meta.url)))],
   logLevel: "error",
   staged: {
     "*": "vp check --fix",
@@ -76,11 +79,24 @@ export default defineConfig({
               group: ["../**/*"],
               message: "Use absolute imports (unless import is sibling)",
             },
+            {
+              group: ["effect/unstable/cli"],
+              importNames: ["Prompt"],
+              message: "The prompt module may be imported by the setup command and nowhere else (ADR 0022)",
+            },
           ],
         },
       ],
       "typescript/no-floating-promises": "error",
     },
+    overrides: [
+      {
+        files: ["apps/cli/src/setup.ts"],
+        rules: {
+          "eslint/no-restricted-imports": "off",
+        },
+      },
+    ],
     env: {
       builtin: true,
     },

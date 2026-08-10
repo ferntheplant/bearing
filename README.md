@@ -5,10 +5,12 @@ the route to the destination is not yet visible.
 
 The name is the method. You take a bearing, walk it, and take another when the view changes.
 
-**The read path is partially built.** `packages/core` discovers the nearest tracker, acquires all three tracker
-directories without discarding malformed documents, and projects valid tickets for `apps/cli` to render or emit
-as `--json` ([Core returns values (ADR 0019)](./docs/adr/0019-core-returns-values-only-the-cli-renders.md) is what
-keeps the two apart). Derived map, fog, trail, and integrity analysis remains designed, not built.
+**The read path and setup are partially built.** `packages/core` discovers the nearest tracker, acquires all
+three tracker directories without discarding malformed documents, and projects valid tickets for `apps/cli` to
+render or emit as `--json` ([Core returns values (ADR 0019)](./docs/adr/0019-core-returns-values-only-the-cli-renders.md)
+is what keeps the two apart). `bearing init` creates the tracker and installs the wayfinder skill from the
+packaged `skills/` tree, updating it on re-run while an edited installation is preserved. Derived map, fog,
+trail, and integrity analysis remains designed, not built.
 
 ## What it is
 

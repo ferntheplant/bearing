@@ -32,9 +32,11 @@ be interactive; later runs update the installation.
 
 ## Where it stands
 
-**Partial.** Ticket listing walks upward from its current directory, uses the nearest `.bearing/`, and refuses a
-malformed tracker or collision there without searching farther. Setup, managed skill installation, completion,
-and the first release path remain settled, not built.
+**Partial.** `bearing init` creates the tracker and installs the packaged skill, re-running against an untouched
+installation updates it and rewrites the ownership marker, and an edited installation is preserved byte-for-byte
+with a successful skipped-update result. Ticket listing walks upward from its current directory, uses the nearest
+`.bearing/`, and refuses a malformed tracker or collision there without searching farther. Completion and the
+first release path remain settled, not built.
 
 ## Acceptance criteria
 
