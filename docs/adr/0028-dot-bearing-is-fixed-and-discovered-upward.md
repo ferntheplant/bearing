@@ -5,10 +5,17 @@ directory and walks upward, using the nearest `.bearing/` it finds. If none exis
 does not have a tracker structure bearing can parse, it reports that failure and stops rather than skipping to a
 farther ancestor.
 
-This replaces [`.bearing/` is the default tracker directory (ADR 0026)](./0026-dot-bearing-is-the-default-tracker-directory.md).
-A configurable default bought flexibility for a case the MVP does not have while creating a configuration file,
-a command to manage it, and a root-discovery problem. The fixed tool-named directory is recognizable, works
-without git, and lets nested invocations find their tracker with one deterministic rule.
+A configurable path was the first answer, and it bought flexibility for a case the MVP does not have while
+creating a configuration file, a command to manage it, and a root-discovery problem. The fixed tool-named
+directory is recognizable, works without git, and lets nested invocations find their tracker with one
+deterministic rule.
+
+## Considered options
+
+`tracker/` and other generic root names were rejected for claiming a name the repository may want for itself,
+and the ancestor's `.scratch/` for being collision-prone. Naming the directory after the tool is what makes it
+recognizable on sight; keeping it hidden is the smaller cost, since the tracker is reached through bearing,
+through the repository's own documentation, and through agent tooling rather than by browsing the root.
 
 ## Consequences
 

@@ -14,10 +14,11 @@ be interactive; later runs update the installation.
   modification and skips, or writes alongside.
 - **The skill is versioned with the CLI**, shipped in the same package. A skill that shipped separately would
   eventually teach a command surface that no longer exists.
-- **The skill covers both modes**: charting a map from a loose idea, and walking one a ticket at a time.
-- **Its centre is the graduation step** — resolving one design ticket typically yields a short ordered run of
-  build tickets, with blockers wired in one pass and done-when written as an assertion someone could check
-  rather than an intention.
+- **The skill covers both phases**: the mapping pass that turns accumulated fog into a batch of tickets, and the
+  walk that works the batch until the map is fogbound again.
+- **Its centre is the mapping pass** — every patch leaves as a ticket, as a decision landed on the spot, or as
+  fog carrying the reason it survived, with blockers wired in a second sweep and done-when written as an
+  assertion someone could check rather than an intention.
 - **It hands off rather than half-doing the next step.** The skill's job ends at a ticket someone could pick up.
   Turning that into the repo's own execution contract is the repo's job, with the repo's own format.
 - **`bearing completion <shell>`** generates shell completions.
@@ -30,11 +31,11 @@ installation mechanics remain the two active design tickets for this capability.
 ## Acceptance criteria
 
 Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **1** (setup creates the tracker and installs the skill),
-**2** (re-running does not discard a local edit), **28** (upward discovery, no subprocesses, and commands work
-outside a git repository) and **29** (direct mutations apply immediately and nothing shipped names the flag that
+**2** (re-running does not discard a local edit), **27** (upward discovery, no subprocesses, and commands work
+outside a git repository) and **28** (direct mutations apply immediately and nothing shipped names the flag that
 applies a design close).
 
-Criteria 28 and 29 are properties of the whole binary rather than of setup specifically. They sit here because
+Criteria 27 and 28 are properties of the whole binary rather than of setup specifically. They sit here because
 this is the capability that puts bearing into a repository, and because both are checked by the packaging: the
 first is a dependency that does not exist, the second is a grep over what ships.
 

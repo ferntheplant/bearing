@@ -115,14 +115,34 @@ Fog that cannot be attached to any destination yet, and so waits in the backlog 
 in the backlog" is a real verdict, not a failure to triage.
 
 **graduation**:
-A patch of fog becoming a ticket, once the question inside it can be stated precisely. The step most often
-skipped, which is why closing a design ticket puts the patch it claimed to clear back on screen.
+A patch of fog becoming one or more tickets during a mapping pass. The pass consumes the patch, so a live ticket
+and a live patch never describe the same question.
+
+**fog-complete**:
+A map with no fog left and no design ticket naming it. It has stopped being a decisioning instrument and lives
+on for its trail until its last build ticket closes.
+
+**fogbound**:
+A map with fog left and no design ticket naming it. It has run out of charted work while fog remains, and the
+only thing that advances it is a mapping pass.
+_Avoid_: blocked (that word names an edge in the ticket graph and nothing else), stuck, stalled.
 
 **out of scope**:
 A boundary the project declared up front. Distinct from a boundary discovered while walking, which is a trail
 row.
 
 ## Working
+
+**mapping pass**:
+A deliberate breadth-first pass over every patch a map holds, in which each patch leaves as one or more tickets,
+as a decision landed on the spot, or as fog that survives carrying the reason it survived. The first one charts
+the map; every later one is the same operation.
+_Avoid_: planning, grooming, refinement, remapping (there is no separate later kind).
+
+**walking**:
+Working the batch a mapping pass produced. Fog discovered while walking is written down and deliberately left
+unsorted until the next pass.
+_Avoid_: execution, delivery, sprint.
 
 **triage**:
 Giving a backlog item the cheapest home that fits: delete it, ticket it, attach it to a project, start a
@@ -148,8 +168,7 @@ the backlog. Nothing stores it; every run computes it.
 _Avoid_: queue, sprint, next-up list, roadmap.
 
 **gate count**:
-How many tickets a ticket transitively unblocks, plus, for a design ticket, how many patches of fog it claims to
-clear. It is derived, and it is the only ranking bearing has.
+How many tickets a ticket transitively unblocks. It is derived, and it is the only ranking bearing has.
 _Avoid_: priority, severity, points, weight.
 
 **dry run**:
@@ -164,5 +183,6 @@ spec is what canonicalizes it.
 _Avoid_: using "spec" for a build ticket, or "ticket" for a spec.
 
 **wayfinder**:
-The method for working a fog of war — charting a map from a loose idea, and walking one a ticket at a time.
-Bearing ships it as a skill and installs it into the repo it is tracking.
+The method for working a fog of war — charting a map from a loose idea, then alternating mapping passes and
+walks until the destination is reached. Bearing ships it as a skill and installs it into the repo it is
+tracking.

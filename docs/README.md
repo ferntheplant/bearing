@@ -42,10 +42,10 @@ one to the other.
 Cite an ADR by **name and number, name first**:
 
 ```md
-[Fog links are advisory (ADR 0011)](../adr/0011-fog-links-are-advisory-not-referential.md)
+[The trail is append-only (ADR 0010)](../adr/0010-the-trail-is-append-only-and-a-row-is-a-pointer.md)
 ```
 
-The name is what reads at a glance; the number is what a file search finds. A bare `ADR 0011` is not a citation.
+The name is what reads at a glance; the number is what a file search finds. A bare `ADR 0010` is not a citation.
 Paths are relative to the citing file — the example above is written as it would appear from a capability file,
 which is where most citations live.
 

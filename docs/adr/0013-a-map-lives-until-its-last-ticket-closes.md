@@ -25,6 +25,10 @@ pointer a builder follows from a ticket to the reasoning behind it.
 A fog-complete map goes quiet before it goes away — it drops out of the decision frontier while its build
 tickets are still running.
 
+The opposite state, fog remaining with no open design ticket, is **fogbound**, and it is reported rather than
+silent — see [A fogbound map is reported (ADR 0034)](./0034-a-fogbound-map-is-reported.md). Between them the two
+name every combination of fog and open decisions a map can be in.
+
 **There is no durable home for a closed map.** No archive directory, no export on the way out. By the time a map
 can close, every trail row already points at an artifact that outlives it, so the map's copy is a duplicate of
 pointers. Keeping it would give the repo a second place where decisions appear to live, which is

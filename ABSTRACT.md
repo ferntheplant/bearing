@@ -94,8 +94,8 @@ Maps are hand-edited. The tool validates.
 
 ### 3.6 A map is a decisioning instrument
 
-It tracks the fog between here and the destination and points at the decisions that clear it. It charts design
-tickets only.
+It tracks the fog between here and the destination and the trail of what has been settled. Only questions are
+charted as fog; the tickets a mapping pass produces from them may be of either type.
 
 ### 3.7 Bearing stops at the repo's edge
 
@@ -120,10 +120,9 @@ The MVP must:
 - create, list, show, and retitle tickets of both types, with their Markdown edited directly;
 - resolve blocking by id across projects, treating a blocker that no longer exists as satisfied;
 - parse a hand-written map for its fog patches and its trail, and never write one;
-- match a design ticket's declared fog against the map's patches, warning rather than failing on a miss;
-- detect a drifted fog anchor, name the closest heading, and print the command that repoints it;
-- derive the frontier on every run — ready build work, ready decisions grouped by project, backlog size;
-- rank by transitive gate count, plus fog cleared for design tickets, and by nothing else;
+- derive the frontier on every run — ready build work, ready decisions grouped by project, backlog size, and any
+  map left fogbound;
+- rank by transitive gate count and by nothing else;
 - close a build ticket by deleting it and stripping its id from every blocker list;
 - close a design ticket only against a trail row with a non-empty outcome, showing that row verbatim first;
 - make only design-ticket closing a dry run that a re-run applies, with every other mutation applying directly;
@@ -199,8 +198,7 @@ bearing close <id>                         # asymmetric by type    (alias: done)
 bearing close --map <project>              # refuses while any ticket names it
 bearing rm <id>                            # delete without closing (alias: delete)
 bearing triage <id> --to <project> | --ticket | --drop
-bearing fog [<project>]                    # patches, and which tickets are chasing each
-bearing fog --repoint <id> <patch>         # fix a drifted fog link
+bearing fog [<project>]                    # the patches on a map
 bearing check                              # integrity pass
 bearing init                               # create .bearing + install the skill
 bearing completion <shell>
@@ -246,32 +244,33 @@ one.
 11. An unambiguous id prefix resolves everywhere an id is accepted; an ambiguous one errors and names the
     candidates.
 12. A map holding a destination and a single fog patch validates as a project.
-13. `bearing fog` lists each patch with the tickets chasing it.
-14. Rewording a fog heading produces a warning naming the closest current heading and the exact repoint command.
-15. `bearing fog --repoint` edits the ticket's frontmatter and leaves the map byte-for-byte unchanged.
-16. `bearing next` prints BUILD, DECIDE, and TRIAGE, with BUILD above DECIDE and TRIAGE showing a count.
-17. A ticket with an unsatisfied blocker is absent from BUILD; deleting the blocker makes it present with no
+13. `bearing fog` lists every patch on a map, and rewording a patch's heading changes nothing but the text it
+    prints.
+14. `bearing next` prints BUILD, DECIDE, and TRIAGE, with BUILD above DECIDE and TRIAGE showing a count.
+15. A ticket with an unsatisfied blocker is absent from BUILD; deleting the blocker makes it present with no
     other edit.
-18. Between two design tickets with equal gate counts, the one clearing more fog ranks higher; a fog-complete
-    map is absent from DECIDE while its build tickets remain open.
-19. Every read command accepts `--json` and emits the values it rendered.
-20. `bearing next` completes in under 50ms wall on a tracker of a few dozen items.
-21. `bearing close <id>` on a design ticket prints the trail row verbatim, the fog patches it claimed, the file
-    it would delete, and the tickets it would unblock — and changes nothing.
-22. Re-running that close deletes the file and strips the id from every blocker list.
-23. Closing a design ticket refuses when its map has no trail row for the id, or when that row's outcome is
+16. Between two ready tickets, the one that transitively unblocks more ranks higher; a fog-complete map is
+    absent from DECIDE while its build tickets remain open.
+17. Every read command accepts `--json` and emits the values it rendered.
+18. `bearing next` completes in under 50ms wall on a tracker of a few dozen items.
+19. A map with fog and no open design tickets is reported as fogbound, including when BUILD and DECIDE are both
     empty.
-24. Closing a build ticket deletes it on the first invocation without inspecting the working tree, the commit,
+20. `bearing close <id>` on a design ticket prints the trail row verbatim, the file it would delete, and the
+    tickets it would unblock — and changes nothing.
+21. Re-running that close deletes the file and strips the id from every blocker list.
+22. Closing a design ticket refuses when its map has no trail row for the id, or when that row's outcome is
+    empty.
+23. Closing a build ticket deletes it on the first invocation without inspecting the working tree, the commit,
     or the map.
-25. `bearing close --map <project>` refuses while any ticket names the map, and otherwise deletes the file on
+24. `bearing close --map <project>` refuses while any ticket names the map, and otherwise deletes the file on
     the first invocation.
-26. `bearing check` reports every parse failure and every integrity error class — dangling blocker, dangling
-    project, design ticket with no project, unknown type, duplicate id — and every warning class — dangling fog
-    link, trail row for a ticket that still exists.
-27. Every `bearing check` warning prints the exact command that resolves it, and there is no bulk-fix flag.
-28. Starting in any nested directory, every tracker command finds the nearest ancestor's `.bearing/` without
+25. `bearing check` reports every parse failure and every integrity error class — dangling blocker, dangling
+    project, design ticket with no project, unknown type, duplicate id — and the one warning class, a trail row
+    for a ticket that still exists.
+26. That warning prints the exact command that resolves it, and there is no bulk-fix flag.
+27. Starting in any nested directory, every tracker command finds the nearest ancestor's `.bearing/` without
     git; no command spawns a subprocess, and a missing or malformed nearest tracker fails loudly.
-29. Every mutation except design-ticket closing applies on its first invocation, and no shipped artifact — help
+28. Every mutation except design-ticket closing applies on its first invocation, and no shipped artifact — help
     output, skill text, error message — names the flag that applies a design close.
 
 ## 9. Decision summary
@@ -281,21 +280,25 @@ The design commits to:
 - **Closing is deletion**, and the tracker holds only what is not yet canonicalized
   ([ADR 0001](./docs/adr/0001-the-tracker-holds-only-what-is-not-yet-canonicalized.md),
   [ADR 0002](./docs/adr/0002-nothing-outside-the-tracker-links-into-it.md)).
-- **Everything derivable is derived** — the frontier, readiness, and ranking
+- **Everything derivable is derived** — the frontier, readiness, ranking, and whether a map is fogbound
   ([ADR 0003](./docs/adr/0003-the-frontier-is-derived-never-stored.md),
-  [ADR 0004](./docs/adr/0004-ranking-is-derived-from-the-blocking-graph-and-fog.md)).
+  [ADR 0004](./docs/adr/0004-ranking-is-derived-from-the-blocking-graph.md),
+  [ADR 0034](./docs/adr/0034-a-fogbound-map-is-reported.md)).
 - **Three flat directories, and a project is a map file**, with identity living only in the filename
   ([ADR 0005](./docs/adr/0005-three-flat-directories-and-a-project-is-a-map-file.md),
   [ADR 0006](./docs/adr/0006-the-filename-is-the-only-place-an-id-appears.md)).
 - **Two ticket types and no status field**, discriminated by how they close
   ([ADR 0007](./docs/adr/0007-two-ticket-types-discriminated-by-how-they-close.md),
   [ADR 0008](./docs/adr/0008-backlog-items-carry-no-frontmatter.md)).
-- **Maps are hand-written and machine-checked**, with advisory fog links and drift that is named rather than
-  repaired ([ADR 0009](./docs/adr/0009-bearing-reads-maps-and-never-writes-them.md),
+- **Maps are hand-written and machine-checked**, and nothing in the tracker points at a patch of fog
+  ([ADR 0009](./docs/adr/0009-bearing-reads-maps-and-never-writes-them.md),
   [ADR 0010](./docs/adr/0010-the-trail-is-append-only-and-a-row-is-a-pointer.md),
-  [ADR 0011](./docs/adr/0011-fog-links-are-advisory-not-referential.md),
-  [ADR 0012](./docs/adr/0012-anchor-drift-is-detected-and-named-never-repaired.md),
-  [ADR 0013](./docs/adr/0013-a-map-lives-until-its-last-ticket-closes.md)).
+  [ADR 0013](./docs/adr/0013-a-map-lives-until-its-last-ticket-closes.md),
+  [ADR 0033](./docs/adr/0033-nothing-points-at-a-fog-patch.md)).
+- **Mapping and walking alternate**, a patch leaving a pass as a ticket, as a decision landed on the spot, or as
+  fog carrying the reason it survived, with nothing structured written before the thing it records is finished
+  ([ADR 0031](./docs/adr/0031-mapping-and-walking-alternate.md),
+  [ADR 0032](./docs/adr/0032-structure-in-the-map-is-written-only-at-completion.md)).
 - **Bearing stops at the repo's edge**, with no configuration and the nearest ancestor's `.bearing/` as the
   fixed tracker
   ([ADR 0014](./docs/adr/0014-bearing-stops-at-the-repos-edge.md),
@@ -317,8 +320,8 @@ The design commits to:
   [ADR 0027](./docs/adr/0027-core-exposes-operations-not-tracker-internals.md)).
 - **Bearing installs its own skill**, versioned with the binary
   ([ADR 0023](./docs/adr/0023-bearing-installs-its-own-skill.md)).
-- **Four frontmatter fields, and the body is prose**, with the id and slug rules that
+- **Three frontmatter fields, and the body is prose**, with the id and slug rules that
   [ADR 0006](./docs/adr/0006-the-filename-is-the-only-place-an-id-appears.md) assumes
-  ([ADR 0024](./docs/adr/0024-four-frontmatter-fields-and-the-body-is-prose.md)).
+  ([ADR 0024](./docs/adr/0024-three-frontmatter-fields-and-the-body-is-prose.md)).
 - **Tracker files are edited directly**, with bearing owning retitles because filenames carry identity
   ([ADR 0030](./docs/adr/0030-tracker-files-are-edited-directly.md)).
