@@ -19,8 +19,8 @@ demoability is an aspiration for the last slice rather than a rule for every one
 
 ## Consequences
 
-Re-running setup must not clobber a locally edited skill; users edit installed skills, so an update either skips
-or writes alongside.
+How setup chooses one skill home and updates it without clobbering local edits is settled in
+[One owned skill installation, updated only while untouched (ADR 0036)](./0036-one-owned-skill-installation-updated-only-while-untouched.md).
 
 Two constraints the skill inherits from elsewhere: it stops at a ticket someone could pick up and hands off
 rather than half-writing a spec
