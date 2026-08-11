@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -276,6 +276,98 @@ describe("main", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Console.clear");
+  });
+});
+
+describe("backlog", () => {
+  it("captures a backlog item by writing a heading-only file with no frontmatter", async () => {
+    const root = join(fixtureRoot, "backlog-capture");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["backlog", "Capture a new item"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const files = await readdir(join(root, ".bearing", "backlog"));
+    expect(files).toHaveLength(1);
+    const filename = files[0] ?? "";
+    expect(filename).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{6}-capture-a-new-item\.md$/);
+    const source = await readFile(join(root, ".bearing", "backlog", filename), "utf8");
+    expect(source).toBe("# Capture a new item\n");
+    expect(source.startsWith("---")).toBe(false);
+  });
+
+  it("captures into the nearest ancestor's tracker from a nested directory", async () => {
+    const root = join(fixtureRoot, "backlog-nested");
+    const cwd = join(root, "deep", "down");
+    await createTracker(root);
+    await mkdir(cwd, { recursive: true });
+    const result = await captureRun(({ stdout, stderr }) => main(["backlog", "Nested capture"], stdout, stderr, cwd));
+
+    expect(result.exitCode).toBe(0);
+    const files = await readdir(join(root, ".bearing", "backlog"));
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/nested-capture\.md$/);
+  });
+
+  it("lists the backlog when called bare", async () => {
+    const root = join(fixtureRoot, "backlog-list");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["backlog"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("c1d2e3  captured\n");
+  });
+
+  it("emits the backlog values as JSON with --json", async () => {
+    const root = join(fixtureRoot, "backlog-json");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["backlog", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual([{ id: "c1d2e3", slug: "captured" }]);
+  });
+
+  it("emits the captured item's values as JSON with --json", async () => {
+    const root = join(fixtureRoot, "backlog-capture-json");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["backlog", "Json capture", "--json"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const parsed = JSON.parse(result.stdout) as { id: string; slug: string; path: string };
+    expect(parsed.slug).toBe("json-capture");
+    expect(parsed.id).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{6}$/);
+    expect(parsed.path).toContain(".bearing/backlog/");
+  });
+
+  it("round-trips a captured item through list and show", async () => {
+    const root = join(fixtureRoot, "backlog-roundtrip");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) => main(["backlog", "Round trip item"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    const filename = (await readdir(join(root, ".bearing", "backlog")))[0] ?? "";
+    const id = filename.slice(0, 6);
+    const listed = await captureRun(({ stdout, stderr }) => main(["backlog"], stdout, stderr, root));
+    expect(listed.stdout).toBe(`${id}  round trip item\n`);
+    const shown = await captureRun(({ stdout, stderr }) => main(["show", id], stdout, stderr, root));
+    expect(shown.stdout).toBe("# Round trip item\n");
+  });
+
+  it("refuses a malformed tracker when capturing", async () => {
+    const root = join(fixtureRoot, "backlog-malformed");
+    await createTracker(root, { "bad.md": "no frontmatter\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["backlog", "Item"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: malformed tracker:");
   });
 });
 

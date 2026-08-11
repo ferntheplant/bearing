@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-import { listTickets, showItem } from "@bearing/core";
+import { applyCapture, listBacklog, listTickets, planCapture, showItem } from "@bearing/core";
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { Cause, Console, Effect, Exit, Layer, Sink, Stdio, Stream, Terminal } from "effect";
+import { Cause, Console, Effect, Exit, Layer, Option, Sink, Stdio, Stream, Terminal } from "effect";
 import { Argument, CliConfig, CliError, CliOutput, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import { renderJson, renderSetupOutcome, renderShow, renderText } from "./render.ts";
+import { renderBacklogList, renderCapture, renderJson, renderSetupOutcome, renderShow, renderText } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
 import { BEARING_VERSION } from "./version.ts";
 
@@ -126,13 +126,32 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("Show a ticket or backlog item by id or id prefix"));
 
+  const backlog = Command.make(
+    "backlog",
+    { title: Argument.optional(Argument.string("title")), json: Flag.boolean("json") },
+    (config) =>
+      Effect.gen(function* () {
+        const title = Option.getOrUndefined(config.title);
+        if (title === undefined) {
+          const items = yield* listBacklog(cwd);
+          const rendered = config.json ? renderJson(items) : renderBacklogList(items);
+          yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+          return;
+        }
+        const plan = yield* planCapture(cwd, title);
+        const result = yield* applyCapture(plan);
+        const rendered = config.json ? renderJson(result) : renderCapture(result);
+        yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+      }),
+  ).pipe(Command.withDescription("Capture a backlog item, or list the backlog when called bare"));
+
   return Command.make("bearing", { json: Flag.boolean("json") }, (config) =>
     Effect.gen(function* () {
       const tickets = yield* listTickets(cwd);
       const rendered = config.json ? renderJson(tickets) : renderText(tickets);
       yield* Effect.sync(() => stdout.write(`${rendered}\n`));
     }),
-  ).pipe(Command.withSubcommands([init, show]), Command.withDescription("List the tracker's tickets"));
+  ).pipe(Command.withSubcommands([init, show, backlog]), Command.withDescription("List the tracker's tickets"));
 };
 
 const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {

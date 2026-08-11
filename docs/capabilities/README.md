@@ -10,7 +10,7 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 
 | #   | Capability                                                 | Stands at |
 | --- | ---------------------------------------------------------- | --------- |
-| 1   | [Capture](./01-capture.md)                                 | Designed  |
+| 1   | [Capture](./01-capture.md)                                 | Built     |
 | 2   | [Triage](./02-triage.md)                                   | Designed  |
 | 3   | [Tickets](./03-tickets.md)                                 | Partial   |
 | 4   | [Maps and fog](./04-maps-and-fog.md)                       | Partial   |
@@ -19,10 +19,12 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 | 7   | [Integrity](./07-integrity.md)                             | Partial   |
 | 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Partial   |
 
-**Tickets, maps and fog, integrity, and setup are Partial; the other capabilities are Designed.** The read path
-now discovers the nearest tracker, acquires all three directories without discarding malformed documents, and
-projects valid tickets for text or `--json`. Id-prefix resolution across the whole tracker is built and backs
-`bearing show`. Derived map, fog, trail, and integrity analysis is still to come.
+**Capture is Built; tickets, maps and fog, integrity, and setup are Partial; the other capabilities are
+Designed.** The read path discovers the nearest tracker, acquires all three directories without discarding
+malformed documents, and projects valid tickets and backlog items for text or `--json`. Id-prefix resolution
+across the whole tracker backs `bearing show`, and `bearing backlog "..."` plans and applies a capture in one
+invocation, minting an id against the ids already on disk. Derived map, fog, trail, and integrity analysis is
+still to come.
 
 ## A note on command names
 
