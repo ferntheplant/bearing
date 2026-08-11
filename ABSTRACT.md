@@ -6,7 +6,7 @@
 
 **Runtime:** Bun, one bundled entry point
 
-**Distribution:** One published package exposing a `bearing` binary
+**Distribution:** One package exposing a `bearing` binary — linked from a clone today, published later
 
 **Storage:** Markdown files in the repository being worked on, committed alongside the work
 
@@ -212,7 +212,8 @@ ambiguous to save a flag on the rare one.
 **The read path first, end to end.** Ids, the store, map parsing, and listing — enough to point at a real
 tracker and get output, with the seam exercised before there is anything to unpick. The frontier follows once
 the graph and ranking exist. Mutations come last, because they are the only part that can damage a tracker, and
-setup and publishing come after that.
+setup comes after that. Publishing is not in the order at all; see
+[Installation is a linked clone, and publishing is deferred (ADR 0038)](./docs/adr/0038-installation-is-a-linked-clone-and-publishing-is-deferred.md).
 
 That order is available because the ranking and integrity criteria — the ones most likely to be wrong on the
 first attempt — are reachable against a hand-written tracker and no mutation code at all.

@@ -5,6 +5,11 @@ runs update the installation.
 
 ## What you can expect
 
+- **You install bearing by linking a clone.** Clone the repository, build it, and run `bun link` in `apps/cli`;
+  that puts `bearing` on your `PATH`, usable from any directory. There is no package to install from a registry
+  and no release to download, so the checkout _is_ the installation — moving or deleting it breaks the command,
+  and rebuilding after a pull is what updates it. Unlinking removes it, leaving the clone alone. Bun is required
+  to install, not only to run, and the [README](../../README.md) carries the exact sequence.
 - **`bearing init` creates `.bearing/` and installs the skill**, in one gesture, in the directory where it runs.
   A repo that adopts bearing gets the method at the same moment as the tracker.
 - **There is no configuration.** Every tracker command walks upward from its current directory and uses the
@@ -43,8 +48,10 @@ re-running against an untouched installation updates it and rewrites the ownersh
 installation is preserved byte-for-byte with a successful skipped-update result. Ticket listing walks upward
 from its current directory, uses the nearest `.bearing/`, and refuses a malformed tracker or collision there
 without searching farther. What the skill's text must and must not carry is settled, but the text itself is
-unwritten — the file that ships and installs today is a stub that says so. Completion and the first release path
-remain settled, not built.
+unwritten — the file that ships and installs today is a stub that says so. Installation by linked clone runs
+today and is verified end to end: a linked `bearing` creates a tracker and installs the skill in a directory
+outside this repository, with no registry, npm, or Node involved. Completion remains settled, not built, and
+publishing is deliberately not a path at all.
 
 ## Acceptance criteria
 
@@ -59,6 +66,8 @@ first is a dependency that does not exist, the second is a grep over what ships.
 
 ## Decisions
 
+- [Installation is a linked clone, and publishing is deferred (ADR 0038)](../adr/0038-installation-is-a-linked-clone-and-publishing-is-deferred.md)
+  — how bearing gets onto a machine, and why nothing publishes yet.
 - [Bearing installs its own skill (ADR 0023)](../adr/0023-bearing-installs-its-own-skill.md) — why installation
   rather than a plugin, and what the method carries from each ancestor.
 - [The skill teaches method; the repo supplies the referents (ADR 0037)](../adr/0037-the-skill-teaches-method-and-the-repo-supplies-the-referents.md)

@@ -22,6 +22,38 @@ Work that is already specifiable is a **build ticket**. Work that is a question 
 belongs to a **map**: a destination, the fog between here and it, and the trail of what has already been
 settled. The frontier — what to do next — is derived on every run and stored nowhere.
 
+## Install
+
+Bearing is on no registry. You install it by linking a clone, which is a deliberate deferral rather than an
+oversight — [Installation is a linked clone, and publishing is deferred (ADR 0038)](./docs/adr/0038-installation-is-a-linked-clone-and-publishing-is-deferred.md)
+is why. It needs [Bun](https://bun.com) and [Vite+](https://viteplus.dev).
+
+```bash
+git clone https://github.com/ferntheplant/bearing.git
+cd bearing
+vp install
+vp run -r build
+cd apps/cli && bun link
+```
+
+That puts a `bearing` binary on your `PATH`, usable from anywhere:
+
+```bash
+cd ~/some/other/project
+bearing init   # create .bearing/ and install the bearing-wayfinder skill
+bearing        # list tickets
+```
+
+**The checkout is the installation**, so leave it where it is: the linked binary runs out of `apps/cli/dist` and
+resolves its dependencies from the clone's `node_modules`. Moving or deleting the clone breaks the command.
+Rebuilding is what updates it — the link survives, because it points at a path the build rewrites in place.
+
+```bash
+git pull && vp install && vp run -r build
+```
+
+To remove the binary, run `bun unlink` in `apps/cli`.
+
 ## Lineage
 
 It descends from bebop's local Markdown tracker and its `wayfinder` skill, which in turn descend from Matt

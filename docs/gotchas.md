@@ -88,6 +88,16 @@ package (last published 2026-08-08), which does not constrain the command at all
 an unscoped `bin`. Renaming the command to match a scope, or hunting for an available bare name, are both
 solving a problem that does not exist.
 
+**`npm` cannot run anywhere in this workspace, and that is the guard working.** The root
+`devEngines.packageManager` pins bun, so every npm command — `npm pack`, `npm whoami`, even
+`npm config get registry` — exits `EBADDEVENGINES` without doing anything. Verified 2026-08-10 on npm 10.9.8:
+the same package packs normally under npm from a directory outside the workspace root, so the failure belongs to
+the workspace rather than to the package. It is what stops a stray `npm install` from resolving a tree the bun
+lockfile does not describe, under [Bun only, no node fallback (ADR 0021)](./adr/0021-bun-only-no-node-fallback.md).
+Relaxing `devEngines` because some command needs npm is the tidying that reintroduces this — and the command
+that will eventually need it is `npm publish`, since `bun publish` implements no OIDC, so it has to run against a
+staged directory outside the workspace anyway.
+
 **A version check on startup is a network call on the hot path.** The reflex for a published CLI is an
 update-notifier at boot; here it adds DNS, offline, slow-proxy, and registry failure modes to a command invoked on
 every agent turn. The MVP emits no update notice from setup, the integrity pass, or ordinary commands. If that
