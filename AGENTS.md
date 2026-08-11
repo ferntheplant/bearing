@@ -8,8 +8,8 @@ don't know what that means.
 
 | If you need                                | Read                                         |
 | ------------------------------------------ | -------------------------------------------- |
-| What bearing is and what "done" looks like | [`ABSTRACT.md`](./ABSTRACT.md)               |
-| What bearing does for its user             | [`docs/capabilities/`](./docs/capabilities/) |
+| What bearing is and is not                 | [`ABSTRACT.md`](./ABSTRACT.md)               |
+| What bearing promises, and how far along   | [`docs/capabilities/`](./docs/capabilities/) |
 | What a word means                          | [`CONTEXT.md`](./CONTEXT.md)                 |
 | Why something is the way it is             | [`docs/adr/`](./docs/adr/)                   |
 | Why something that looks broken isn't      | [`docs/gotchas.md`](./docs/gotchas.md)       |
@@ -37,11 +37,13 @@ and **this file is the only doorway to it** — nothing else links in. Durable p
 
 The live map is `.bearing/maps/mvp.md`. Its destination is bearing maintaining this directory itself: **until
 the CLI exists, every structured edit here — ids, filenames, frontmatter, blocker lists, trail rows — is made by
-hand, and that is the experiment.** A hand-edit that feels clerical is evidence about which criterion in
-`ABSTRACT.md` §8 should remove it. Prose stays hand-written either way; that part never gets automated.
+hand, and that is the experiment.** A hand-edit that feels clerical is evidence about which capability should
+absorb it. Prose stays hand-written either way; that part never gets automated.
 
-Read the map's **Notes** before working a ticket on it. They say what counts as durable here, which is what
-decides when a design ticket is allowed to close.
+**Before working anything in there, read [`.bearing/README.md`](./.bearing/README.md).** It is the bridge back
+out: the five places an answer has to land before a design ticket may close, what to read before starting a
+ticket, and which skills to consult. It holds for every map here; a map's own **Notes** carry only what is true
+of that project.
 
 ## Vocabulary
 
@@ -78,8 +80,9 @@ Most of these have an ADR behind them. If a rule seems wrong, look for its ADR b
 ## Definition of done
 
 A change is done when its production path is reachable through a real entrypoint; success and expected failure
-are tested; the acceptance criteria in [`ABSTRACT.md`](./ABSTRACT.md) §8 are demonstrably closer to passing;
-`vp run ready` passes from a clean checkout; and the documentation is updated where implementation invalidated
+are tested; every **Done when** line on its ticket holds, and the capability it advances is demonstrably closer
+to standing at Built; `vp run ready` passes from a clean checkout; and the documentation is updated where
+implementation invalidated
 an assumption — a new decision means a new ADR, a new term means a `CONTEXT.md` entry, a changed promise means a
 capability edit, including its **Where it stands**.
 

@@ -23,11 +23,6 @@ starts with something captured here or with a commitment made directly.
 
 **Designed.** Nothing is built. The command shape, the no-frontmatter format, and the scoping test are settled.
 
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **3** (one command, an id, no frontmatter) and **4** (bare
-invocation lists the backlog).
-
 ## Decisions
 
 - [Backlog items carry no frontmatter (ADR 0008)](../adr/0008-backlog-items-carry-no-frontmatter.md) — why

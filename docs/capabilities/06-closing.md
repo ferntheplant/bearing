@@ -24,7 +24,11 @@ tracker is live.
 - **Closing a map applies immediately.** It refuses while any ticket still names it, and otherwise deletes the
   file on that invocation. Nothing is written out to a permanent home on the way — by then every trail row
   already points at something durable.
+- **Closing a map is a flag, not an argument.** Closing a ticket is the command anyone types a hundred times
+  more often, and resolving one argument as either an id or a map name would make the common case ambiguous to
+  save a flag on the rare one.
 - **`bearing rm` deletes without closing**, immediately, for the ticket that turned out not to be real.
+  `done` is an alias for `close`, and `delete` for `rm`.
 - **No prompts.** A design close's second look is a dry run and a re-run, which is a transcript rather than a
   question an agent cannot answer.
 - **Deleting the ticket inside the change that lands the work is deliberate.** A reviewer seeing the ticket
@@ -34,12 +38,6 @@ tracker is live.
 
 **Designed.** Nothing is built. The asymmetry between the two types, the hard gate and dry-run payload for a
 design close, and direct build and map closing are settled.
-
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **19** (the dry run shows the row verbatim and changes
-nothing), **20** (the re-run deletes and strips blockers), **21** (refusal on a missing or empty trail row),
-**22** (a build ticket closes with no inspection) and **23** (closing a map refuses while anything names it).
 
 ## Decisions
 

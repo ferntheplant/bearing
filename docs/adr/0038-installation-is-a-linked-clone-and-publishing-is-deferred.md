@@ -6,8 +6,8 @@ Bearing is installed by cloning this repository, building it, and running `bun l
 [One published package, and core stays private (ADR 0020)](./0020-one-published-package-and-core-stays-private.md)
 argued for; the bare name remains taken and remains irrelevant, since the binary name is independent of it.
 
-Publishing buys nothing the MVP is measured on: bearing has one user, and none of the 27 criteria in
-[`ABSTRACT.md`](../../ABSTRACT.md) §8 mention distribution. It is not free either, and the cost is concentrated
+Publishing buys nothing the MVP is measured on: bearing has one user, and no capability in
+[the catalogue](../capabilities/) promises distribution. It is not free either, and the cost is concentrated
 in one place — **the first release is the expensive one, and it cannot be automated.** `npm trust` requires the
 package to already exist on the registry, so trusted publishing cannot mint a package's initial version;
 [npm/cli#8544](https://github.com/npm/cli/issues/8544) is the open request to change that. The first publish is
@@ -26,7 +26,8 @@ already answered the runtime question: someone without Bun can install Bun.
 
 **A project devDependency**, pinning the CLI next to the skill it installed, was refused because it would
 require every adopting repository to have a `package.json`. Nothing says the repository bearing lands in is a
-JavaScript project — §8 criterion 26 says the opposite, that commands work outside a git repository at all — and
+JavaScript project — [Bearing never spawns a subprocess (ADR 0018)](./0018-bearing-never-spawns-a-subprocess.md)
+says the opposite, that commands work outside a repository at all — and
 [Bearing stops at the repo's edge (ADR 0014)](./0014-bearing-stops-at-the-repos-edge.md) is why bearing does not
 reach into the target's manifest to install itself.
 
