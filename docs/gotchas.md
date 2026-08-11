@@ -69,7 +69,7 @@ render `error: <message>` itself and map the exit status. Wrapping handler error
 "let the framework format them" is the tidying that reintroduces this, and it does so as `\nERROR\n` formatting
 that no test asserted, the day the first mutation lands.
 
-**`Effect.tryPromise` hides the original error.** The one-argument form wraps any rejection in a
+**`Effect.tryPromise`'s one-argument form hides the original error.** It wraps any rejection in a
 `Cause.UnknownError` whose message is "An error occurred in Effect.tryPromise", so a handler that fails with a
 domain error loses its `.message` entirely. The `{ try, catch: (error) => error }` object form preserves the
 original error as the failure. Trusting the single-argument form because setup "just returns a promise" is the
@@ -77,7 +77,9 @@ tidying that reintroduces this, and it shows up as a stderr line naming the wrap
 
 **The exit status is mapped by the caller, and the framework never sets one.** `Command.runWith` returns an
 effect; `Effect.exit` + `Cause.squash` turns its failure into the error value, and the CLI maps success to 0,
-`CliError.ShowHelp` (the framework already rendered it) to its `errors.length`, and every handler error to 1.
+`CliError.ShowHelp` (the framework already rendered it) to 0 when its error list is empty and 1 otherwise, and
+every handler error to 1.
+[Exit status is binary (ADR 0035)](./adr/0035-exit-status-is-binary.md) fixes that mapping at zero or one.
 `Cause.squash` returns `unknown` and prefers the first typed failure, falling back to the defect value, so the
 squashed value is not reliably `instanceof Error` for the handler path — the `error: <message>` rendering has to
 handle both. Reading the exit status from `process.exitCode` set by the framework is the tidying that
@@ -92,10 +94,11 @@ adding an explicit default subcommand, or adding the first subcommand without re
 answers bare invocation, is the tidying that reintroduces a second default command.
 
 **The framework's `CliConfig` ships built-in `--help`, `--version`, `--wizard`, and `--completions` flags.**
-Bearing wants `--help` and `--version`, and has its own `completion` ticket; the wizard flag is interactive and
-therefore prohibited. `CliConfig.layer({ builtIns: [GlobalFlag.Help, GlobalFlag.Version] })` pins the surface.
-Accepting the default built-ins because "they're just flags" is the tidying that reintroduces an interactive
-prompt via a flag nothing in this repository chose.
+Bearing enables only `--help` and has its own `completion` ticket; the wizard flag is interactive and therefore
+prohibited by [Effect's unstable CLI, pinned exactly and confined (ADR 0022)](./adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md).
+`CliConfig.layer({ builtIns: [GlobalFlag.Help] })` pins the surface. Accepting the default built-ins because
+"they're just flags" is the tidying that reintroduces an interactive prompt via a flag nothing in this
+repository chose.
 
 **`--json` is a `Flag.boolean`, and there is no bare positional flag.** A read command's `--json` is declared in
 its config as `Flag.boolean("json")`, and the handler receives `{ json: boolean }` rather than raw argv. Reaching

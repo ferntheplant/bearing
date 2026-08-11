@@ -14,32 +14,39 @@ interface Writer {
   write(text: string): unknown;
 }
 
-const makeConsole = (stdout: Writer, stderr: Writer): Console.Console => {
+export interface OutputWriters {
+  readonly stdout: Writer;
+  readonly stderr: Writer;
+}
+
+const makeConsole = ({ stdout, stderr }: OutputWriters): Console.Console => {
   const toStdout = (...args: ReadonlyArray<unknown>) => {
     stdout.write(args.map(String).join(" "));
   };
   const toStderr = (...args: ReadonlyArray<unknown>) => {
     stderr.write(args.map(String).join(" "));
   };
-  const noop = () => {};
+  const unsupportedConsoleMethod = (method: keyof Console.Console) => () => {
+    throw new Error(`bearing's CLI console does not support Console.${method}`);
+  };
   return {
-    assert: noop,
-    clear: noop,
-    count: noop,
-    countReset: noop,
+    assert: unsupportedConsoleMethod("assert"),
+    clear: unsupportedConsoleMethod("clear"),
+    count: unsupportedConsoleMethod("count"),
+    countReset: unsupportedConsoleMethod("countReset"),
     debug: toStdout,
-    dir: noop,
-    dirxml: noop,
+    dir: unsupportedConsoleMethod("dir"),
+    dirxml: unsupportedConsoleMethod("dirxml"),
     error: toStderr,
-    group: noop,
-    groupCollapsed: noop,
-    groupEnd: noop,
+    group: unsupportedConsoleMethod("group"),
+    groupCollapsed: unsupportedConsoleMethod("groupCollapsed"),
+    groupEnd: unsupportedConsoleMethod("groupEnd"),
     info: toStdout,
     log: toStdout,
-    table: noop,
-    time: noop,
-    timeEnd: noop,
-    timeLog: noop,
+    table: unsupportedConsoleMethod("table"),
+    time: unsupportedConsoleMethod("time"),
+    timeEnd: unsupportedConsoleMethod("timeEnd"),
+    timeLog: unsupportedConsoleMethod("timeLog"),
     trace: toStdout,
     warn: toStderr,
   };
@@ -65,13 +72,13 @@ const dieStdio = Stdio.make({
 
 const dieSpawner = ChildProcessSpawner.make(() => die("bearing never spawns a subprocess"));
 
-const buildLayer = (stdout: Writer, stderr: Writer) =>
+const buildLayer = (output: OutputWriters) =>
   Layer.mergeAll(
     BunFileSystem.layer,
     BunPath.layer,
-    Layer.succeed(Console.Console, makeConsole(stdout, stderr)),
+    Layer.succeed(Console.Console, makeConsole(output)),
     CliOutput.layer(CliOutput.defaultFormatter({ colors: false })),
-    CliConfig.layer({ builtIns: [GlobalFlag.Help, GlobalFlag.Version] }),
+    CliConfig.layer({ builtIns: [GlobalFlag.Help] }),
     Layer.succeed(Terminal.Terminal, dieTerminal),
     Layer.succeed(Stdio.Stdio, dieStdio),
     Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, dieSpawner),
@@ -113,12 +120,11 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
 export const runCommand = async <Name extends string, Input, E, ContextInput>(
   command: Command.Command<Name, Input, ContextInput, E, Command.Environment>,
   args: readonly string[],
-  stdout: Writer,
-  stderr: Writer,
+  output: OutputWriters,
 ): Promise<number> => {
   const program = Command.runWith(command, { version: BEARING_VERSION })(args);
-  const exit = await Effect.runPromise(program.pipe(Effect.provide(buildLayer(stdout, stderr)), Effect.exit));
-  return exitStatus(exit, stderr);
+  const exit = await Effect.runPromise(program.pipe(Effect.provide(buildLayer(output)), Effect.exit));
+  return exitStatus(exit, output.stderr);
 };
 
 export const main = async (
@@ -129,7 +135,7 @@ export const main = async (
   setup: SetupRunner = runSetup,
 ): Promise<number> => {
   const command = buildCommand(cwd, setup, stdout);
-  return runCommand(command, args, stdout, stderr);
+  return runCommand(command, args, { stdout, stderr });
 };
 
 if (import.meta.main) {
