@@ -259,33 +259,32 @@ const BLACK = 2;
 
 const findCycle = (direct: ReadonlyMap<string, readonly string[]>): readonly string[] | undefined => {
   const colors = new Map<string, number>([...direct.keys()].map((id) => [id, WHITE]));
-  const stack: string[] = [];
+  for (const start of direct.keys()) {
+    if (colors.get(start) !== WHITE) {
+      continue;
+    }
 
-  const visit = (id: string): readonly string[] | undefined => {
-    colors.set(id, GREY);
-    stack.push(id);
-    for (const next of direct.get(id) ?? []) {
+    const stack: { id: string; nextIndex: number }[] = [{ id: start, nextIndex: 0 }];
+    colors.set(start, GREY);
+    while (stack.length > 0) {
+      const frame = stack.at(-1) as { id: string; nextIndex: number };
+      const adjacent = direct.get(frame.id) ?? [];
+      if (frame.nextIndex >= adjacent.length) {
+        stack.pop();
+        colors.set(frame.id, BLACK);
+        continue;
+      }
+
+      const next = adjacent[frame.nextIndex] as string;
+      frame.nextIndex += 1;
       const color = colors.get(next) ?? WHITE;
       if (color === GREY) {
-        return stack.slice(stack.indexOf(next));
+        const cycleStart = stack.findIndex((entry) => entry.id === next);
+        return stack.slice(cycleStart).map((entry) => entry.id);
       }
       if (color === WHITE) {
-        const cycle = visit(next);
-        if (cycle !== undefined) {
-          return cycle;
-        }
-      }
-    }
-    stack.pop();
-    colors.set(id, BLACK);
-    return undefined;
-  };
-
-  for (const id of direct.keys()) {
-    if (colors.get(id) === WHITE) {
-      const cycle = visit(id);
-      if (cycle !== undefined) {
-        return cycle;
+        colors.set(next, GREY);
+        stack.push({ id: next, nextIndex: 0 });
       }
     }
   }

@@ -361,6 +361,35 @@ describe("listTickets", () => {
     expect(result).toEqual({ tag: "cycle", ids: ["a1b2c3", "b1c2d3"] });
   });
 
+  it("reports a blocker cycle deeper than the runtime call stack", async () => {
+    const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
+    const ids = Array.from({ length: 60_000 }, (_, index) => {
+      let value = index;
+      let suffix = "";
+      for (let position = 0; position < 5; position++) {
+        suffix = `${alphabet[value % alphabet.length] as string}${suffix}`;
+        value = Math.floor(value / alphabet.length);
+      }
+      return `a${suffix}`;
+    });
+    const tickets = Object.fromEntries(
+      ids.map((id, index) => [
+        `${id}-ticket.md`,
+        ticketSource("build", { blockers: [ids[(index + 1) % ids.length] as string] }),
+      ]),
+    );
+
+    const result = await runList(fixture({ tickets }));
+
+    expect(result.tag).toBe("cycle");
+    if (result.tag !== "cycle") {
+      return;
+    }
+    expect(result.ids).toHaveLength(ids.length);
+    expect(result.ids[0]).toBe(ids[0]);
+    expect(result.ids.at(-1)).toBe(ids.at(-1));
+  });
+
   it("filters by type, intersecting when several flags are combined", async () => {
     expect(listedIds(await runList(fixture(), { types: ["build"] }))).toEqual(["a2b3c4", "b1c2d3"]);
     expect(listedIds(await runList(fixture(), { types: ["design"] }))).toEqual(["a1b2c3"]);
