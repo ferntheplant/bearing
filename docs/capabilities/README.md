@@ -21,7 +21,8 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 
 **Tickets, maps and fog, integrity, and setup are Partial; the other capabilities are Designed.** The read path
 now discovers the nearest tracker, acquires all three directories without discarding malformed documents, and
-projects valid tickets for text or `--json`. Derived map, fog, trail, and integrity analysis is still to come.
+projects valid tickets for text or `--json`. Id-prefix resolution across the whole tracker is built and backs
+`bearing show`. Derived map, fog, trail, and integrity analysis is still to come.
 
 ## A note on command names
 

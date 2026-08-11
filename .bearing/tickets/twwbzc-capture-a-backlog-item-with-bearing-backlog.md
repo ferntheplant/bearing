@@ -1,7 +1,7 @@
 ---
 type: build
 project: mvp
-blockers: [n3dd4b, 5sg7nk]
+blockers: [n3dd4b]
 ---
 
 # Capture a backlog item with `bearing backlog`

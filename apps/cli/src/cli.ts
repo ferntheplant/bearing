@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-import { listTickets } from "@bearing/core";
+import { listTickets, showItem } from "@bearing/core";
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { Cause, Console, Effect, Exit, Layer, Sink, Stdio, Stream, Terminal } from "effect";
-import { CliConfig, CliError, CliOutput, Command, Flag, GlobalFlag } from "effect/unstable/cli";
+import { Argument, CliConfig, CliError, CliOutput, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import { renderJson, renderSetupOutcome, renderText } from "./render.ts";
+import { renderJson, renderSetupOutcome, renderShow, renderText } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
 import { BEARING_VERSION } from "./version.ts";
 
@@ -95,13 +95,44 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
     }),
   ).pipe(Command.withDescription("Create a tracker and install the bearing wayfinder skill"));
 
+  const show = Command.make(
+    "show",
+    { id: Argument.string("id"), full: Flag.boolean("full"), json: Flag.boolean("json") },
+    (config) =>
+      Effect.gen(function* () {
+        if (config.full && config.json) {
+          return yield* Effect.fail(new Error("--full and --json cannot be used together"));
+        }
+        const result = yield* showItem(cwd, config.id);
+        switch (result.tag) {
+          case "resolved": {
+            const rendered = config.json
+              ? renderJson(result.item)
+              : config.full
+                ? result.item.source
+                : renderShow(result.item);
+            yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+            return;
+          }
+          case "no-match":
+            return yield* Effect.fail(new Error(`no item matches id prefix "${config.id}"`));
+          case "ambiguous":
+            return yield* Effect.fail(
+              new Error(
+                `ambiguous id prefix "${config.id}": ${result.candidates.map((candidate) => candidate.id).join(", ")}`,
+              ),
+            );
+        }
+      }),
+  ).pipe(Command.withDescription("Show a ticket or backlog item by id or id prefix"));
+
   return Command.make("bearing", { json: Flag.boolean("json") }, (config) =>
     Effect.gen(function* () {
       const tickets = yield* listTickets(cwd);
       const rendered = config.json ? renderJson(tickets) : renderText(tickets);
       yield* Effect.sync(() => stdout.write(`${rendered}\n`));
     }),
-  ).pipe(Command.withSubcommands([init]), Command.withDescription("List the tracker's tickets"));
+  ).pipe(Command.withSubcommands([init, show]), Command.withDescription("List the tracker's tickets"));
 };
 
 const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {

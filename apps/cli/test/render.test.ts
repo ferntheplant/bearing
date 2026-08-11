@@ -1,7 +1,7 @@
-import type { Ticket } from "@bearing/core";
+import type { ShowItem, Ticket } from "@bearing/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { renderJson, renderText } from "#src/render.ts";
+import { renderJson, renderShow, renderText } from "#src/render.ts";
 
 const TICKETS: readonly Ticket[] = [
   {
@@ -61,5 +61,41 @@ describe("renderJson", () => {
 
   it("renders an empty list as an empty array", () => {
     expect(renderJson([])).toBe("[]");
+  });
+});
+
+const TICKET_SHOW: ShowItem = {
+  kind: "ticket",
+  id: "a1b2c3",
+  slug: "the-first-slice",
+  type: "design",
+  project: "mvp",
+  blockers: ["kwjvxc"],
+  body: "# The first slice\n\nBody.",
+  source: "---\ntype: design\nproject: mvp\nblockers: [kwjvxc]\n---\n\n# The first slice\n\nBody.\n",
+};
+
+const BACKLOG_SHOW: ShowItem = {
+  kind: "backlog",
+  id: "c1d2e3",
+  slug: "a-captured-idea",
+  body: "# A captured idea\n\nProse.",
+  source: "# A captured idea\n\nProse.\n",
+};
+
+describe("renderShow", () => {
+  it("renders a ticket's frontmatter fields and body", () => {
+    const text = renderShow(TICKET_SHOW);
+    expect(text).toBe("type: design\nproject: mvp\nblockers: [kwjvxc]\n\n# The first slice\n\nBody.");
+  });
+
+  it("renders a backlog item's body without frontmatter fields", () => {
+    expect(renderShow(BACKLOG_SHOW)).toBe("# A captured idea\n\nProse.");
+  });
+});
+
+describe("renderJson", () => {
+  it("round-trips a show item through the same value serializer", () => {
+    expect(JSON.parse(renderJson(TICKET_SHOW))).toEqual(TICKET_SHOW);
   });
 });

@@ -1,6 +1,8 @@
 export { MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
 export { listTickets } from "./read.ts";
 export type { Ticket } from "./read.ts";
+export { resolveId, showItem } from "./analysis.ts";
+export type { ResolveResult, ResolvedItem, ResolvedKind, ShowItem, ShowResult } from "./analysis.ts";
 export { digestSkillTree, planSetup, applySetup } from "./setup.ts";
 export {
   SKILL_DIRECTORY,

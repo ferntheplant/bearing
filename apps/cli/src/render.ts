@@ -1,8 +1,8 @@
-import type { SetupOutcome, Ticket } from "@bearing/core";
+import type { SetupOutcome, ShowItem, Ticket } from "@bearing/core";
 
 export const renderText = (tickets: readonly Ticket[]): string => tickets.map(renderTicket).join("\n");
 
-export const renderJson = (tickets: readonly Ticket[]): string => JSON.stringify(tickets, null, 2);
+export const renderJson = (value: object): string => JSON.stringify(value, null, 2);
 
 export const renderSetupOutcome = (outcome: SetupOutcome): string => {
   switch (outcome.tag) {
@@ -25,4 +25,18 @@ const renderTicket = (ticket: Ticket): string => {
     lines.push(`        blockers: [${ticket.blockers.join(", ")}]`);
   }
   return lines.join("\n");
+};
+
+export const renderShow = (item: ShowItem): string => {
+  if (item.kind === "ticket") {
+    const lines = [`type: ${item.type}`];
+    if (item.project !== undefined) {
+      lines.push(`project: ${item.project}`);
+    }
+    if (item.blockers.length > 0) {
+      lines.push(`blockers: [${item.blockers.join(", ")}]`);
+    }
+    return `${lines.join("\n")}\n\n${item.body}`;
+  }
+  return item.body;
 };
