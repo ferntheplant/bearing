@@ -89,7 +89,9 @@ promise holds today only because there is no colour to suppress — which makes 
 
 Either that is the answer and the capability should say so plainly, or the frontier's three sections earn colour
 for the human reading over the agent's shoulder, in which case someone has to decide what gets it. Every read
-command renders through the same seam, so it is worth settling before there are six of them.
+command renders through the same seam, so it is worth settling before there are six of them. The seam is now
+`CliOutput` behind every command, and it is pinned to `colors: false` — the absence of colour is a decision
+waiting to be named, not an accident.
 
 ### What a query filter on `bearing ls` matches
 
