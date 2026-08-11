@@ -31,8 +31,10 @@ and the one an agent runs on every turn.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The three sections, the ranking input, the ordering between them, the default
-command, and the fogbound status line are settled.
+**Designed.** The ranking input is built: the blocking graph is a core value exposed through `bearing ls`, which
+carries every ticket's readiness and both transitive closures and refuses a blocker cycle by name. The three
+sections, the ordering between them, the fogbound status line, and the default command are settled, not built.
+Bare `bearing` currently prints help and is waiting to become the frontier.
 
 ## Decisions
 

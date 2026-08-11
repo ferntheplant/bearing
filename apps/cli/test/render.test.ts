@@ -1,15 +1,18 @@
-import type { FogReport, ShowItem, Ticket } from "@bearing/core";
+import type { FogReport, ListedTicket, ShowItem } from "@bearing/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { renderFog, renderJson, renderShow, renderText } from "#src/render.ts";
+import { renderFog, renderJson, renderList, renderShow } from "#src/render.ts";
 
-const TICKETS: readonly Ticket[] = [
+const TICKETS: readonly ListedTicket[] = [
   {
     id: "t4frt1",
     slug: "the-first-slice",
     type: "build",
     project: "mvp",
     blockers: [],
+    ready: true,
+    blockedBy: [],
+    unblocks: ["2z1qew"],
   },
   {
     id: "2z1qew",
@@ -17,6 +20,9 @@ const TICKETS: readonly Ticket[] = [
     type: "design",
     project: "mvp",
     blockers: ["kwjvxc"],
+    ready: false,
+    blockedBy: ["kwjvxc"],
+    unblocks: [],
   },
   {
     id: "a1b2c3",
@@ -24,25 +30,32 @@ const TICKETS: readonly Ticket[] = [
     type: "build",
     project: undefined,
     blockers: [],
+    ready: true,
+    blockedBy: [],
+    unblocks: [],
   },
 ];
 
-describe("renderText", () => {
-  it("renders each ticket with its id, title, type, and project", () => {
-    const text = renderText(TICKETS);
-    expect(text).toContain("t4frt1  the first slice  build  mvp");
-    expect(text).toContain("2z1qew  skill installation mechanics  design  mvp");
-    expect(text).toContain("a1b2c3  unprojected  build  -");
+describe("renderList", () => {
+  it("renders each ticket with its id, title, type, project, and readiness", () => {
+    const text = renderList(TICKETS);
+    expect(text).toContain("t4frt1  the first slice  build  mvp  ready");
+    expect(text).toContain("2z1qew  skill installation mechanics  design  mvp  blocked");
+    expect(text).toContain("a1b2c3  unprojected  build  -  ready");
   });
 
-  it("shows blockers where present and omits empty blocker metadata", () => {
-    const text = renderText(TICKETS);
+  it("shows named blockers and both blocking closures where present", () => {
+    const text = renderList(TICKETS);
     expect(text).toContain("blockers: [kwjvxc]");
+    expect(text).toContain("blocked by: [kwjvxc]");
+    expect(text).toContain("unblocks: [2z1qew]");
     expect(text).not.toContain("blockers: []");
+    expect(text).not.toContain("blocked by: []");
+    expect(text).not.toContain("unblocks: []");
   });
 
   it("renders an empty list as an empty string", () => {
-    expect(renderText([])).toBe("");
+    expect(renderList([])).toBe("");
   });
 });
 

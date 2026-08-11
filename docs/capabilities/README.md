@@ -23,8 +23,9 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 Designed.** The read path discovers the nearest tracker, acquires all three directories without discarding
 malformed documents, and projects valid tickets and backlog items for text or `--json`. Id-prefix resolution
 across the whole tracker backs `bearing show`, and `bearing backlog "..."` plans and applies a capture in one
-invocation, minting an id against the ids already on disk. Derived map, fog, trail, and integrity analysis is
-still to come.
+invocation, minting an id against the ids already on disk. `bearing ls` filters tickets on a blocking graph
+derived in core — readiness, both transitive closures, and a blocker cycle refused by name — that the frontier
+will rank on. Derived map, fog, trail, and integrity analysis is still to come.
 
 ## A note on command names
 

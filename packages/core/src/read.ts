@@ -8,7 +8,6 @@ import {
   type MalformedTrackerError,
   type MapEntry,
   requireValidTracker,
-  type Ticket,
   type TrackerNotFoundError,
   type TrackerReadError,
   type ValidTrackerObservation,
@@ -29,18 +28,6 @@ const acquireValid = (
     const tracker = yield* discoverTracker(startDirectory);
     const observation = yield* acquireTracker(tracker);
     return yield* requireValidTracker(observation);
-  });
-
-export const listTickets = (
-  startDirectory: string,
-): Effect.Effect<
-  readonly Ticket[],
-  TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const valid = yield* acquireValid(startDirectory);
-    return valid.tickets.map((ticket) => ticket.parsed.success);
   });
 
 export const listBacklog = (

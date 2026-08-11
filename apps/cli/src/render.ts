@@ -1,6 +1,6 @@
-import type { BacklogItem, CaptureApplyResult, FogReport, SetupOutcome, ShowItem, Ticket } from "@bearing/core";
+import type { BacklogItem, CaptureApplyResult, FogReport, ListedTicket, SetupOutcome, ShowItem } from "@bearing/core";
 
-export const renderText = (tickets: readonly Ticket[]): string => tickets.map(renderTicket).join("\n");
+export const renderList = (tickets: readonly ListedTicket[]): string => tickets.map(renderListedTicket).join("\n");
 
 export const renderBacklogList = (items: readonly BacklogItem[]): string =>
   items.map((item) => `${item.id}  ${item.slug.replaceAll("-", " ")}`).join("\n");
@@ -31,12 +31,19 @@ export const renderSetupOutcome = (outcome: SetupOutcome): string => {
   }
 };
 
-const renderTicket = (ticket: Ticket): string => {
+const renderListedTicket = (ticket: ListedTicket): string => {
   const project = ticket.project ?? "-";
   const title = ticket.slug.replaceAll("-", " ");
-  const lines = [`${ticket.id}  ${title}  ${ticket.type}  ${project}`];
+  const readiness = ticket.ready ? "ready" : "blocked";
+  const lines = [`${ticket.id}  ${title}  ${ticket.type}  ${project}  ${readiness}`];
   if (ticket.blockers.length > 0) {
     lines.push(`        blockers: [${ticket.blockers.join(", ")}]`);
+  }
+  if (ticket.blockedBy.length > 0) {
+    lines.push(`        blocked by: [${ticket.blockedBy.join(", ")}]`);
+  }
+  if (ticket.unblocks.length > 0) {
+    lines.push(`        unblocks: [${ticket.unblocks.join(", ")}]`);
   }
   return lines.join("\n");
 };

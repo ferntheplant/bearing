@@ -2,7 +2,8 @@ import { Effect, FileSystem, Layer, Path, PlatformError, Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { acquireTracker, type MapDocument, type TrackerObservation } from "#src/acquisition.ts";
-import { listFog, listTickets } from "#src/read.ts";
+import { listTickets } from "#src/analysis.ts";
+import { listFog } from "#src/read.ts";
 
 const TRACKER = "/workspace/.bearing";
 const VALID_MAP = `# MVP
@@ -116,8 +117,15 @@ const counters = (): Counters => ({ enumerations: new Map(), reads: new Map() })
 const runAcquisition = (files: Fixture, counts = counters(), failures: Failures = {}) =>
   Effect.runPromise(Effect.provide(acquireTracker(TRACKER), layer(files, counts, failures)));
 
-const runList = (files: Fixture, counts = counters(), failures: Failures = {}) =>
-  Effect.runPromise(Effect.provide(listTickets("/workspace/nested"), layer(files, counts, failures)));
+const runList = async (files: Fixture, counts = counters(), failures: Failures = {}) => {
+  const result = await Effect.runPromise(
+    Effect.provide(listTickets("/workspace/nested"), layer(files, counts, failures)),
+  );
+  if (result.tag !== "ok") {
+    throw new Error(`expected a successful listing, got ${result.tag}`);
+  }
+  return result.tickets;
+};
 
 const runFog = (files: Fixture, project?: string) =>
   Effect.runPromise(Effect.provide(listFog("/workspace/nested", project), layer(files, counters())));
@@ -292,7 +300,7 @@ status: open
 });
 
 describe("listTickets", () => {
-  it("projects valid tickets in filename order without changing their values", async () => {
+  it("projects valid tickets in filename order with readiness and both blocking closures", async () => {
     const tickets = await runList(fixture());
 
     expect(tickets).toEqual([
@@ -302,6 +310,9 @@ describe("listTickets", () => {
         type: "design",
         project: "mvp",
         blockers: [],
+        ready: true,
+        blockedBy: [],
+        unblocks: ["b1c2d3"],
       },
       {
         id: "b1c2d3",
@@ -309,6 +320,9 @@ describe("listTickets", () => {
         type: "build",
         project: undefined,
         blockers: ["a1b2c3"],
+        ready: false,
+        blockedBy: ["a1b2c3"],
+        unblocks: [],
       },
     ]);
   });

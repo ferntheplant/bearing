@@ -1,6 +1,15 @@
 #!/usr/bin/env bun
 
-import { applyCapture, listBacklog, listFog, listTickets, planCapture, showItem } from "@bearing/core";
+import {
+  applyCapture,
+  listBacklog,
+  listFog,
+  listTickets,
+  planCapture,
+  showItem,
+  type TicketSelector,
+  type TicketType,
+} from "@bearing/core";
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { Cause, Console, Effect, Exit, Layer, Option, Sink, Stdio, Stream, Terminal } from "effect";
 import { Argument, CliConfig, CliError, CliOutput, Command, Flag, GlobalFlag } from "effect/unstable/cli";
@@ -11,9 +20,9 @@ import {
   renderCapture,
   renderFog,
   renderJson,
+  renderList,
   renderSetupOutcome,
   renderShow,
-  renderText,
 } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
 import { BEARING_VERSION } from "./version.ts";
@@ -174,13 +183,59 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("List the fog patches on one map, or across every map"));
 
-  return Command.make("bearing", { json: Flag.boolean("json") }, (config) =>
-    Effect.gen(function* () {
-      const tickets = yield* listTickets(cwd);
-      const rendered = config.json ? renderJson(tickets) : renderText(tickets);
-      yield* Effect.sync(() => stdout.write(`${rendered}\n`));
-    }),
-  ).pipe(Command.withSubcommands([init, show, backlog, fog]), Command.withDescription("List the tracker's tickets"));
+  const ls = Command.make(
+    "ls",
+    {
+      build: Flag.boolean("build"),
+      design: Flag.boolean("design"),
+      ready: Flag.boolean("ready"),
+      blocked: Flag.boolean("blocked"),
+      project: Flag.optional(Flag.string("project")),
+      json: Flag.boolean("json"),
+    },
+    (config) =>
+      Effect.gen(function* () {
+        const types: TicketType[] = [];
+        if (config.build) {
+          types.push("build");
+        }
+        if (config.design) {
+          types.push("design");
+        }
+        const readiness: ("ready" | "blocked")[] = [];
+        if (config.ready) {
+          readiness.push("ready");
+        }
+        if (config.blocked) {
+          readiness.push("blocked");
+        }
+        const project = Option.getOrUndefined(config.project);
+        const selector: TicketSelector = {
+          ...(types.length > 0 ? { types } : {}),
+          ...(readiness.length > 0 ? { readiness } : {}),
+          ...(project !== undefined ? { project } : {}),
+        };
+        const result = yield* listTickets(cwd, selector);
+        switch (result.tag) {
+          case "ok": {
+            const rendered = config.json ? renderJson(result.tickets) : renderList(result.tickets);
+            yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+            return;
+          }
+          case "cycle":
+            return yield* Effect.fail(new Error(`blocker cycle: [${result.ids.join(", ")}]`));
+          case "no-project":
+            return yield* Effect.fail(
+              new Error(`no map for project "${result.project}"; maps: ${result.projects.join(", ") || "none"}`),
+            );
+        }
+      }),
+  ).pipe(Command.withDescription("List tickets, filtered by type, readiness, or project"));
+
+  return Command.make("bearing", {}).pipe(
+    Command.withSubcommands([init, show, backlog, fog, ls]),
+    Command.withDescription("Track work too large for one session"),
+  );
 };
 
 const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {

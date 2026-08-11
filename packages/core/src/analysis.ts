@@ -207,3 +207,172 @@ export const showItem = (
         return { tag: "ambiguous", prefix, candidates: resolution.candidates.map(toResolvedItem) };
     }
   });
+
+export interface ListedTicket {
+  readonly id: string;
+  readonly slug: string;
+  readonly type: TicketType;
+  readonly project: string | undefined;
+  readonly blockers: readonly string[];
+  readonly ready: boolean;
+  readonly blockedBy: readonly string[];
+  readonly unblocks: readonly string[];
+}
+
+export interface TicketSelector {
+  readonly types?: readonly TicketType[];
+  readonly readiness?: readonly ("ready" | "blocked")[];
+  readonly project?: string;
+}
+
+export type ListTicketsResult =
+  | { readonly tag: "ok"; readonly tickets: readonly ListedTicket[] }
+  | { readonly tag: "cycle"; readonly ids: readonly string[] }
+  | { readonly tag: "no-project"; readonly project: string; readonly projects: readonly string[] };
+
+type BlockingGraph =
+  | {
+      readonly tag: "ok";
+      readonly ready: ReadonlyMap<string, boolean>;
+      readonly blockedBy: ReadonlyMap<string, readonly string[]>;
+      readonly unblocks: ReadonlyMap<string, readonly string[]>;
+    }
+  | { readonly tag: "cycle"; readonly ids: readonly string[] };
+
+const closureFrom = (start: string, adjacency: ReadonlyMap<string, readonly string[]>): readonly string[] => {
+  const seen = new Set<string>();
+  const pending: string[] = [...(adjacency.get(start) ?? [])];
+  while (pending.length > 0) {
+    const current = pending.pop() as string;
+    if (current === start || seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
+    pending.push(...(adjacency.get(current) ?? []));
+  }
+  return [...seen];
+};
+
+const WHITE = 0;
+const GREY = 1;
+const BLACK = 2;
+
+const findCycle = (direct: ReadonlyMap<string, readonly string[]>): readonly string[] | undefined => {
+  const colors = new Map<string, number>([...direct.keys()].map((id) => [id, WHITE]));
+  const stack: string[] = [];
+
+  const visit = (id: string): readonly string[] | undefined => {
+    colors.set(id, GREY);
+    stack.push(id);
+    for (const next of direct.get(id) ?? []) {
+      const color = colors.get(next) ?? WHITE;
+      if (color === GREY) {
+        return stack.slice(stack.indexOf(next));
+      }
+      if (color === WHITE) {
+        const cycle = visit(next);
+        if (cycle !== undefined) {
+          return cycle;
+        }
+      }
+    }
+    stack.pop();
+    colors.set(id, BLACK);
+    return undefined;
+  };
+
+  for (const id of direct.keys()) {
+    if (colors.get(id) === WHITE) {
+      const cycle = visit(id);
+      if (cycle !== undefined) {
+        return cycle;
+      }
+    }
+  }
+  return undefined;
+};
+
+const deriveBlocking = (tickets: readonly Ticket[]): BlockingGraph => {
+  const ids = new Set(tickets.map((ticket) => ticket.id));
+  const direct = new Map<string, readonly string[]>();
+  const reversed = new Map<string, string[]>();
+  for (const ticket of tickets) {
+    const existing = ticket.blockers.filter((blocker) => ids.has(blocker));
+    direct.set(ticket.id, existing);
+    for (const blocker of existing) {
+      const blocked = reversed.get(blocker);
+      if (blocked === undefined) {
+        reversed.set(blocker, [ticket.id]);
+      } else {
+        blocked.push(ticket.id);
+      }
+    }
+  }
+
+  const cycle = findCycle(direct);
+  if (cycle !== undefined) {
+    return { tag: "cycle", ids: cycle };
+  }
+
+  const ready = new Map<string, boolean>();
+  const blockedBy = new Map<string, readonly string[]>();
+  const unblocks = new Map<string, readonly string[]>();
+  for (const ticket of tickets) {
+    ready.set(ticket.id, (direct.get(ticket.id) ?? []).length === 0);
+    blockedBy.set(ticket.id, closureFrom(ticket.id, direct));
+    unblocks.set(ticket.id, closureFrom(ticket.id, reversed));
+  }
+  return { tag: "ok", ready, blockedBy, unblocks };
+};
+
+const matches = (ticket: ListedTicket, selector: TicketSelector): boolean => {
+  if (selector.types !== undefined) {
+    if (selector.types.length === 0 || !selector.types.every((type) => type === ticket.type)) {
+      return false;
+    }
+  }
+  if (selector.readiness !== undefined) {
+    if (
+      selector.readiness.length === 0 ||
+      !selector.readiness.every((value) => value === (ticket.ready ? "ready" : "blocked"))
+    ) {
+      return false;
+    }
+  }
+  if (selector.project !== undefined && ticket.project !== selector.project) {
+    return false;
+  }
+  return true;
+};
+
+export const listTickets = (
+  startDirectory: string,
+  selector: TicketSelector = {},
+): Effect.Effect<
+  ListTicketsResult,
+  TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const valid = yield* acquireValidObservation(startDirectory);
+    const projects = valid.maps.map((document) => document.parsed.success.project);
+    if (selector.project !== undefined && !projects.includes(selector.project)) {
+      return { tag: "no-project", project: selector.project, projects };
+    }
+    const tickets = valid.tickets.map((document) => document.parsed.success);
+    const graph = deriveBlocking(tickets);
+    if (graph.tag === "cycle") {
+      return { tag: "cycle", ids: graph.ids };
+    }
+    const listed = tickets.map((ticket) => ({
+      id: ticket.id,
+      slug: ticket.slug,
+      type: ticket.type,
+      project: ticket.project,
+      blockers: ticket.blockers,
+      ready: graph.ready.get(ticket.id) ?? false,
+      blockedBy: graph.blockedBy.get(ticket.id) ?? [],
+      unblocks: graph.unblocks.get(ticket.id) ?? [],
+    }));
+    return { tag: "ok", tickets: listed.filter((ticket) => matches(ticket, selector)) };
+  });
