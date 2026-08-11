@@ -41,10 +41,10 @@ picks up the work next.
 
 ## Where it stands
 
-**Partial.** Ticket listing now acquires every map and refuses one whose filename or six-section local shape is
-malformed, including a map missing `Not yet committed` or carrying the two uncharted sections out of order.
-Reading the contents of either section, trail parsing, map analysis, `bearing fog`, and both terminal states
-remain settled, not built.
+**Partial.** Acquisition now parses a map's destination, intentions, patches, and trail rows — each retaining
+its exact source, and a malformed trail row kept as a diagnostic rather than a thrown parse. `bearing fog`
+lists the patches on one map or across every map, and refuses an unknown project by naming the maps that exist.
+Map analysis for the frontier, and the fogbound and fog-complete states, remain settled, not built.
 
 ## Decisions
 

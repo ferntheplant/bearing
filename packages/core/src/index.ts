@@ -1,6 +1,6 @@
 export { MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
-export { listBacklog, listTickets } from "./read.ts";
-export type { BacklogItem, Ticket, TicketType } from "./read.ts";
+export { listBacklog, listFog, listTickets } from "./read.ts";
+export type { BacklogItem, FogReport, FogResult, MapDocument, MapEntry, Ticket, TicketType, TrailRow } from "./read.ts";
 export { resolveId, showItem } from "./analysis.ts";
 export type { ResolveResult, ResolvedItem, ResolvedKind, ShowItem, ShowResult } from "./analysis.ts";
 export { applyCapture, planCapture } from "./capture.ts";

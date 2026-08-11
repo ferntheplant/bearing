@@ -6,6 +6,7 @@ import {
   type BacklogItem,
   discoverTracker,
   type MalformedTrackerError,
+  type MapEntry,
   requireValidTracker,
   type Ticket,
   type TrackerNotFoundError,
@@ -15,7 +16,7 @@ import {
 
 export { MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
 
-export type { BacklogItem, Ticket, TicketType } from "./acquisition.ts";
+export type { BacklogItem, MapDocument, MapEntry, Ticket, TicketType, TrailRow } from "./acquisition.ts";
 
 const acquireValid = (
   startDirectory: string,
@@ -52,4 +53,37 @@ export const listBacklog = (
   Effect.gen(function* () {
     const valid = yield* acquireValid(startDirectory);
     return valid.backlog.map((item) => item.parsed.success);
+  });
+
+export interface FogReport {
+  readonly project: string;
+  readonly patches: readonly MapEntry[];
+}
+
+export type FogResult =
+  | { readonly tag: "fog"; readonly maps: readonly FogReport[] }
+  | { readonly tag: "no-project"; readonly project: string; readonly projects: readonly string[] };
+
+export const listFog = (
+  startDirectory: string,
+  project?: string,
+): Effect.Effect<
+  FogResult,
+  TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const valid = yield* acquireValid(startDirectory);
+    const reports = valid.maps.map((document) => {
+      const parsed = document.parsed.success;
+      return { project: parsed.project, patches: parsed.patches };
+    });
+    if (project === undefined) {
+      return { tag: "fog", maps: reports };
+    }
+    const report = reports.find((candidate) => candidate.project === project);
+    if (report === undefined) {
+      return { tag: "no-project", project, projects: reports.map((candidate) => candidate.project) };
+    }
+    return { tag: "fog", maps: [report] };
   });
