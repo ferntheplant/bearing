@@ -25,5 +25,19 @@ The implementation has four internal areas in dependency order, not four interfa
 
 The build order follows those dependencies: migrate the existing ticket list while deepening acquisition; add
 backlog and map parsing plus indexes; build blocker and fog analysis, the integrity pass, and the remaining read
-operations; then build mutation planning and ordered apply. Integrity therefore precedes destructive mutations,
-as the read-path-first order already requires.
+operations; then build mutation planning and ordered apply.
+
+**The whole read path comes before any mutation**, which is a consequence of the same dependency order rather
+than a separate decision. Ranking and integrity are the parts most likely to be wrong on the first attempt, and
+both are reachable against a hand-written tracker with no mutation code at all — so they can be got wrong
+cheaply, against files a human can repair by hand. Mutations are the only part that can damage a tracker, and
+integrity therefore precedes them: the command that reports a half-finished apply exists before anything can
+leave one behind.
+
+This orders work; it does not scope it. Nothing here removes a goal, and a capability being late in the order
+says nothing about whether it ships.
+
+These are dependencies between areas of the implementation, not a decomposition into units of work. A change is
+done when it is reachable through a real entrypoint, so a slice that stopped at "analysis" would not be
+finishable. Work is cut by command, and each command carries whatever acquisition, analysis, planning, and
+applying it needs.

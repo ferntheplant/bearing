@@ -1,7 +1,7 @@
 ---
 type: build
 project: mvp
-blockers: [d5wq2n]
+blockers: [66r5rr, 73jcw6]
 ---
 
 # Write the wayfinder skill's text
@@ -18,8 +18,11 @@ Both inputs are settled.
 says; [The skill teaches method; the repo supplies the referents (ADR 0037)](../../docs/adr/0037-the-skill-teaches-method-and-the-repo-supplies-the-referents.md)
 fixes which sentences are the skill's to carry. What remains is writing it.
 
-One input is not settled: what the alternating loop does once a map is fog-complete and its destination is not
-yet reached. That is `d5wq2n`, and the skill would ship a method with a hole in it if written first.
+The hole that used to sit here — what the alternating loop does once a map is fog-complete and its destination
+is not yet reached — is filled by
+[A map holds intentions alongside fog (ADR 0039)](../../docs/adr/0039-a-map-holds-intentions-alongside-fog.md).
+A pass drains two sections, so specifiable work has a home on the map and a producer, and the method the skill
+teaches no longer runs out of moves while the destination is unreached.
 
 ## Scope
 
@@ -38,12 +41,16 @@ anything about building bearing itself.
 
 - `skills/bearing-wayfinder/SKILL.md` carries `name` and `description` frontmatter, and no sentence describing
   itself as temporary or unfinished.
-- It teaches charting a map — naming a destination, and writing fog as patches coarser than a ticket — and the
-  alternating passes and walks, including a patch's three exits, blocker wiring as a second sweep, and done-when
-  as an assertion someone could check.
+- It teaches charting a map as sorting a loose idea across two sections — what you already intend, and the fog
+  you cannot yet state — after naming a destination, with the test being certainty about what rather than size.
+- It teaches the alternating passes and walks, including an entry's three exits, that a pass drains both
+  sections, blocker wiring as a second sweep, and done-when as an assertion someone could check.
+- It says the map's notes carry only what is true of that project, and that anything true of every map belongs
+  in the repository's own instructions.
 - It says a fogbound map is the signal that calls for the next mapping pass.
 - It resolves where a durable answer lands by reading what the target repo already keeps, and by asking when it
-  finds nothing. It instructs no configuration file and no tracker-side record of the answer.
+  finds nothing. Whether it may also instruct writing that answer down, and where, is `73jcw6`'s to settle —
+  this ticket follows whatever that lands, and instructs no configuration file either way.
 - The text contains no occurrence of `ADR`, `capability file`, `gotcha`, `docs/README.md`, `domain-modeling`, or
   `codebase-design`.
 - Every bearing command it names is one a method step it just described requires. It does not enumerate the

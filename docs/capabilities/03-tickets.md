@@ -17,16 +17,19 @@ legible to whoever picks it up cold, human or agent.
   frontier. A ticket is unblocked when every id it names no longer exists, so an absorbed or invalidated blocker
   is a satisfied one. A design question that needs concrete build work to land remains a design ticket blocked
   by that build ticket; `bearing rm` is for a commitment that turned out not to be real.
-- **`bearing new design` with no project is an error** that names the maps that exist so the next command is
-  obvious. Not a prompt, not a default, not a map created behind your back.
+- **A build ticket may belong to no project; a design ticket must belong to one.** `bearing new design` with no
+  project is an error that names the maps that exist so the next command is obvious. Not a prompt, not a
+  default, not a map created behind your back. `create` and `add` are aliases for `new`.
 - **Ticket content is edited directly.** Bearing has no `edit` command and never launches an editor. Bodies and
   frontmatter are yours; `bearing check` reports structural mistakes.
 - **`bearing retitle` owns renaming.** The title lives in the filename, so retitling by hand is how you get a
-  name that lies; the id survives. The new name is written before the old one is deleted, so interruption can
+  name that lies; the id survives and no other file changes. The new name is written before the old one is
+  deleted, so interruption can
   leave a duplicate id but cannot silently remove the ticket. Creating and retitling apply immediately.
 - **`bearing ls` filters by type, readiness, blocked-ness, project, or a query**, and **`bearing show` prints
   one.** Both take `--json`, as every read in bearing does.
-- **Short id prefixes work everywhere an id does** — three or four characters is usually enough to type.
+- **Short id prefixes work everywhere an id does** — three or four characters is usually enough to type. A
+  prefix matching more than one item is an error that names the candidates, never a guess between them.
 
 ## Where it stands
 
@@ -35,12 +38,6 @@ projects valid ticket values for `apps/cli` to render or emit as `--json`
 ([Core returns values (ADR 0019)](../adr/0019-core-returns-values-only-the-cli-renders.md) is the seam between
 them). The command
 surface — filters, `show`, creation, retitling, and prefix resolution — remains settled, not built.
-
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **8** (an unprojected build ticket), **9** (a design ticket
-with no project fails and names the maps), **10** (retitle preserves the id and touches nothing else) and **11**
-(prefix resolution, with ambiguity as an error).
 
 ## Decisions
 

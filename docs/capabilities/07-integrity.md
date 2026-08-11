@@ -33,11 +33,6 @@ find out when an edit broke a link.
 filename, frontmatter, and local-document diagnostics. `bearing check`, cross-document integrity analysis, the
 single warning, and fix commands remain settled, not built.
 
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **24** (every error class and the warning are reported) and
-**25** (the warning carries the command that resolves it, and there is no bulk fix).
-
 ## Decisions
 
 - [Every warning names its fix, and there is no bulk mode (ADR 0012)](../adr/0012-every-warning-names-its-fix.md)

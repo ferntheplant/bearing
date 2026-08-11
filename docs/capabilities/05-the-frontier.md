@@ -34,12 +34,6 @@ and the one an agent runs on every turn.
 **Designed.** Nothing is built. The three sections, the ranking input, the ordering between them, the default
 command, and the fogbound status line are settled.
 
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **14** (the three sections, in order), **15** (blocked work
-is absent, and deleting the blocker is the only edit needed), **16** (a fog-complete map leaves DECIDE), **17**
-(`--json` on every read) and **18** (a fogbound map is reported, including when the frontier is otherwise empty).
-
 ## Decisions
 
 - [The frontier is derived, never stored (ADR 0003)](../adr/0003-the-frontier-is-derived-never-stored.md)

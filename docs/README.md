@@ -27,7 +27,7 @@ simply absent, and rediscovered by whoever next needs it.
 
 | The writing is…                                            | Home                               |
 | ---------------------------------------------------------- | ---------------------------------- |
-| A claim about what the whole system is, or when it is done | [`ABSTRACT.md`](../ABSTRACT.md)    |
+| A claim about what the whole system is and is not          | [`ABSTRACT.md`](../ABSTRACT.md)    |
 | What a word means, and which near-synonyms to avoid        | [`CONTEXT.md`](../CONTEXT.md)      |
 | Why something is the way it is                             | [`adr/`](./adr/)                   |
 | What the system does for its user, and how far along it is | [`capabilities/`](./capabilities/) |
@@ -96,10 +96,6 @@ them — if you find yourself explaining _why_, you are writing an ADR.
 
 **{Built | Partial | Designed | Fog}.** {What actually runs today, and what does not.}
 
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **N** (what it proves) and **M** (what it proves).
-
 ## Decisions
 
 - [Decision name (ADR NNNN)](../adr/NNNN-slug.md) — one clause on why it shaped this capability.
@@ -112,9 +108,16 @@ Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **N** (what it proves) and 
 - **Designed** — decided and written down, no production path yet.
 - **Fog** — named as a capability, but the shape is not settled. Say what is unclear.
 
-**Every §8 criterion is owned by exactly one capability.** That is what makes an unclaimed criterion a visible
-gap rather than a silent one, and it is why the `Acceptance criteria` section is not optional here. A repo with
-no numbered criteria document skips the section rather than inventing criteria to fill it.
+**The catalogue is the whole of what the system promises**, so a promise that is nowhere in it is not a promise.
+There is no separate acceptance-criteria document, and adding one is the mistake this format exists to prevent:
+criteria written outside the catalogue are a restatement of the bullets above them in testable voice, less
+complete than the capability and less precise than the ticket that builds it. A bullet is the promise, a
+ticket's **Done when** is the test, and **Where it stands** is the status.
+
+That makes the catalogue the only place the surface is named. A command, a flag, or a format that appears in no
+capability file does not exist, however reasonable it looks in a summary somewhere — and a summary listing the
+whole surface in one place is the thing not to write, because it is the copy that rots while each capability
+stays right.
 
 Use the glossary's words exactly. The catalogue is the largest body of prose in the repo, so it is where
 vocabulary drift shows up first.

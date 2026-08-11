@@ -15,6 +15,8 @@ runs update the installation.
 - **There is no configuration.** Every tracker command walks upward from its current directory and uses the
   nearest `.bearing/`. A symbolic link or malformed tracker at the nearest path is an error, never a reason to
   skip to another ancestor.
+- **Bearing needs no git and spawns nothing.** Every command works inside a directory that is not a repository
+  at all, and none of them shells out — so there is no git version to depend on and no subprocess to fail.
 - **The skill has one repository-local home.** Bearing installs `bearing-wayfinder` at the literal path
   `.agents/skills/bearing-wayfinder`. It ignores `.claude/skills` and refuses symbolic links rather than following
   them.
@@ -53,17 +55,6 @@ today and is verified end to end: a linked `bearing` creates a tracker and insta
 outside this repository, with no registry, npm, or Node involved. Completion remains settled, not built, and
 publishing is deliberately not a path at all.
 
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **1** (setup creates the tracker and installs the skill),
-**2** (untouched skills update and edited skills are preserved), **26** (upward discovery, no subprocesses, and
-commands work outside a git repository) and **27** (direct mutations apply immediately and nothing shipped names
-the flag that applies a design close).
-
-Criteria 26 and 27 are properties of the whole binary rather than of setup specifically. They sit here because
-this is the capability that puts bearing into a repository, and because both are checked by the packaging: the
-first is a dependency that does not exist, the second is a grep over what ships.
-
 ## Decisions
 
 - [Installation is a linked clone, and publishing is deferred (ADR 0038)](../adr/0038-installation-is-a-linked-clone-and-publishing-is-deferred.md)
@@ -78,6 +69,8 @@ first is a dependency that does not exist, the second is a grep over what ships.
   configuration and where the skill stops.
 - [`.bearing/` is fixed and discovered upward (ADR 0028)](../adr/0028-dot-bearing-is-fixed-and-discovered-upward.md)
   — where setup creates the tracker and how every other command finds it.
+- [Bearing never spawns a subprocess (ADR 0018)](../adr/0018-bearing-never-spawns-a-subprocess.md) — why the
+  binary needs no git and works outside a repository.
 - [Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md) —
   why setup applies directly without prompting.
 - [The confirmation flag is undocumented on purpose (ADR 0016)](../adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)
