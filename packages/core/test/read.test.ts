@@ -1,8 +1,8 @@
-import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
+import { Effect, FileSystem, Layer, Path, PlatformError, Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { acquireTracker } from "#src/acquisition.ts";
-import { listTickets } from "#src/read.ts";
+import { acquireTracker, type MapDocument, type TrackerObservation } from "#src/acquisition.ts";
+import { listFog, listTickets } from "#src/read.ts";
 
 const TRACKER = "/workspace/.bearing";
 const VALID_MAP = `# MVP
@@ -118,6 +118,17 @@ const runAcquisition = (files: Fixture, counts = counters(), failures: Failures 
 
 const runList = (files: Fixture, counts = counters(), failures: Failures = {}) =>
   Effect.runPromise(Effect.provide(listTickets("/workspace/nested"), layer(files, counts, failures)));
+
+const runFog = (files: Fixture, project?: string) =>
+  Effect.runPromise(Effect.provide(listFog("/workspace/nested", project), layer(files, counters())));
+
+const parsedMap = (observation: TrackerObservation): MapDocument => {
+  const map = observation.maps[0];
+  if (map === undefined || Result.isFailure(map.parsed)) {
+    throw new Error("expected a successfully parsed map");
+  }
+  return map.parsed.success;
+};
 
 describe("tracker acquisition", () => {
   it("enumerates every tracker directory once, reads each Markdown file once, and retains exact source", async () => {
@@ -300,5 +311,187 @@ describe("listTickets", () => {
         blockers: ["a1b2c3"],
       },
     ]);
+  });
+});
+
+const TRAIL_ROW =
+  "| kwjvxc | Mutation atomicity | [Mutations are ordered, not atomic (ADR 0025)](../../docs/adr/0025-mutations-are-ordered-not-atomic.md) |";
+const MAP_WITH_TRAIL = `# MVP
+
+## Destination
+
+Ship bearing.
+
+## Notes
+
+Notes prose.
+
+## Trail
+
+| id | Decision | Outcome |
+| --- | --- | --- |
+${TRAIL_ROW}
+
+## Not yet committed
+
+### Ship a reader
+
+Intention body.
+
+## Not yet specified
+
+### Reader depth
+
+Patch body.
+
+## Out of scope
+`;
+
+describe("map parsing", () => {
+  it("parses a map's destination, intentions, patches, and trail rows, retaining exact source", async () => {
+    const observation = await runAcquisition(fixture({ maps: { "mvp.md": MAP_WITH_TRAIL } }));
+
+    expect(parsedMap(observation)).toEqual({
+      project: "mvp",
+      destination: { text: "Ship bearing.", source: "\nShip bearing.\n\n" },
+      intentions: [{ heading: "Ship a reader", source: "### Ship a reader\n\nIntention body.\n\n" }],
+      patches: [{ heading: "Reader depth", source: "### Reader depth\n\nPatch body.\n\n" }],
+      trail: [
+        {
+          id: "kwjvxc",
+          decision: "Mutation atomicity",
+          outcome:
+            " [Mutations are ordered, not atomic (ADR 0025)](../../docs/adr/0025-mutations-are-ordered-not-atomic.md) ",
+          source: TRAIL_ROW,
+        },
+      ],
+    });
+  });
+
+  it("never reports an intention as fog", async () => {
+    const parsed = parsedMap(await runAcquisition(fixture()));
+
+    expect(parsed.patches).toEqual([{ heading: "Reader depth", source: "### Reader depth\n\n" }]);
+    expect(parsed.intentions).toEqual([{ heading: "Ship a reader", source: "### Ship a reader\n\n" }]);
+  });
+
+  it("retains CRLF source spans and escaped outcome content byte-for-byte", async () => {
+    const trailRow = "  | kwjvxc | Decision |  [label \\| value](target)  |  ";
+    const source = MAP_WITH_TRAIL.replace(TRAIL_ROW, trailRow).replaceAll("\n", "\r\n");
+
+    const parsed = parsedMap(await runAcquisition(fixture({ maps: { "mvp.md": source } })));
+
+    expect(parsed.destination).toEqual({ text: "Ship bearing.", source: "\r\nShip bearing.\r\n\r\n" });
+    expect(parsed.intentions[0]?.source).toBe("### Ship a reader\r\n\r\nIntention body.\r\n\r\n");
+    expect(parsed.trail[0]).toEqual({
+      id: "kwjvxc",
+      decision: "Decision",
+      outcome: "  [label \\| value](target)  ",
+      source: trailRow,
+    });
+  });
+
+  it("parses a map whose uncharted sections are empty into no entries", async () => {
+    const empty = fixture({
+      maps: { "mvp.md": VALID_MAP.replace("### Ship a reader\n\n", "").replace("### Reader depth\n\n", "") },
+    });
+
+    const parsed = parsedMap(await runAcquisition(empty));
+
+    expect(parsed.intentions).toEqual([]);
+    expect(parsed.patches).toEqual([]);
+  });
+
+  it("keeps a malformed trail row as a diagnostic instead of throwing", async () => {
+    const broken = fixture({
+      maps: { "mvp.md": MAP_WITH_TRAIL.replace(TRAIL_ROW, "| missing |") },
+    });
+
+    const observation = await runAcquisition(broken);
+
+    expect(observation.maps).toHaveLength(1);
+    expect(observation.diagnostics).toEqual([
+      expect.objectContaining({ source: "document", message: "trail row must be <id> | <decision> | <outcome>" }),
+    ]);
+    await expect(runList(broken)).rejects.toMatchObject({
+      _tag: "MalformedTrackerError",
+      message: expect.stringContaining("trail row must be <id> | <decision> | <outcome>"),
+    });
+  });
+
+  it("retains an empty trail section as an empty trail", async () => {
+    const parsed = parsedMap(await runAcquisition(fixture()));
+
+    expect(parsed.trail).toEqual([]);
+  });
+
+  it("validates a map holding a destination and one entry in either uncharted section", async () => {
+    const intentionOnly = fixture({
+      maps: { "mvp.md": VALID_MAP.replace("### Reader depth\n\n", "") },
+    });
+    const fogOnly = fixture({
+      maps: { "mvp.md": VALID_MAP.replace("### Ship a reader\n\n", "") },
+    });
+
+    expect(parsedMap(await runAcquisition(intentionOnly)).intentions).toHaveLength(1);
+    expect(parsedMap(await runAcquisition(fogOnly)).patches).toHaveLength(1);
+    await expect(runList(intentionOnly)).resolves.toHaveLength(2);
+    await expect(runList(fogOnly)).resolves.toHaveLength(2);
+  });
+});
+
+describe("listFog", () => {
+  it("lists every patch on every map, grouped by project", async () => {
+    const result = await runFog(
+      fixture({
+        maps: {
+          "mvp.md": VALID_MAP,
+          "second.md": MAP_WITH_TRAIL.replace(
+            "## Destination\n\nShip bearing.",
+            "## Destination\n\nSecond destination.",
+          ),
+        },
+      }),
+    );
+
+    expect(result).toEqual({
+      tag: "fog",
+      maps: [
+        { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth\n\n" }] },
+        { project: "second", patches: [{ heading: "Reader depth", source: "### Reader depth\n\nPatch body.\n\n" }] },
+      ],
+    });
+  });
+
+  it("lists only the named map's patches", async () => {
+    const result = await runFog(
+      fixture({
+        maps: { "mvp.md": VALID_MAP, "second.md": MAP_WITH_TRAIL },
+      }),
+      "second",
+    );
+
+    expect(result).toEqual({
+      tag: "fog",
+      maps: [
+        { project: "second", patches: [{ heading: "Reader depth", source: "### Reader depth\n\nPatch body.\n\n" }] },
+      ],
+    });
+  });
+
+  it("reports an unknown project along with the maps that exist", async () => {
+    const result = await runFog(fixture(), "missing");
+
+    expect(result).toEqual({ tag: "no-project", project: "missing", projects: ["mvp"] });
+  });
+
+  it("reports a map with an empty Not yet specified as having no patches", async () => {
+    const noFog = fixture({
+      maps: { "mvp.md": VALID_MAP.replace("### Reader depth\n\n", "") },
+    });
+
+    const result = await runFog(noFog, "mvp");
+
+    expect(result).toEqual({ tag: "fog", maps: [{ project: "mvp", patches: [] }] });
   });
 });

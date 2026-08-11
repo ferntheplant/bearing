@@ -1,9 +1,18 @@
-import type { BacklogItem, CaptureApplyResult, SetupOutcome, ShowItem, Ticket } from "@bearing/core";
+import type { BacklogItem, CaptureApplyResult, FogReport, SetupOutcome, ShowItem, Ticket } from "@bearing/core";
 
 export const renderText = (tickets: readonly Ticket[]): string => tickets.map(renderTicket).join("\n");
 
 export const renderBacklogList = (items: readonly BacklogItem[]): string =>
   items.map((item) => `${item.id}  ${item.slug.replaceAll("-", " ")}`).join("\n");
+
+export const renderFog = (maps: readonly FogReport[]): string =>
+  maps
+    .map((map) =>
+      map.patches.length === 0
+        ? map.project
+        : `${map.project}\n${map.patches.map((patch) => `  ${patch.heading}`).join("\n")}`,
+    )
+    .join("\n\n");
 
 export const renderCapture = (result: CaptureApplyResult): string => `wrote ${result.path}`;
 

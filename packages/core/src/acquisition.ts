@@ -50,8 +50,29 @@ interface ItemIdentity {
 
 export interface BacklogItem extends ItemIdentity {}
 
-interface MapDocument {
+export interface MapEntry {
+  readonly heading: string;
+  readonly source: string;
+}
+
+interface MapDestination {
+  readonly text: string;
+  readonly source: string;
+}
+
+export interface TrailRow {
+  readonly id: string;
+  readonly decision: string;
+  readonly outcome: string;
+  readonly source: string;
+}
+
+export interface MapDocument {
   readonly project: string;
+  readonly destination: MapDestination;
+  readonly intentions: readonly MapEntry[];
+  readonly patches: readonly MapEntry[];
+  readonly trail: readonly TrailRow[];
 }
 
 interface DocumentInput {
@@ -254,6 +275,77 @@ const parseBacklogItem = (document: DocumentInput): Result.Result<BacklogItem, r
   return diagnostics.length > 0 ? Result.fail(diagnostics) : identity;
 };
 
+interface Heading {
+  readonly line: number;
+  readonly level: number;
+  readonly title: string;
+}
+
+const isEscaped = (value: string, index: number): boolean => {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor--) {
+    backslashes++;
+  }
+  return backslashes % 2 === 1;
+};
+
+const splitTableRow = (row: string): readonly string[] => {
+  const cells: string[] = [];
+  let current = "";
+  for (let index = 0; index < row.length; index++) {
+    const character = row[index];
+    if (character === "|" && !isEscaped(row, index)) {
+      cells.push(current);
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  cells.push(current);
+  return cells;
+};
+
+const parseTrail = (
+  path: string,
+  content: readonly string[],
+): { readonly rows: readonly TrailRow[]; readonly diagnostics: readonly TrackerDiagnostic[] } => {
+  const rows: TrailRow[] = [];
+  const diagnostics: TrackerDiagnostic[] = [];
+  let sawData = false;
+  for (const line of content) {
+    if (!/^\s*\|/.test(line)) {
+      continue;
+    }
+    const openingPipe = line.indexOf("|");
+    const body = line.slice(openingPipe + 1);
+    const bodyWithoutTrailingWhitespace = body.trimEnd();
+    const closingPipe = bodyWithoutTrailingWhitespace.length - 1;
+    const inner =
+      bodyWithoutTrailingWhitespace[closingPipe] === "|" && !isEscaped(bodyWithoutTrailingWhitespace, closingPipe)
+        ? bodyWithoutTrailingWhitespace.slice(0, closingPipe)
+        : body;
+    const cells = splitTableRow(inner);
+    if (cells.length >= 1 && cells.every((cell) => /^:?-+:?$/.test(cell.trim()))) {
+      continue;
+    }
+    if (!sawData && cells.length >= 1 && cells[0]?.trim().toLowerCase() === "id") {
+      continue;
+    }
+    sawData = true;
+    if (cells.length < 3 || (cells[0] ?? "").trim().length === 0) {
+      diagnostics.push(diagnostic(path, "document", "trail row must be <id> | <decision> | <outcome>"));
+      continue;
+    }
+    rows.push({
+      id: (cells[0] ?? "").trim(),
+      decision: (cells[1] ?? "").trim(),
+      outcome: cells.slice(2).join("|"),
+      source: line,
+    });
+  }
+  return { rows, diagnostics };
+};
+
 const parseMap = ({
   path,
   filename,
@@ -265,8 +357,9 @@ const parseMap = ({
     diagnostics.push(diagnostic(path, "filename", "map filename must have a non-empty stem"));
   }
 
-  const lines = source.split(/\r?\n/);
-  const headings: { readonly line: number; readonly title: string }[] = [];
+  const sourceLines = source.match(/[^\r\n]*(?:\r\n|\n|$)/g)?.filter((line) => line.length > 0) ?? [];
+  const lines = sourceLines.map((line) => line.replace(/\r?\n$/, ""));
+  const headings: Heading[] = [];
   let fence: string | undefined;
   for (const [lineNumber, line] of lines.entries()) {
     const fenceMatch = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
@@ -280,49 +373,86 @@ const parseMap = ({
       continue;
     }
     if (fence === undefined) {
-      const headingMatch = /^##[ \t]+(.+?)\s*$/.exec(line);
+      const headingMatch = /^(#{1,6})[ \t]+(.+?)\s*$/.exec(line);
       if (headingMatch !== null) {
-        const title = (headingMatch[1] ?? "").replace(/[ \t]+#+[ \t]*$/, "").trimEnd();
-        headings.push({ line: lineNumber, title });
+        const level = (headingMatch[1] ?? "").length;
+        const title = (headingMatch[2] ?? "").replace(/[ \t]+#+[ \t]*$/, "").trimEnd();
+        headings.push({ line: lineNumber, level, title });
       }
     }
   }
-  const headingTitles = headings.map((heading) => heading.title);
+  const sectionHeadings = headings.filter((heading) => heading.level === 2);
+  const sectionTitles = sectionHeadings.map((heading) => heading.title);
   for (const section of MAP_SECTIONS) {
-    const count = headingTitles.filter((heading) => heading === section).length;
+    const count = sectionTitles.filter((heading) => heading === section).length;
     if (count === 0) {
       diagnostics.push(diagnostic(path, "document", `missing ## ${section} section`));
     } else if (count > 1) {
       diagnostics.push(diagnostic(path, "document", `duplicate ## ${section} section`));
     }
   }
-  for (const heading of headingTitles) {
+  for (const heading of sectionTitles) {
     if (!MAP_SECTIONS.includes(heading as (typeof MAP_SECTIONS)[number])) {
       diagnostics.push(diagnostic(path, "document", `unknown ## ${heading} section`));
     }
   }
-  const destination = headings.find((heading) => heading.title === "Destination");
-  if (destination !== undefined) {
-    const nextHeading = headings.find((heading) => heading.line > destination.line);
-    const content = lines
-      .slice(destination.line + 1, nextHeading?.line)
-      .join("\n")
-      .trim();
-    if (content.length === 0) {
-      diagnostics.push(diagnostic(path, "document", "Destination section must not be empty"));
-    }
-  }
-  const knownHeadings = headingTitles.filter((heading) =>
-    MAP_SECTIONS.includes(heading as (typeof MAP_SECTIONS)[number]),
-  );
   if (
-    knownHeadings.length === MAP_SECTIONS.length &&
-    knownHeadings.some((heading, index) => heading !== MAP_SECTIONS[index])
+    sectionTitles.length === MAP_SECTIONS.length &&
+    sectionTitles.some((heading, index) => heading !== MAP_SECTIONS[index])
   ) {
     diagnostics.push(diagnostic(path, "document", "map sections are out of order"));
   }
 
-  return diagnostics.length > 0 ? Result.fail(diagnostics) : Result.succeed({ project });
+  const sectionEnd = (section: Heading): number =>
+    sectionHeadings.find((heading) => heading.line > section.line)?.line ?? lines.length;
+
+  const destination = sectionHeadings.find((heading) => heading.title === "Destination");
+  let destinationText = "";
+  let destinationSource = "";
+  if (destination !== undefined) {
+    const end = sectionEnd(destination);
+    destinationSource = sourceLines.slice(destination.line + 1, end).join("");
+    destinationText = lines
+      .slice(destination.line + 1, end)
+      .join("\n")
+      .trim();
+    if (destinationText.length === 0) {
+      diagnostics.push(diagnostic(path, "document", "Destination section must not be empty"));
+    }
+  }
+
+  const entriesIn = (sectionTitle: string): readonly MapEntry[] => {
+    const section = sectionHeadings.find((heading) => heading.title === sectionTitle);
+    if (section === undefined) {
+      return [];
+    }
+    const end = sectionEnd(section);
+    const entries = headings
+      .filter((heading) => heading.level === 3 && heading.line > section.line && heading.line < end)
+      .map((heading, index, matches) => ({
+        heading: heading.title,
+        source: sourceLines.slice(heading.line, matches[index + 1]?.line ?? end).join(""),
+      }));
+    return entries;
+  };
+
+  const trail = sectionHeadings.find((heading) => heading.title === "Trail");
+  let trailRows: readonly TrailRow[] = [];
+  if (trail !== undefined) {
+    const parsedTrail = parseTrail(path, lines.slice(trail.line + 1, sectionEnd(trail)));
+    trailRows = parsedTrail.rows;
+    diagnostics.push(...parsedTrail.diagnostics);
+  }
+
+  return diagnostics.length > 0
+    ? Result.fail(diagnostics)
+    : Result.succeed({
+        project,
+        destination: { text: destinationText, source: destinationSource },
+        intentions: entriesIn("Not yet committed"),
+        patches: entriesIn("Not yet specified"),
+        trail: trailRows,
+      });
 };
 
 const parseDocument = (directory: TrackerDirectory, document: DocumentInput) => {

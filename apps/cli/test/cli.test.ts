@@ -69,6 +69,7 @@ Question body.
 `,
   },
   backlog: Readonly<Record<string, string>> = {},
+  maps: Readonly<Record<string, string>> = { "mvp.md": VALID_MAP },
 ) => {
   const tracker = join(root, ".bearing");
   await Promise.all([
@@ -79,7 +80,7 @@ Question body.
   await Promise.all([
     ...Object.entries(tickets).map(([name, source]) => writeFile(join(tracker, "tickets", name), source)),
     ...Object.entries(backlog).map(([name, source]) => writeFile(join(tracker, "backlog", name), source)),
-    writeFile(join(tracker, "maps", "mvp.md"), VALID_MAP),
+    ...Object.entries(maps).map(([name, source]) => writeFile(join(tracker, "maps", name), source)),
   ]);
   return tracker;
 };
@@ -481,5 +482,111 @@ describe("show", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("error: malformed tracker:");
+  });
+});
+
+const SECOND_MAP = `# Second
+
+## Destination
+
+Second destination.
+
+## Notes
+
+## Trail
+
+## Not yet committed
+
+## Not yet specified
+
+### Second fog
+
+## Out of scope
+`;
+
+describe("fog", () => {
+  it("lists every patch on every map, grouped by project", async () => {
+    const root = join(fixtureRoot, "fog-all");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "second.md": SECOND_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["fog"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("mvp\n  Reader depth\n\nsecond\n  Second fog\n");
+  });
+
+  it("lists only the named map's patches", async () => {
+    const root = join(fixtureRoot, "fog-project");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "second.md": SECOND_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["fog", "second"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("second\n  Second fog\n");
+  });
+
+  it("exits 1 for an unknown project, naming the maps that exist", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["fog", "missing"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no map for project "missing"; maps: mvp');
+  });
+
+  it("reports a map with an empty Not yet specified as having no patches", async () => {
+    const root = join(fixtureRoot, "fog-empty");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP.replace("### Reader depth\n\n", "") });
+    const result = await captureRun(({ stdout, stderr }) => main(["fog", "mvp"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("mvp\n");
+  });
+
+  it("emits the patches it rendered as JSON", async () => {
+    const root = join(fixtureRoot, "fog-json");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["fog", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual([
+      { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth\n\n" }] },
+    ]);
+  });
+
+  it("prints only the heading text, so rewording a patch changes only that text", async () => {
+    const root = join(fixtureRoot, "fog-reworded");
+    await createTracker(
+      root,
+      {},
+      {},
+      { "mvp.md": VALID_MAP.replace("### Reader depth", "### Reader depth, revisited") },
+    );
+    const result = await captureRun(({ stdout, stderr }) => main(["fog"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("mvp\n  Reader depth, revisited\n");
+  });
+
+  it("never prints intentions from Not yet committed", async () => {
+    const root = join(fixtureRoot, "fog-intentions");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["fog"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("Ship a reader");
+  });
+
+  it("refuses a map with a malformed trail row rather than listing against it", async () => {
+    const root = join(fixtureRoot, "fog-malformed");
+    const malformed = VALID_MAP.replace("## Trail\n\n", "## Trail\n\n| broken |\n\n");
+    await createTracker(root, {}, {}, { "mvp.md": malformed });
+    const result = await captureRun(({ stdout, stderr }) => main(["fog"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("trail row must be <id> | <decision> | <outcome>");
   });
 });

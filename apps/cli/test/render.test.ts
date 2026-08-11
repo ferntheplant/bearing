@@ -1,7 +1,7 @@
-import type { ShowItem, Ticket } from "@bearing/core";
+import type { FogReport, ShowItem, Ticket } from "@bearing/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { renderJson, renderShow, renderText } from "#src/render.ts";
+import { renderFog, renderJson, renderShow, renderText } from "#src/render.ts";
 
 const TICKETS: readonly Ticket[] = [
   {
@@ -43,6 +43,25 @@ describe("renderText", () => {
 
   it("renders an empty list as an empty string", () => {
     expect(renderText([])).toBe("");
+  });
+});
+
+const FOG_REPORTS: readonly FogReport[] = [
+  { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth" }] },
+  { project: "second", patches: [] },
+];
+
+describe("renderFog", () => {
+  it("groups each map's patches under its project", () => {
+    expect(renderFog(FOG_REPORTS)).toBe("mvp\n  Reader depth\n\nsecond");
+  });
+
+  it("prints a map with no patches as its bare project", () => {
+    expect(renderFog([FOG_REPORTS[1] as FogReport])).toBe("second");
+  });
+
+  it("renders an empty report as an empty string", () => {
+    expect(renderFog([])).toBe("");
   });
 });
 
