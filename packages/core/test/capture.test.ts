@@ -1,7 +1,7 @@
 import { Clock, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyCapture, deriveSlug, planCapture } from "#src/capture.ts";
+import { applyCapture, planCapture } from "#src/capture.ts";
 
 import { directory, file, Harness, layer, link, type FsEntry } from "./fs-harness.ts";
 
@@ -72,41 +72,47 @@ const runPlan = (entries: Readonly<Record<string, FsEntry>>, title: string, nano
   );
 };
 
-describe("deriveSlug", () => {
-  it("lowercases, strips to word characters, and turns spaces into hyphens", () => {
-    expect(deriveSlug("Capture a backlog item")).toBe("capture-a-backlog-item");
-    expect(deriveSlug("Fix bug 3.1")).toBe("fix-bug-31");
-    expect(deriveSlug("don't stop")).toBe("dont-stop");
-    expect(deriveSlug("C++ compiler")).toBe("c-compiler");
+const planSlug = async (title: string) => (await runPlan(TRACKER_ENTRIES, title, [decodeId("1a2b3c")])).slug;
+
+describe("planCapture slug derivation", () => {
+  it("lowercases, strips to word characters, and turns spaces into hyphens", async () => {
+    await expect(planSlug("Capture a backlog item")).resolves.toBe("capture-a-backlog-item");
+    await expect(planSlug("Fix bug 3.1")).resolves.toBe("fix-bug-31");
+    await expect(planSlug("don't stop")).resolves.toBe("dont-stop");
+    await expect(planSlug("C++ compiler")).resolves.toBe("c-compiler");
   });
 
-  it("collapses runs of separators and trims the ends", () => {
-    expect(deriveSlug("  leading   spaces  ")).toBe("leading-spaces");
-    expect(deriveSlug("a - b")).toBe("a-b");
-    expect(deriveSlug("dash--between")).toBe("dash-between");
+  it("collapses runs of separators and trims the ends", async () => {
+    await expect(planSlug("  leading   spaces  ")).resolves.toBe("leading-spaces");
+    await expect(planSlug("a - b")).resolves.toBe("a-b");
+    await expect(planSlug("dash--between")).resolves.toBe("dash-between");
   });
 
-  it("falls back to untitled when nothing survives slugification", () => {
-    expect(deriveSlug("!!!")).toBe("untitled");
-    expect(deriveSlug("")).toBe("untitled");
-    expect(deriveSlug("...---...")).toBe("untitled");
+  it("falls back to untitled when nothing survives slugification", async () => {
+    await expect(planSlug("!!!")).resolves.toBe("untitled");
+    await expect(planSlug("")).resolves.toBe("untitled");
+    await expect(planSlug("...---...")).resolves.toBe("untitled");
   });
 
-  it("truncates over 60 characters at the last hyphen that fits, never mid-word", () => {
+  it("truncates over 60 characters at the last hyphen that fits, never mid-word", async () => {
     const long = "the-quick-brown-fox-jumps-over-the-lazy-dog-and-keeps-running-through-the-forest";
     expect(long.length).toBeGreaterThan(60);
-    const slug = deriveSlug(long);
+    const slug = await planSlug(long);
     expect(slug.length).toBeLessThanOrEqual(60);
     expect(slug).toBe("the-quick-brown-fox-jumps-over-the-lazy-dog-and-keeps");
   });
 
-  it("falls back to untitled when a single word is too long to truncate at a hyphen", () => {
-    const singleWord = "a".repeat(70);
-    expect(deriveSlug(singleWord)).toBe("untitled");
+  it("uses a hyphen immediately after the 60th character as a truncation point", async () => {
+    await expect(planSlug(`${"a".repeat(60)}-tail`)).resolves.toBe("a".repeat(60));
   });
 
-  it("keeps underscores as word characters", () => {
-    expect(deriveSlug("a_custom_slug")).toBe("a_custom_slug");
+  it("falls back to untitled when a single word is too long to truncate at a hyphen", async () => {
+    const singleWord = "a".repeat(70);
+    await expect(planSlug(singleWord)).resolves.toBe("untitled");
+  });
+
+  it("keeps underscores as word characters", async () => {
+    await expect(planSlug("a_custom_slug")).resolves.toBe("a_custom_slug");
   });
 });
 
@@ -141,14 +147,15 @@ describe("planCapture", () => {
     expect(plan.id).toBe("4e5f6g");
   });
 
-  it("fails when the clock can only produce colliding ids", async () => {
+  it("keeps reading the clock until it produces an id not already in the tracker", async () => {
     const entries = {
       ...TRACKER_ENTRIES,
       [`${TRACKER}/backlog/c1d2e3-captured.md`]: file("# Captured\n"),
     };
-    await expect(runPlan(entries, "Fresh item", [decodeId("c1d2e3")])).rejects.toMatchObject({
-      _tag: "IdMintError",
-      attempts: 100,
+    const collisions = Array.from({ length: 101 }, () => decodeId("c1d2e3"));
+
+    await expect(runPlan(entries, "Fresh item", [...collisions, decodeId("4e5f6g")])).resolves.toMatchObject({
+      id: "4e5f6g",
     });
   });
 
@@ -210,5 +217,24 @@ describe("applyCapture", () => {
       operation: "write-file",
       path: `${TRACKER}/backlog/1a2b3c-capture-a-backlog-item.md`,
     });
+  });
+
+  it("refuses to overwrite an existing capture", async () => {
+    const path = `${TRACKER}/backlog/1a2b3c-capture-a-backlog-item.md`;
+    const harness = new Harness({ ...TRACKER_ENTRIES, [path]: file("# Existing item\n") });
+    const plan = {
+      id: "1a2b3c",
+      slug: "capture-a-backlog-item",
+      title: "Capture a backlog item",
+      source: "# Replacement item\n",
+      path,
+    };
+
+    await expect(Effect.runPromise(Effect.provide(applyCapture(plan), layer(harness)))).rejects.toMatchObject({
+      _tag: "CaptureWriteError",
+      operation: "write-file",
+      path,
+    });
+    expect(harness.entries.get(path)).toEqual(file("# Existing item\n"));
   });
 });

@@ -33,6 +33,9 @@ const notFound = (method: string, path: string) =>
 const invalid = (method: string, path: string) =>
   PlatformError.systemError({ _tag: "InvalidData", module: "FileSystem", method, pathOrDescriptor: path });
 
+const alreadyExists = (method: string, path: string) =>
+  PlatformError.systemError({ _tag: "AlreadyExists", module: "FileSystem", method, pathOrDescriptor: path });
+
 export interface InjectedFailure {
   readonly operation: "make-directory" | "write-file" | "remove";
   readonly path: string;
@@ -150,12 +153,17 @@ const makeMethods = (harness: Harness): Partial<FileSystem.FileSystem> => ({
           harness.entries.set(normalize(path), directory());
           harness.afterMakeDirectory?.(normalize(path));
         }),
-  writeFileString: (path, data) =>
-    harness.fails("write-file", path)
-      ? Effect.fail(invalid("writeFileString", path))
-      : Effect.sync(() => {
-          harness.entries.set(normalize(path), file(data));
-        }),
+  writeFileString: (path, data, options) =>
+    Effect.gen(function* () {
+      if (harness.fails("write-file", path)) {
+        return yield* Effect.fail(invalid("writeFileString", path));
+      }
+      const physical = yield* Effect.sync(() => harness.resolve(path));
+      if (options?.flag === "wx" && harness.entries.has(physical)) {
+        return yield* Effect.fail(alreadyExists("writeFileString", path));
+      }
+      harness.entries.set(physical, file(data));
+    }),
   remove: (path) =>
     harness.fails("remove", path)
       ? Effect.fail(invalid("remove", path))

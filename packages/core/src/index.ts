@@ -3,9 +3,9 @@ export { listBacklog, listTickets } from "./read.ts";
 export type { BacklogItem, Ticket, TicketType } from "./read.ts";
 export { resolveId, showItem } from "./analysis.ts";
 export type { ResolveResult, ResolvedItem, ResolvedKind, ShowItem, ShowResult } from "./analysis.ts";
-export { applyCapture, deriveSlug, planCapture } from "./capture.ts";
+export { applyCapture, planCapture } from "./capture.ts";
 export type { CaptureApplyResult, CapturePlan } from "./capture.ts";
-export { CaptureWriteError, IdMintError } from "./capture.ts";
+export { CaptureWriteError } from "./capture.ts";
 export { digestSkillTree, planSetup, applySetup } from "./setup.ts";
 export {
   SKILL_DIRECTORY,
