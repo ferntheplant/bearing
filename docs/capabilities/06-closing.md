@@ -27,8 +27,9 @@ tracker is live.
 - **Closing a map is a flag, not an argument.** Closing a ticket is the command anyone types a hundred times
   more often, and resolving one argument as either an id or a map name would make the common case ambiguous to
   save a flag on the rare one.
-- **`bearing rm` deletes without closing**, immediately, for the ticket that turned out not to be real.
-  `done` is an alias for `close`, and `delete` for `rm`.
+- **`bearing rm` deletes without closing**, immediately, for anything resolvable — a backlog item or a ticket —
+  stripping the id from every blocker list the same way a close does. `done` is an alias for `close`, and
+  `delete` for `rm`.
 - **No prompts.** A design close's second look is a dry run and a re-run, which is a transcript rather than a
   question an agent cannot answer.
 - **Deleting the ticket inside the change that lands the work is deliberate.** A reviewer seeing the ticket
@@ -36,8 +37,10 @@ tracker is live.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The asymmetry between the two types, the hard gate and dry-run payload for a
-design close, and direct build and map closing are settled.
+**Partial.** `bearing close` on a build ticket and `bearing rm` are built and apply on their first invocation:
+the file is deleted before any blocker list is rewritten, the rewrite is lossless, and an emptied `blockers` key
+is removed rather than left as `[]`. Closing a design ticket refuses and points at its trail-row gate, and
+closing a map, which are settled, not built.
 
 ## Decisions
 

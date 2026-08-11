@@ -2,10 +2,13 @@
 
 import {
   applyCapture,
+  applyRemoval,
   listBacklog,
   listFog,
   listTickets,
   planCapture,
+  planClose,
+  planRemove,
   showItem,
   type TicketSelector,
   type TicketType,
@@ -21,6 +24,7 @@ import {
   renderFog,
   renderJson,
   renderList,
+  renderRemoval,
   renderSetupOutcome,
   renderShow,
 } from "./render.ts";
@@ -232,8 +236,32 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("List tickets, filtered by type, readiness, or project"));
 
+  const close = Command.make("close", { id: Argument.string("id"), json: Flag.boolean("json") }, (config) =>
+    Effect.gen(function* () {
+      const plan = yield* planClose(cwd, config.id);
+      const result = yield* applyRemoval(plan);
+      const rendered = config.json ? renderJson(result) : renderRemoval(result);
+      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+    }),
+  ).pipe(
+    Command.withDescription("Close a build ticket, deleting it and stripping its id from every blocker list"),
+    Command.withAlias("done"),
+  );
+
+  const rm = Command.make("rm", { id: Argument.string("id"), json: Flag.boolean("json") }, (config) =>
+    Effect.gen(function* () {
+      const plan = yield* planRemove(cwd, config.id);
+      const result = yield* applyRemoval(plan);
+      const rendered = config.json ? renderJson(result) : renderRemoval(result);
+      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+    }),
+  ).pipe(
+    Command.withDescription("Delete a ticket or backlog item immediately, stripping its id from every blocker list"),
+    Command.withAlias("delete"),
+  );
+
   return Command.make("bearing", {}).pipe(
-    Command.withSubcommands([init, show, backlog, fog, ls]),
+    Command.withSubcommands([init, show, backlog, fog, ls, close, rm]),
     Command.withDescription("Track work too large for one session"),
   );
 };

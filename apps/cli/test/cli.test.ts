@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -751,5 +751,204 @@ Two.
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("error: malformed tracker:");
+  });
+});
+
+const missing = async (path: string): Promise<boolean> => {
+  try {
+    await access(path);
+    return false;
+  } catch {
+    return true;
+  }
+};
+
+describe("close", () => {
+  it("deletes a build ticket on the first invocation and strips its id from every blocker list", async () => {
+    const root = join(fixtureRoot, "close-build");
+    await createTracker(root, {
+      "a1b2c3-first.md": ticketSource("build"),
+      "b1c2d3-second.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Second.
+`,
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(
+      `deleted ${root}/.bearing/tickets/a1b2c3-first.md\n` +
+        `stripped a1b2c3 from ${root}/.bearing/tickets/b1c2d3-second.md\n`,
+    );
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
+    await expect(readFile(join(root, ".bearing/tickets/b1c2d3-second.md"), "utf8")).resolves.toBe(
+      `---
+type: build
+---
+
+Second.
+`,
+    );
+  });
+
+  it("applies immediately on the first invocation with no dry run", async () => {
+    const root = join(fixtureRoot, "close-immediate");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
+  });
+
+  it("accepts done as an alias for close", async () => {
+    const root = join(fixtureRoot, "close-done");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
+    const result = await captureRun(({ stdout, stderr }) => main(["done", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
+  });
+
+  it("refuses a design ticket instead of falling through, deleting nothing", async () => {
+    const root = join(fixtureRoot, "close-design");
+    await createTracker(root, {
+      "a1b2c3-first.md": `---
+type: design
+project: mvp
+---
+
+Question.
+`,
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot close design ticket");
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(false);
+  });
+
+  it("refuses a backlog item, naming bearing rm as the way to delete it", async () => {
+    const root = join(fixtureRoot, "close-backlog");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "c1d2e3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("cannot close backlog item");
+    expect(result.stderr).toContain("use bearing rm");
+    await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(false);
+  });
+
+  it("exits 1 for a prefix that matches nothing", async () => {
+    const root = join(fixtureRoot, "close-nomatch");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "zzzz"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no item matches id prefix "zzzz"');
+  });
+
+  it("emits the values it rendered as JSON with --json", async () => {
+    const root = join(fixtureRoot, "close-json");
+    await createTracker(root, {
+      "a1b2c3-first.md": ticketSource("build"),
+      "b1c2d3-second.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Second.
+`,
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      id: "a1b2c3",
+      removed: `${root}/.bearing/tickets/a1b2c3-first.md`,
+      rewrote: [`${root}/.bearing/tickets/b1c2d3-second.md`],
+    });
+  });
+});
+
+describe("rm", () => {
+  it("deletes a backlog item immediately", async () => {
+    const root = join(fixtureRoot, "rm-backlog");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["rm", "c1d2e3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(`deleted ${root}/.bearing/backlog/c1d2e3-captured.md\n`);
+    await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(true);
+  });
+
+  it("accepts delete as an alias for rm", async () => {
+    const root = join(fixtureRoot, "rm-delete");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
+    const result = await captureRun(({ stdout, stderr }) => main(["delete", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
+  });
+
+  it("deletes a design ticket without close semantics", async () => {
+    const root = join(fixtureRoot, "rm-design");
+    await createTracker(root, {
+      "a1b2c3-first.md": `---
+type: design
+project: mvp
+---
+
+Question.
+`,
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["rm", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
+  });
+
+  it("strips the removed id from tickets that named it", async () => {
+    const root = join(fixtureRoot, "rm-strip");
+    await createTracker(root, {
+      "a1b2c3-first.md": ticketSource("build"),
+      "b1c2d3-second.md": `---
+type: build
+blockers: [a1b2c3, c1d2e3]
+---
+
+Second.
+`,
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["rm", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    await expect(readFile(join(root, ".bearing/tickets/b1c2d3-second.md"), "utf8")).resolves.toBe(
+      `---
+type: build
+blockers: [c1d2e3]
+---
+
+Second.
+`,
+    );
+  });
+
+  it("exits 1 for an ambiguous prefix, naming the candidates", async () => {
+    const root = join(fixtureRoot, "rm-ambiguous");
+    await createTracker(root, {
+      "a1b2c3-one.md": ticketSource("build"),
+      "a2b3c4-two.md": ticketSource("build"),
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["rm", "a"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('ambiguous id prefix "a": a1b2c3, a2b3c4');
   });
 });
