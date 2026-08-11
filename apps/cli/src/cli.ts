@@ -9,6 +9,7 @@ import {
   planCapture,
   planClose,
   planRemove,
+  RemovalError,
   showItem,
   type TicketSelector,
   type TicketType,
@@ -25,6 +26,7 @@ import {
   renderJson,
   renderList,
   renderRemoval,
+  renderRemovalError,
   renderSetupOutcome,
   renderShow,
 } from "./render.ts";
@@ -273,6 +275,10 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
     // A pure help request exits 0; every parse error exits 1. The framework
     // already rendered help and errors through the Console service.
     return error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : 1;
+  }
+  if (error instanceof RemovalError) {
+    stderr.write(`error: ${renderRemovalError(error)}\n`);
+    return 1;
   }
   const message = error instanceof Error ? error.message : String(error);
   stderr.write(`error: ${message}\n`);

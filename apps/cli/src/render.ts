@@ -4,6 +4,7 @@ import type {
   FogReport,
   ListedTicket,
   RemovalApplyResult,
+  RemovalError,
   SetupOutcome,
   ShowItem,
 } from "@bearing/core";
@@ -30,6 +31,19 @@ export const renderRemoval = (result: RemovalApplyResult): string => {
     lines.push(`stripped ${result.id} from ${path}`);
   }
   return lines.join("\n");
+};
+
+export const renderRemovalError = (error: RemovalError): string => {
+  switch (error.reason) {
+    case "no-match":
+      return `no item matches id prefix "${error.prefix}"`;
+    case "ambiguous":
+      return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
+    case "design-ticket":
+      return `cannot close design ticket ${error.prefix} with bearing close; a design ticket closes against its trail row`;
+    case "backlog-item":
+      return `cannot close backlog item ${error.prefix} with bearing close; use bearing rm`;
+  }
 };
 
 export const renderJson = (value: object): string => JSON.stringify(value, null, 2);

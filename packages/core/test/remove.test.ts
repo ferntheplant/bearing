@@ -317,6 +317,62 @@ blockers:
 Second.
 `);
   });
+
+  it("rewrites a multiline flow sequence located through parsed YAML syntax", async () => {
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("build", "first")),
+      [`${TRACKER}/tickets/b1c2d3-second.md`]: file(`---
+type: build
+"blockers" : [
+  a1b2c3,
+  "c1d2e3",
+]
+project: mvp
+---
+
+Second.
+`),
+    });
+
+    const plan = await runPlan(files, "a1b2c3", "close");
+    const rewritten = plan.rewrites[0];
+
+    expect(rewritten?.source).toBe(`---
+type: build
+"blockers" : [c1d2e3]
+project: mvp
+---
+
+Second.
+`);
+  });
+
+  it("removes a multiline blockers field through its parsed YAML range when it becomes empty", async () => {
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("build", "first")),
+      [`${TRACKER}/tickets/b1c2d3-second.md`]: file(`---
+type: build
+blockers: [
+  a1b2c3,
+]
+project: mvp
+---
+
+Second.
+`),
+    });
+
+    const plan = await runPlan(files, "a1b2c3", "close");
+    const rewritten = plan.rewrites[0];
+
+    expect(rewritten?.source).toBe(`---
+type: build
+project: mvp
+---
+
+Second.
+`);
+  });
 });
 
 describe("applyRemoval", () => {

@@ -1,16 +1,13 @@
 import type { Path } from "effect";
 import { Data, Effect, FileSystem } from "effect";
 
-import type { MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
+import type { BlockersSyntax, MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
 import { acquireValidObservation, buildIndex, resolve, type ResolvedItem, type ResolvableEntry } from "./analysis.ts";
-
-const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?\n)---(?:\r?\n|$)/;
 
 export class RemovalError extends Data.TaggedError("RemovalError")<{
   readonly reason: "no-match" | "ambiguous" | "design-ticket" | "backlog-item";
   readonly prefix: string;
   readonly candidates: readonly string[];
-  readonly message: string;
 }> {}
 
 export class RemovalApplyError extends Data.TaggedError("RemovalApplyError")<{
@@ -37,114 +34,31 @@ export interface RemovalApplyResult {
 
 type RemovalReason = RemovalError["reason"];
 
-const refusalMessage = (reason: RemovalReason, prefix: string, candidates: readonly string[]): string => {
-  switch (reason) {
-    case "no-match":
-      return `no item matches id prefix "${prefix}"`;
-    case "ambiguous":
-      return `ambiguous id prefix "${prefix}": ${candidates.join(", ")}`;
-    case "design-ticket":
-      return `cannot close design ticket ${prefix} with bearing close; a design ticket closes against its trail row`;
-    case "backlog-item":
-      return `cannot close backlog item ${prefix} with bearing close; use bearing rm`;
-  }
-};
-
 const refusal = (reason: RemovalReason, prefix: string, candidates: readonly string[]): RemovalError =>
-  new RemovalError({ reason, prefix, candidates, message: refusalMessage(reason, prefix, candidates) });
-
-const splitLines = (text: string): readonly { readonly content: string; readonly start: number }[] => {
-  const segments = text.split(/(\r\n|\r|\n)/);
-  const lines: { content: string; start: number }[] = [];
-  let offset = 0;
-  for (let index = 0; index < segments.length; index += 2) {
-    const content = segments[index] ?? "";
-    const separator = segments[index + 1] ?? "";
-    lines.push({ content: `${content}${separator}`, start: offset });
-    offset += content.length + separator.length;
-  }
-  return lines;
-};
+  new RemovalError({ reason, prefix, candidates });
 
 const splice = (source: string, start: number, end: number, replacement: string): string =>
   `${source.slice(0, start)}${replacement}${source.slice(end)}`;
 
-const unquote = (value: string): string => {
-  const trimmed = value.trim();
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-};
+const ID_PATTERN = /^[0-9abcdefghjkmnpqrstvwxyz]{6}$/;
 
-const itemValue = (line: string): string => {
-  const item = /^\s*-[ \t]+([^#]*?)[ \t]*$/.exec(line);
-  return item === null ? "" : unquote(item[1] ?? "");
-};
+const renderBlocker = (id: string): string => (ID_PATTERN.test(id) ? id : JSON.stringify(id));
 
 /**
  * A lossless rewrite of a ticket's frontmatter: everything except the `blockers` value —
  * body, other frontmatter keys, and their order — survives byte-for-byte. A list that
  * becomes empty has the `blockers` key removed rather than left as `[]`.
  */
-const stripBlockers = (source: string, remains: readonly string[]): string => {
-  const match = FRONTMATTER_PATTERN.exec(source);
-  if (match === null) {
-    return source;
-  }
-  const frontmatter = match[1] ?? "";
-  const frontmatterOffset = match[0].indexOf(frontmatter);
-  if (frontmatterOffset < 0) {
-    return source;
-  }
-  const frontmatterStart = match.index + frontmatterOffset;
-  const lines = splitLines(frontmatter);
-  const blockersIndex = lines.findIndex((line) => line.content.startsWith("blockers:"));
-  if (blockersIndex === -1) {
-    return source;
-  }
-  const blockersLine = lines[blockersIndex];
-  if (blockersLine === undefined) {
-    return source;
-  }
-  const lineStart = frontmatterStart + blockersLine.start;
-  const value = blockersLine.content.replace(/^blockers:[ \t]*/, "");
-
-  if (value.startsWith("[")) {
-    const bracketStart = blockersLine.content.indexOf("[");
-    const bracketEnd = blockersLine.content.indexOf("]", bracketStart);
-    if (bracketEnd === -1) {
-      return source;
-    }
-    if (remains.length === 0) {
-      return splice(source, lineStart, lineStart + blockersLine.content.length, "");
-    }
-    const from = lineStart + bracketStart;
-    const to = lineStart + bracketEnd + 1;
-    return splice(source, from, to, `[${remains.join(", ")}]`);
-  }
-
-  const items: { readonly content: string; readonly id: string }[] = [];
-  let cursor = blockersIndex + 1;
-  while (cursor < lines.length) {
-    const line = lines[cursor];
-    if (line === undefined || !/^\s*-[ \t]+/.test(line.content)) {
-      break;
-    }
-    items.push({ content: line.content, id: itemValue(line.content) });
-    cursor += 1;
-  }
-  if (items.length === 0) {
-    return source;
-  }
-  const fieldLength = blockersLine.content.length + items.reduce((sum, item) => sum + item.content.length, 0);
-  const fieldEnd = lineStart + fieldLength;
+const stripBlockers = (source: string, syntax: BlockersSyntax, remains: readonly string[]): string => {
   if (remains.length === 0) {
-    return splice(source, lineStart, fieldEnd, "");
+    return splice(source, syntax.fieldStart, syntax.fieldEnd, "");
   }
-  const kept = items.filter((item) => remains.includes(item.id));
-  const keptText = blockersLine.content + kept.map((item) => item.content).join("");
-  return splice(source, lineStart, fieldEnd, keptText);
+  const rendered = remains.map(renderBlocker);
+  const replacement =
+    syntax.style === "flow"
+      ? `[${rendered.join(", ")}]`
+      : `${rendered.map((id) => `- ${id}`).join(`${syntax.lineEnding}${" ".repeat(syntax.indent)}`)}${syntax.lineEnding}`;
+  return splice(source, syntax.valueStart, syntax.valueEnd, replacement);
 };
 
 type RemovalMode = "close" | "remove";
@@ -186,10 +100,15 @@ const planRemoval = (
           if (ticket.id === entry.id || !ticket.blockers.includes(entry.id)) {
             continue;
           }
+          const blockersSyntax = document.syntax.blockers;
+          if (blockersSyntax === undefined) {
+            return yield* Effect.die(new Error(`parsed blockers for ${document.path} have no retained syntax`));
+          }
           rewrites.push({
             path: document.path,
             source: stripBlockers(
               document.source,
+              blockersSyntax,
               ticket.blockers.filter((id) => id !== entry.id),
             ),
           });

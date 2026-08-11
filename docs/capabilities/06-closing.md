@@ -11,8 +11,9 @@ tracker is live.
 - **Closing is ordered, not atomic.** The closing ticket is deleted before blocker lists are cleaned. If the
   apply is interrupted, the remaining references are satisfied blockers that `bearing check` reports, never
   dependents made ready while their blocker still exists.
-- **A build ticket closes with no checks at all.** Its evidence is the diff it ships with, and that is
-  recoverable from history. Bearing does not inspect the working tree or the commit, and closes it immediately.
+- **A build ticket closes with no close-specific gate.** Its evidence is the diff it ships with, and that is
+  recoverable from history. Bearing still acquires and validates the tracker, but it does not inspect the
+  working tree or commit, consult a map's trail, or write a map before closing the ticket immediately.
 - **A design ticket closes against its trail row.** The map's trail must have a row for it with a non-empty
   outcome, and that is a refusal rather than a warning.
 - **Closing a design ticket is a dry run first.** It prints the ticket, the trail row **verbatim**, the file it
