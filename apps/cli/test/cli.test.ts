@@ -2,9 +2,11 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { Effect } from "effect";
+import { Argument, Command } from "effect/unstable/cli";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { main } from "#src/cli.ts";
+import { main, runCommand } from "#src/cli.ts";
 
 const VALID_MAP = `# MVP
 
@@ -221,14 +223,45 @@ describe("main", () => {
     expect(stderr.read()).not.toContain("first ticket");
   });
 
-  it("rejects the removed positional tracker argument", async () => {
+  it("rejects an unknown subcommand with a message naming it", async () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([join(fixtureRoot, ".bearing")], stdout.writer, stderr.writer, fixtureRoot);
+    const exitCode = await main(["frobnicate"], stdout.writer, stderr.writer, fixtureRoot);
 
     expect(exitCode).toBe(1);
-    expect(stdout.read()).toBe("");
-    expect(stderr.read()).toBe("usage: bearing [--json] | bearing init\n");
+    expect(stderr.read()).toContain('Unknown subcommand "frobnicate"');
+  });
+
+  it("rejects an unknown flag with a message naming it", async () => {
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main(["--frobnicate"], stdout.writer, stderr.writer, fixtureRoot);
+
+    expect(exitCode).toBe(1);
+    expect(stderr.read()).toContain("Unrecognized flag: --frobnicate");
+  });
+
+  it("lists the commands that exist in --help", async () => {
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main(["--help"], stdout.writer, stderr.writer, fixtureRoot);
+
+    expect(exitCode).toBe(0);
+    expect(stderr.read()).toBe("");
+    expect(stdout.read()).toContain("init");
+  });
+
+  it("rejects a missing required argument with a message naming it", async () => {
+    const stdout = capture();
+    const stderr = capture();
+
+    const command = Command.make("probe", { target: Argument.string("target") }, () => Effect.void);
+    const exitCode = await runCommand(command, [], stdout.writer, stderr.writer);
+
+    expect(exitCode).toBe(1);
+    expect(stderr.read()).toContain("Missing required argument: target");
   });
 });

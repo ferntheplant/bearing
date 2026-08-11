@@ -259,7 +259,7 @@ describe("bearing init", () => {
     const exitCode = await main(["init", "--json"], stdout.writer, stderr.writer, root);
 
     expect(exitCode).toBe(1);
-    expect(stderr.read()).toBe("usage: bearing init\n");
+    expect(stderr.read()).toContain("Unrecognized flag: --json");
     await rm(root, { recursive: true, force: true });
   });
 });
