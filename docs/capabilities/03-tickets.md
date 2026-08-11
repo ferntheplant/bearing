@@ -27,7 +27,8 @@ legible to whoever picks it up cold, human or agent.
   deleted, so interruption can
   leave a duplicate id but cannot silently remove the ticket. Creating and retitling apply immediately.
 - **`bearing ls` filters by type, readiness, blocked-ness, project, or a query**, and **`bearing show` prints
-  one.** Both take `--json`, as every read in bearing does.
+  one.** `show` takes an id or an unambiguous id prefix, renders the frontmatter fields and body, and `--full`
+  prints the file's exact source. Both take `--json`, as every read in bearing does.
 - **Short id prefixes work everywhere an id does** — three or four characters is usually enough to type. A
   prefix matching more than one item is an error that names the candidates, never a guess between them.
 
@@ -36,8 +37,8 @@ legible to whoever picks it up cold, human or agent.
 **Partial.** `packages/core` acquires all three tracker directories losslessly, refuses malformed documents, and
 projects valid ticket values for `apps/cli` to render or emit as `--json`
 ([Core returns values (ADR 0019)](../adr/0019-core-returns-values-only-the-cli-renders.md) is the seam between
-them). The command
-surface — filters, `show`, creation, retitling, and prefix resolution — remains settled, not built.
+them). Prefix resolution over the whole tracker is built as a core operation and backs `bearing show`, which
+prints one backlog item or ticket. `bearing ls`'s filters, creation, and retitling remain settled, not built.
 
 ## Decisions
 

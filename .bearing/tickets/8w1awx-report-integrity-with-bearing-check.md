@@ -1,7 +1,7 @@
 ---
 type: build
 project: mvp
-blockers: [ja2j4z, 5sg7nk]
+blockers: [ja2j4z]
 ---
 
 # Report integrity with `bearing check`

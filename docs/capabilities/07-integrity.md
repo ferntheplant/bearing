@@ -30,8 +30,10 @@ find out when an edit broke a link.
 ## Where it stands
 
 **Partial.** Tracker acquisition retains every malformed document and ticket listing refuses with accumulated
-filename, frontmatter, and local-document diagnostics. `bearing check`, cross-document integrity analysis, the
-single warning, and fix commands remain settled, not built.
+filename, frontmatter, and local-document diagnostics. The id index behind duplicate detection is built — prefix
+resolution spans the whole tracker, so two items sharing an id are already reported as ambiguous. `bearing
+check`, the rest of the cross-document integrity analysis, the single warning, and fix commands remain settled,
+not built.
 
 ## Decisions
 

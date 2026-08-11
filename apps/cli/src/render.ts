@@ -1,4 +1,4 @@
-import type { SetupOutcome, Ticket } from "@bearing/core";
+import type { SetupOutcome, ShowItem, Ticket } from "@bearing/core";
 
 export const renderText = (tickets: readonly Ticket[]): string => tickets.map(renderTicket).join("\n");
 
@@ -26,3 +26,37 @@ const renderTicket = (ticket: Ticket): string => {
   }
   return lines.join("\n");
 };
+
+export const renderShow = (item: ShowItem): string => {
+  const title = item.slug.replaceAll("-", " ");
+  if (item.kind === "ticket") {
+    const lines = [`${item.id}  ${title}  ${item.type}  ${item.project ?? "-"}`];
+    if (item.blockers.length > 0) {
+      lines.push(`        blockers: [${item.blockers.join(", ")}]`);
+    }
+    return `${lines.join("\n")}\n\n${item.body}`;
+  }
+  return `${item.id}  ${title}\n\n${item.body}`;
+};
+
+export const renderShowFull = (item: ShowItem): string => item.source;
+
+const showValues = (item: ShowItem): Record<string, unknown> =>
+  item.kind === "ticket"
+    ? {
+        kind: item.kind,
+        id: item.id,
+        slug: item.slug,
+        type: item.type,
+        project: item.project,
+        blockers: item.blockers,
+        body: item.body,
+      }
+    : {
+        kind: item.kind,
+        id: item.id,
+        slug: item.slug,
+        body: item.body,
+      };
+
+export const renderShowJson = (item: ShowItem): string => JSON.stringify(showValues(item), null, 2);

@@ -45,7 +45,7 @@ interface ItemIdentity {
   readonly slug: string;
 }
 
-interface BacklogItem extends ItemIdentity {}
+export interface BacklogItem extends ItemIdentity {}
 
 interface MapDocument {
   readonly project: string;
@@ -82,12 +82,25 @@ export interface TrackerObservation {
   readonly diagnostics: readonly TrackerDiagnostic[];
 }
 
-export interface ValidTrackerObservation extends Omit<TrackerObservation, "tickets" | "diagnostics"> {
+export interface ValidTrackerObservation {
+  readonly root: string;
+  readonly backlog: readonly (Omit<DocumentObservation<BacklogItem>, "parsed"> & {
+    readonly parsed: Result.Success<BacklogItem, readonly TrackerDiagnostic[]>;
+  })[];
   readonly tickets: readonly (Omit<DocumentObservation<Ticket>, "parsed"> & {
     readonly parsed: Result.Success<Ticket, readonly TrackerDiagnostic[]>;
   })[];
+  readonly maps: readonly (Omit<DocumentObservation<MapDocument>, "parsed"> & {
+    readonly parsed: Result.Success<MapDocument, readonly TrackerDiagnostic[]>;
+  })[];
   readonly diagnostics: readonly [];
 }
+
+export const documentBody = (source: string): string =>
+  source
+    .replace(FRONTMATTER_PATTERN, "")
+    .replace(/^\r?\n/, "")
+    .trimEnd();
 
 type AcquisitionError = TrackerReadError;
 

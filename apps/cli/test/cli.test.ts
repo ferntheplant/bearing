@@ -68,6 +68,7 @@ blockers: [a1b2c3]
 Question body.
 `,
   },
+  backlog: Readonly<Record<string, string>> = {},
 ) => {
   const tracker = join(root, ".bearing");
   await Promise.all([
@@ -77,6 +78,7 @@ Question body.
   ]);
   await Promise.all([
     ...Object.entries(tickets).map(([name, source]) => writeFile(join(tracker, "tickets", name), source)),
+    ...Object.entries(backlog).map(([name, source]) => writeFile(join(tracker, "backlog", name), source)),
     writeFile(join(tracker, "maps", "mvp.md"), VALID_MAP),
   ]);
   return tracker;
@@ -244,19 +246,20 @@ describe("main", () => {
     expect(result.stderr).toContain("Unrecognized flag: --frobnicate");
   });
 
-  it("does not expose the framework's version flag", async () => {
-    const result = await captureRun(({ stdout, stderr }) => main(["--version"], stdout, stderr, fixtureRoot));
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Unrecognized flag: --version");
-  });
-
   it("lists the commands that exist in --help", async () => {
     const result = await captureRun(({ stdout, stderr }) => main(["--help"], stdout, stderr, fixtureRoot));
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("init");
+    expect(result.stdout).toContain("show");
+  });
+
+  it("does not expose the framework's version flag", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["--version"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unrecognized flag: --version");
   });
 
   it("rejects a missing required argument with a message naming it", async () => {
@@ -273,5 +276,103 @@ describe("main", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Console.clear");
+  });
+});
+
+describe("show", () => {
+  it("prints a ticket's frontmatter fields and body", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "a1b2c3"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("a1b2c3  first ticket  build  -\n\nBody.\n");
+  });
+
+  it("resolves an unambiguous id prefix", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "b1c2"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("b1c2d3  design question  design  mvp\n        blockers: [a1b2c3]\n\nQuestion body.\n");
+  });
+
+  it("prints a backlog item the same way", async () => {
+    const root = join(fixtureRoot, "show-backlog");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n\nBacklog body.\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "c1d2e3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("c1d2e3  captured\n\n# Captured\n\nBacklog body.\n");
+  });
+
+  it("emits the values it rendered with --json", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["show", "a1b2c3", "--json"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({
+      kind: "ticket",
+      id: "a1b2c3",
+      slug: "first-ticket",
+      type: "build",
+      project: undefined,
+      blockers: [],
+      body: "Body.",
+    });
+  });
+
+  it("prints the exact source with --full", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["show", "a1b2c3", "--full"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("---\ntype: build\n---\n\nBody.\n");
+  });
+
+  it("exits 1 and names every candidate id for an ambiguous prefix", async () => {
+    const root = join(fixtureRoot, "show-ambiguous");
+    await createTracker(root, {
+      "a1b2c3-one.md": ticketSource("build"),
+      "a2b3c4-two.md": ticketSource("build"),
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "a"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('ambiguous id prefix "a": a1b2c3, a2b3c4');
+  });
+
+  it("exits 1 for a prefix that matches nothing", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "zz"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no item matches id prefix "zz"');
+  });
+
+  it("resolves against the nearest ancestor tracker from a nested directory", async () => {
+    const nestedRoot = join(fixtureRoot, "show-nested");
+    const cwd = join(nestedRoot, "inside");
+    await createTracker(nestedRoot, { "c1d2e3-nearest.md": ticketSource("build") });
+    await mkdir(cwd, { recursive: true });
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "c1d2e3"], stdout, stderr, cwd));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("c1d2e3  nearest  build  -\n\nBody.\n");
+  });
+
+  it("refuses a malformed tracker rather than resolving against it", async () => {
+    const root = join(fixtureRoot, "show-malformed");
+    await createTracker(root, { "bad.md": "no frontmatter\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["show", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: malformed tracker:");
   });
 });
