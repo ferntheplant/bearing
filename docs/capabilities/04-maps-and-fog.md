@@ -41,10 +41,13 @@ picks up the work next.
 
 ## Where it stands
 
-**Partial.** Acquisition now parses a map's destination, intentions, patches, and trail rows — each retaining
-its exact source, and a malformed trail row kept as a diagnostic rather than a thrown parse. `bearing fog`
-lists the patches on one map or across every map, and refuses an unknown project by naming the maps that exist.
-Map analysis for the frontier, and the fogbound and fog-complete states, remain settled, not built.
+**Partial.** Acquisition parses a map's destination, intentions, patches, and trail rows — each retaining its
+exact source, and a malformed trail row kept as a diagnostic rather than a thrown parse. `bearing fog` lists the
+patches on one map or across every map, and refuses an unknown project by naming the maps that exist. The
+fogbound and fog-complete states are reported through the frontier: a map with fog and no open design ticket is
+called out above its sections, and a map with no fog and no open design ticket stops appearing in DECIDE while
+its build tickets keep running. The mapping-pass method the fog is drained by is still not built — the shipped
+skill is a placeholder.
 
 ## Decisions
 

@@ -293,7 +293,7 @@ const findCycle = (direct: ReadonlyMap<string, readonly string[]>): readonly str
   return undefined;
 };
 
-const deriveBlocking = (tickets: readonly Ticket[]): BlockingGraph => {
+export const deriveBlocking = (tickets: readonly Ticket[]): BlockingGraph => {
   const ids = new Set(tickets.map((ticket) => ticket.id));
   const direct = new Map<string, readonly string[]>();
   const reversed = new Map<string, string[]>();

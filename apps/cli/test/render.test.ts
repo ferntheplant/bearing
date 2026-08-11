@@ -1,7 +1,7 @@
-import { RemovalError, type FogReport, type ListedTicket, type ShowItem } from "@bearing/core";
+import { RemovalError, type FogReport, type Frontier, type ListedTicket, type ShowItem } from "@bearing/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { renderFog, renderJson, renderList, renderRemovalError, renderShow } from "#src/render.ts";
+import { renderFog, renderFrontier, renderJson, renderList, renderRemovalError, renderShow } from "#src/render.ts";
 
 const TICKETS: readonly ListedTicket[] = [
   {
@@ -75,6 +75,49 @@ describe("renderFog", () => {
 
   it("renders an empty report as an empty string", () => {
     expect(renderFog([])).toBe("");
+  });
+});
+
+const FRONTIER: Frontier = {
+  build: [
+    { id: "a1b2c3", slug: "the-first-slice", project: "mvp", gateCount: 2 },
+    { id: "c4d5e6", slug: "unprojected", project: undefined, gateCount: 0 },
+  ],
+  decide: [
+    {
+      project: "mvp",
+      destination: "Ship bearing. Track work too large for one session.",
+      fogCount: 3,
+      tickets: [{ id: "b1c2d3", slug: "a-design-question", project: "mvp", gateCount: 1 }],
+    },
+  ],
+  triageCount: 7,
+  fogbound: ["second"],
+};
+
+describe("renderFrontier", () => {
+  it("prints fogbound maps above BUILD, DECIDE, and TRIAGE in that order", () => {
+    expect(renderFrontier(FRONTIER)).toBe(
+      "second is fogbound: fog left, no open design tickets\n" +
+        "BUILD\n" +
+        "a1b2c3  the first slice  mvp\n" +
+        "c4d5e6  unprojected  -\n" +
+        "DECIDE\n" +
+        "Ship bearing. Track work too large for one session. (mvp, 3 fog)\n" +
+        "  b1c2d3  a design question\n" +
+        "TRIAGE\n" +
+        "7",
+    );
+  });
+
+  it("prints an empty build and decide with the fogbound line still above them", () => {
+    expect(renderFrontier({ build: [], decide: [], triageCount: 0, fogbound: ["mvp"] })).toBe(
+      "mvp is fogbound: fog left, no open design tickets\nBUILD\nDECIDE\nTRIAGE\n0",
+    );
+  });
+
+  it("renders the sections even when every section is empty", () => {
+    expect(renderFrontier({ build: [], decide: [], triageCount: 0, fogbound: [] })).toBe("BUILD\nDECIDE\nTRIAGE\n0");
   });
 });
 

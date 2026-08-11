@@ -2,6 +2,7 @@ import type {
   BacklogItem,
   CaptureApplyResult,
   FogReport,
+  Frontier,
   ListedTicket,
   RemovalApplyResult,
   RemovalError,
@@ -9,10 +10,33 @@ import type {
   ShowItem,
 } from "@bearing/core";
 
+const titleFromSlug = (slug: string): string => slug.replaceAll("-", " ");
+
 export const renderList = (tickets: readonly ListedTicket[]): string => tickets.map(renderListedTicket).join("\n");
 
+export const renderFrontier = (frontier: Frontier): string => {
+  const lines: string[] = [];
+  for (const project of frontier.fogbound) {
+    lines.push(`${project} is fogbound: fog left, no open design tickets`);
+  }
+  lines.push("BUILD");
+  for (const ticket of frontier.build) {
+    lines.push(`${ticket.id}  ${titleFromSlug(ticket.slug)}  ${ticket.project ?? "-"}`);
+  }
+  lines.push("DECIDE");
+  for (const group of frontier.decide) {
+    lines.push(`${group.destination} (${group.project}, ${group.fogCount} fog)`);
+    for (const ticket of group.tickets) {
+      lines.push(`  ${ticket.id}  ${titleFromSlug(ticket.slug)}`);
+    }
+  }
+  lines.push("TRIAGE");
+  lines.push(String(frontier.triageCount));
+  return lines.join("\n");
+};
+
 export const renderBacklogList = (items: readonly BacklogItem[]): string =>
-  items.map((item) => `${item.id}  ${item.slug.replaceAll("-", " ")}`).join("\n");
+  items.map((item) => `${item.id}  ${titleFromSlug(item.slug)}`).join("\n");
 
 export const renderFog = (maps: readonly FogReport[]): string =>
   maps
@@ -63,7 +87,7 @@ export const renderSetupOutcome = (outcome: SetupOutcome): string => {
 
 const renderListedTicket = (ticket: ListedTicket): string => {
   const project = ticket.project ?? "-";
-  const title = ticket.slug.replaceAll("-", " ");
+  const title = titleFromSlug(ticket.slug);
   const readiness = ticket.ready ? "ready" : "blocked";
   const lines = [`${ticket.id}  ${title}  ${ticket.type}  ${project}  ${readiness}`];
   if (ticket.blockers.length > 0) {

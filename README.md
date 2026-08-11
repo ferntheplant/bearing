@@ -5,12 +5,10 @@ the route to the destination is not yet visible.
 
 The name is the method. You take a bearing, walk it, and take another when the view changes.
 
-**The read path is partially built.** `packages/core` discovers the nearest tracker, acquires all
-three tracker directories without discarding malformed documents, and projects valid tickets for `apps/cli` to
-render or emit as `--json` ([Core returns values (ADR 0019)](./docs/adr/0019-core-returns-values-only-the-cli-renders.md)
-is what keeps the two apart). Setup status lives in
-[Setup and the shipped skill](./docs/capabilities/08-setup-and-the-skill.md). Derived map, fog, trail, and
-integrity analysis remains designed, not built.
+**The read path is partially built.** The [capability catalogue](./docs/capabilities/) records what runs today.
+[Core returns values (ADR 0019)](./docs/adr/0019-core-returns-values-only-the-cli-renders.md) keeps the domain and
+rendering apart; setup status lives in
+[Setup and the shipped skill](./docs/capabilities/08-setup-and-the-skill.md).
 
 ## What it is
 

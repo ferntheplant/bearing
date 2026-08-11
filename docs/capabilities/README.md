@@ -14,19 +14,19 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 | 2   | [Triage](./02-triage.md)                                   | Designed  |
 | 3   | [Tickets](./03-tickets.md)                                 | Partial   |
 | 4   | [Maps and fog](./04-maps-and-fog.md)                       | Partial   |
-| 5   | [The frontier](./05-the-frontier.md)                       | Designed  |
+| 5   | [The frontier](./05-the-frontier.md)                       | Built     |
 | 6   | [Closing](./06-closing.md)                                 | Partial   |
 | 7   | [Integrity](./07-integrity.md)                             | Partial   |
 | 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Partial   |
 
-**Capture is Built; closing is now Partial alongside tickets, maps and fog, integrity, and setup; the other
-capabilities are Designed.** The read path discovers the nearest tracker, acquires all three directories without
-discarding malformed documents, and projects valid tickets and backlog items for text or `--json`. Id-prefix
-resolution across the whole tracker backs `bearing show`, and `bearing backlog "..."` plans and applies a capture
-in one invocation, minting an id against the ids already on disk. `bearing ls` filtering and the frontier's
-blocking-graph input are built. `bearing close` on a build ticket and `bearing rm` delete immediately and strip
-the closed id from every blocker list as a lossless rewrite. Derived map, fog, trail, and integrity analysis is
-still to come, as are the design-ticket dry run and closing a map.
+**Capture and the frontier are Built; closing is now Partial alongside tickets, maps and fog, integrity, and
+setup; the other capabilities are Designed.** The read path discovers the nearest tracker, acquires all three
+directories without discarding malformed documents, and projects valid tickets and backlog items for text or
+`--json`. Id-prefix resolution across the whole tracker backs `bearing show`, and `bearing backlog "..."` plans
+and applies a capture in one invocation, minting an id against the ids already on disk. `bearing ls` filtering
+and the blocking graph it exposes are built. `bearing close` on a build ticket and `bearing rm` delete immediately
+and strip the closed id from every blocker list as a lossless rewrite. Trail and integrity analysis is still to
+come, as are the design-ticket dry run and closing a map.
 
 ## A note on command names
 
