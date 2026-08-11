@@ -1,4 +1,13 @@
-import type { BacklogItem, CaptureApplyResult, FogReport, ListedTicket, SetupOutcome, ShowItem } from "@bearing/core";
+import type {
+  BacklogItem,
+  CaptureApplyResult,
+  FogReport,
+  ListedTicket,
+  RemovalApplyResult,
+  RemovalError,
+  SetupOutcome,
+  ShowItem,
+} from "@bearing/core";
 
 export const renderList = (tickets: readonly ListedTicket[]): string => tickets.map(renderListedTicket).join("\n");
 
@@ -15,6 +24,27 @@ export const renderFog = (maps: readonly FogReport[]): string =>
     .join("\n\n");
 
 export const renderCapture = (result: CaptureApplyResult): string => `wrote ${result.path}`;
+
+export const renderRemoval = (result: RemovalApplyResult): string => {
+  const lines = [`deleted ${result.removed}`];
+  for (const path of result.rewrote) {
+    lines.push(`stripped ${result.id} from ${path}`);
+  }
+  return lines.join("\n");
+};
+
+export const renderRemovalError = (error: RemovalError): string => {
+  switch (error.reason) {
+    case "no-match":
+      return `no item matches id prefix "${error.prefix}"`;
+    case "ambiguous":
+      return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
+    case "design-ticket":
+      return `cannot close design ticket ${error.prefix} with bearing close; a design ticket closes against its trail row`;
+    case "backlog-item":
+      return `cannot close backlog item ${error.prefix} with bearing close; use bearing rm`;
+  }
+};
 
 export const renderJson = (value: object): string => JSON.stringify(value, null, 2);
 

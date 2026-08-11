@@ -2,10 +2,14 @@
 
 import {
   applyCapture,
+  applyRemoval,
   listBacklog,
   listFog,
   listTickets,
   planCapture,
+  planClose,
+  planRemove,
+  RemovalError,
   showItem,
   type TicketSelector,
   type TicketType,
@@ -21,6 +25,8 @@ import {
   renderFog,
   renderJson,
   renderList,
+  renderRemoval,
+  renderRemovalError,
   renderSetupOutcome,
   renderShow,
 } from "./render.ts";
@@ -232,8 +238,32 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("List tickets, filtered by type, readiness, or project"));
 
+  const close = Command.make("close", { id: Argument.string("id"), json: Flag.boolean("json") }, (config) =>
+    Effect.gen(function* () {
+      const plan = yield* planClose(cwd, config.id);
+      const result = yield* applyRemoval(plan);
+      const rendered = config.json ? renderJson(result) : renderRemoval(result);
+      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+    }),
+  ).pipe(
+    Command.withDescription("Close a build ticket, deleting it and stripping its id from every blocker list"),
+    Command.withAlias("done"),
+  );
+
+  const rm = Command.make("rm", { id: Argument.string("id"), json: Flag.boolean("json") }, (config) =>
+    Effect.gen(function* () {
+      const plan = yield* planRemove(cwd, config.id);
+      const result = yield* applyRemoval(plan);
+      const rendered = config.json ? renderJson(result) : renderRemoval(result);
+      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+    }),
+  ).pipe(
+    Command.withDescription("Delete a ticket or backlog item immediately, stripping its id from every blocker list"),
+    Command.withAlias("delete"),
+  );
+
   return Command.make("bearing", {}).pipe(
-    Command.withSubcommands([init, show, backlog, fog, ls]),
+    Command.withSubcommands([init, show, backlog, fog, ls, close, rm]),
     Command.withDescription("Track work too large for one session"),
   );
 };
@@ -245,6 +275,10 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
     // A pure help request exits 0; every parse error exits 1. The framework
     // already rendered help and errors through the Console service.
     return error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : 1;
+  }
+  if (error instanceof RemovalError) {
+    stderr.write(`error: ${renderRemovalError(error)}\n`);
+    return 1;
   }
   const message = error instanceof Error ? error.message : String(error);
   stderr.write(`error: ${message}\n`);

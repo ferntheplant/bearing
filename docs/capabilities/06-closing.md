@@ -11,8 +11,9 @@ tracker is live.
 - **Closing is ordered, not atomic.** The closing ticket is deleted before blocker lists are cleaned. If the
   apply is interrupted, the remaining references are satisfied blockers that `bearing check` reports, never
   dependents made ready while their blocker still exists.
-- **A build ticket closes with no checks at all.** Its evidence is the diff it ships with, and that is
-  recoverable from history. Bearing does not inspect the working tree or the commit, and closes it immediately.
+- **A build ticket closes with no close-specific gate.** Its evidence is the diff it ships with, and that is
+  recoverable from history. Bearing still acquires and validates the tracker, but it does not inspect the
+  working tree or commit, consult a map's trail, or write a map before closing the ticket immediately.
 - **A design ticket closes against its trail row.** The map's trail must have a row for it with a non-empty
   outcome, and that is a refusal rather than a warning.
 - **Closing a design ticket is a dry run first.** It prints the ticket, the trail row **verbatim**, the file it
@@ -27,8 +28,9 @@ tracker is live.
 - **Closing a map is a flag, not an argument.** Closing a ticket is the command anyone types a hundred times
   more often, and resolving one argument as either an id or a map name would make the common case ambiguous to
   save a flag on the rare one.
-- **`bearing rm` deletes without closing**, immediately, for the ticket that turned out not to be real.
-  `done` is an alias for `close`, and `delete` for `rm`.
+- **`bearing rm` deletes without closing**, immediately, for anything resolvable — a backlog item or a ticket —
+  stripping the id from every blocker list the same way a close does. `done` is an alias for `close`, and
+  `delete` for `rm`.
 - **No prompts.** A design close's second look is a dry run and a re-run, which is a transcript rather than a
   question an agent cannot answer.
 - **Deleting the ticket inside the change that lands the work is deliberate.** A reviewer seeing the ticket
@@ -36,8 +38,10 @@ tracker is live.
 
 ## Where it stands
 
-**Designed.** Nothing is built. The asymmetry between the two types, the hard gate and dry-run payload for a
-design close, and direct build and map closing are settled.
+**Partial.** `bearing close` on a build ticket and `bearing rm` are built and apply on their first invocation:
+the file is deleted before any blocker list is rewritten, the rewrite is lossless, and an emptied `blockers` key
+is removed rather than left as `[]`. Closing a design ticket refuses and points at its trail-row gate, and
+closing a map, which are settled, not built.
 
 ## Decisions
 

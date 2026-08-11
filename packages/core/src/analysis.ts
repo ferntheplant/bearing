@@ -79,15 +79,15 @@ interface MapEntry {
   readonly source: string;
 }
 
-type IndexEntry = BacklogEntry | TicketEntry | MapEntry;
-type ResolvableEntry = BacklogEntry | TicketEntry;
+export type IndexEntry = BacklogEntry | TicketEntry | MapEntry;
+export type ResolvableEntry = BacklogEntry | TicketEntry;
 
-type InternalResolution =
+export type InternalResolution =
   | { readonly tag: "match"; readonly entry: ResolvableEntry }
   | { readonly tag: "no-match"; readonly prefix: string }
   | { readonly tag: "ambiguous"; readonly prefix: string; readonly candidates: readonly ResolvableEntry[] };
 
-const buildIndex = (observation: ValidTrackerObservation): readonly IndexEntry[] => [
+export const buildIndex = (observation: ValidTrackerObservation): readonly IndexEntry[] => [
   ...observation.backlog.map((document) => ({
     kind: "backlog" as const,
     id: document.parsed.success.id,
@@ -111,7 +111,7 @@ const buildIndex = (observation: ValidTrackerObservation): readonly IndexEntry[]
   })),
 ];
 
-const resolve = (index: readonly IndexEntry[], prefix: string): InternalResolution => {
+export const resolve = (index: readonly IndexEntry[], prefix: string): InternalResolution => {
   const candidates = index.filter(
     (entry): entry is ResolvableEntry => entry.kind !== "map" && entry.id.startsWith(prefix),
   );
@@ -165,6 +165,8 @@ const acquireValidObservation = (
     const observation = yield* acquireTracker(tracker);
     return yield* requireValidTracker(observation);
   });
+
+export { acquireValidObservation };
 
 export const resolveId = (
   startDirectory: string,

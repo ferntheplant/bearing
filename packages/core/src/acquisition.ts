@@ -1,5 +1,5 @@
 import { Clock, Data, Effect, FileSystem, Path, Result } from "effect";
-import { parse as parseYaml } from "yaml";
+import { isMap, isScalar, isSeq, parseDocument as parseYamlDocument } from "yaml";
 
 const TRACKER_DIRECTORIES = ["backlog", "tickets", "maps"] as const;
 const FRONTMATTER_FIELDS = new Set(["type", "project", "blockers"]);
@@ -91,6 +91,20 @@ export interface Ticket {
   readonly blockers: readonly string[];
 }
 
+export interface BlockersSyntax {
+  readonly fieldStart: number;
+  readonly fieldEnd: number;
+  readonly valueStart: number;
+  readonly valueEnd: number;
+  readonly style: "flow" | "block";
+  readonly indent: number;
+  readonly lineEnding: string;
+}
+
+interface TicketSyntax {
+  readonly blockers: BlockersSyntax | undefined;
+}
+
 export interface DocumentObservation<Value> {
   readonly filename: string;
   readonly path: string;
@@ -98,10 +112,14 @@ export interface DocumentObservation<Value> {
   readonly parsed: Result.Result<Value, readonly TrackerDiagnostic[]>;
 }
 
+interface TicketDocumentObservation extends DocumentObservation<Ticket> {
+  readonly syntax: TicketSyntax;
+}
+
 export interface TrackerObservation {
   readonly root: string;
   readonly backlog: readonly DocumentObservation<BacklogItem>[];
-  readonly tickets: readonly DocumentObservation<Ticket>[];
+  readonly tickets: readonly TicketDocumentObservation[];
   readonly maps: readonly DocumentObservation<MapDocument>[];
   readonly diagnostics: readonly TrackerDiagnostic[];
 }
@@ -111,7 +129,7 @@ export interface ValidTrackerObservation {
   readonly backlog: readonly (Omit<DocumentObservation<BacklogItem>, "parsed"> & {
     readonly parsed: Result.Success<BacklogItem, readonly TrackerDiagnostic[]>;
   })[];
-  readonly tickets: readonly (Omit<DocumentObservation<Ticket>, "parsed"> & {
+  readonly tickets: readonly (Omit<TicketDocumentObservation, "parsed"> & {
     readonly parsed: Result.Success<Ticket, readonly TrackerDiagnostic[]>;
   })[];
   readonly maps: readonly (Omit<DocumentObservation<MapDocument>, "parsed"> & {
@@ -211,9 +229,15 @@ const parseStringList = (
   return value;
 };
 
-const parseTicket = (document: DocumentInput): Result.Result<Ticket, readonly TrackerDiagnostic[]> => {
+const parseTicket = (
+  document: DocumentInput,
+): {
+  readonly parsed: Result.Result<Ticket, readonly TrackerDiagnostic[]>;
+  readonly syntax: TicketSyntax;
+} => {
   const { path, source } = document;
   const diagnostics: TrackerDiagnostic[] = [];
+  let syntax: TicketSyntax = { blockers: undefined };
   const identity = parseItemIdentity(document);
   if (Result.isFailure(identity)) {
     diagnostics.push(...identity.failure);
@@ -222,20 +246,27 @@ const parseTicket = (document: DocumentInput): Result.Result<Ticket, readonly Tr
   const frontmatterMatch = FRONTMATTER_PATTERN.exec(source);
   if (frontmatterMatch === null) {
     diagnostics.push(diagnostic(path, "frontmatter", "missing frontmatter block"));
-    return Result.fail(diagnostics);
+    return { parsed: Result.fail(diagnostics), syntax };
   }
 
+  const frontmatter = frontmatterMatch[1] ?? "";
+  const frontmatterStart = frontmatterMatch[0].indexOf(frontmatter);
   let parsed: unknown;
+  let yamlDocument: ReturnType<typeof parseYamlDocument>;
   try {
-    parsed = parseYaml(frontmatterMatch[1] ?? "");
+    yamlDocument = parseYamlDocument(frontmatter, { keepSourceTokens: true });
+    if (yamlDocument.errors.length > 0) {
+      throw yamlDocument.errors[0];
+    }
+    parsed = yamlDocument.toJS();
   } catch (error) {
     diagnostics.push(diagnostic(path, "frontmatter", error instanceof Error ? error.message : String(error)));
-    return Result.fail(diagnostics);
+    return { parsed: Result.fail(diagnostics), syntax };
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     diagnostics.push(diagnostic(path, "frontmatter", "frontmatter is not a mapping"));
-    return Result.fail(diagnostics);
+    return { parsed: Result.fail(diagnostics), syntax };
   }
 
   const fields = parsed as Record<string, unknown>;
@@ -253,16 +284,56 @@ const parseTicket = (document: DocumentInput): Result.Result<Ticket, readonly Tr
   }
   const blockers = parseStringList(path, "blockers", fields.blockers, diagnostics);
 
-  if (diagnostics.length > 0 || Result.isFailure(identity)) {
-    return Result.fail(diagnostics);
+  if (Array.isArray(fields.blockers) && fields.blockers.every((entry) => typeof entry === "string")) {
+    const pair = isMap(yamlDocument.contents)
+      ? yamlDocument.contents.items.find((item) => isScalar(item.key) && item.key.value === "blockers")
+      : undefined;
+    if (pair === undefined || !isScalar(pair.key) || !isSeq(pair.value)) {
+      diagnostics.push(diagnostic(path, "frontmatter", "blockers must be a directly editable YAML sequence"));
+    } else {
+      const keyRange = pair.key.range;
+      const valueRange = pair.value.range;
+      if (keyRange === null || keyRange === undefined || valueRange === null || valueRange === undefined) {
+        diagnostics.push(diagnostic(path, "frontmatter", "blockers sequence has no source range"));
+      } else {
+        const token = pair.value.srcToken;
+        const style = token?.type === "block-seq" ? "block" : "flow";
+        const valueNodeEnd = frontmatterStart + valueRange[2];
+        const fieldEnd = source.startsWith("\r\n", valueNodeEnd)
+          ? valueNodeEnd + 2
+          : source[valueNodeEnd] === "\r" || source[valueNodeEnd] === "\n"
+            ? valueNodeEnd + 1
+            : valueNodeEnd;
+        const trailing = source.slice(frontmatterStart + valueRange[1], fieldEnd);
+        const lineEnding = /\r\n|\r|\n/.exec(trailing)?.[0] ?? "";
+        syntax = {
+          blockers: {
+            fieldStart: frontmatterStart + keyRange[0],
+            fieldEnd,
+            valueStart: frontmatterStart + valueRange[0],
+            valueEnd: style === "block" ? fieldEnd : frontmatterStart + valueRange[1],
+            style,
+            indent: token?.type === "block-seq" ? token.indent : 0,
+            lineEnding,
+          },
+        };
+      }
+    }
   }
 
-  return Result.succeed({
-    ...identity.success,
-    type: fields.type as Ticket["type"],
-    project: fields.project as string | undefined,
-    blockers,
-  });
+  if (diagnostics.length > 0 || Result.isFailure(identity)) {
+    return { parsed: Result.fail(diagnostics), syntax };
+  }
+
+  return {
+    parsed: Result.succeed({
+      ...identity.success,
+      type: fields.type as Ticket["type"],
+      project: fields.project as string | undefined,
+      blockers,
+    }),
+    syntax,
+  };
 };
 
 const parseBacklogItem = (document: DocumentInput): Result.Result<BacklogItem, readonly TrackerDiagnostic[]> => {
@@ -458,11 +529,11 @@ const parseMap = ({
 const parseDocument = (directory: TrackerDirectory, document: DocumentInput) => {
   switch (directory) {
     case "backlog":
-      return parseBacklogItem(document);
+      return { parsed: parseBacklogItem(document) };
     case "tickets":
       return parseTicket(document);
     case "maps":
-      return parseMap(document);
+      return { parsed: parseMap(document) };
   }
 };
 
@@ -551,7 +622,7 @@ const readDocuments = (
           const document = { filename, path: documentPath, source };
           return {
             ...document,
-            parsed: parseDocument(directory, document),
+            ...parseDocument(directory, document),
           };
         }),
       { concurrency: 1 },
@@ -609,7 +680,7 @@ export const acquireTracker = (
     return {
       root: tracker,
       backlog: backlog as readonly DocumentObservation<BacklogItem>[],
-      tickets: tickets as readonly DocumentObservation<Ticket>[],
+      tickets: tickets as readonly TicketDocumentObservation[],
       maps: maps as readonly DocumentObservation<MapDocument>[],
       diagnostics,
     };

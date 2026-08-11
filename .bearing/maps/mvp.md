@@ -106,6 +106,17 @@ Underneath it sits a question nobody has asked: whether `bearing ls` groups its 
 The **Filter tickets with `bearing ls`** build ticket delivered every other filter and deliberately left this
 one out.
 
+### How a stale blocker id gets out of a blocker list
+
+Closing `twwbzc`, `ja2j4z`, and `n3dd4b` by hand left their ids in the `blockers:` lists of nine live tickets,
+and `bearing close` only strips an id when that id is the one being closed — a dangling id cannot be resolved,
+so nothing strips it. When `bearing check` lands, these become integrity errors, and
+[Every warning names its fix (ADR 0012)](../../docs/adr/0012-every-warning-names-its-fix.md) says each must name
+a copy-pasteable command; the natural fix here is editing a `blockers:` list, and no command edits one.
+
+Whether the answer is a command that removes a single id from a blocker list, or a check that honestly names a
+hand edit as the fix, is unsettled. A session building `bearing check` can land it on the spot.
+
 ## Out of scope
 
 - **Everything in [`ABSTRACT.md`](../../ABSTRACT.md) §5.** The non-goals are settled and are not re-litigated

@@ -1,7 +1,6 @@
 ---
 type: build
 project: mvp
-blockers: [5qdg2x]
 ---
 
 # Close a map, refusing while a ticket names it
