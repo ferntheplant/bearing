@@ -2,9 +2,11 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { Console, Effect } from "effect";
+import { Argument, Command } from "effect/unstable/cli";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { main } from "#src/cli.ts";
+import { main, type OutputWriters, runCommand } from "#src/cli.ts";
 
 const VALID_MAP = `# MVP
 
@@ -37,6 +39,13 @@ const capture = () => {
     },
     read: () => text,
   };
+};
+
+const captureRun = async (run: (output: OutputWriters) => Promise<number>) => {
+  const stdout = capture();
+  const stderr = capture();
+  const exitCode = await run({ stdout: stdout.writer, stderr: stderr.writer });
+  return { exitCode, stdout: stdout.read(), stderr: stderr.read() };
 };
 
 const ticketSource = (type: "design" | "build", project?: string) => `---
@@ -221,14 +230,48 @@ describe("main", () => {
     expect(stderr.read()).not.toContain("first ticket");
   });
 
-  it("rejects the removed positional tracker argument", async () => {
-    const stdout = capture();
-    const stderr = capture();
+  it("rejects an unknown subcommand with a message naming it", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["frobnicate"], stdout, stderr, fixtureRoot));
 
-    const exitCode = await main([join(fixtureRoot, ".bearing")], stdout.writer, stderr.writer, fixtureRoot);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown subcommand "frobnicate"');
+  });
 
-    expect(exitCode).toBe(1);
-    expect(stdout.read()).toBe("");
-    expect(stderr.read()).toBe("usage: bearing [--json] | bearing init\n");
+  it("rejects an unknown flag with a message naming it", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["--frobnicate"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unrecognized flag: --frobnicate");
+  });
+
+  it("does not expose the framework's version flag", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["--version"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unrecognized flag: --version");
+  });
+
+  it("lists the commands that exist in --help", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["--help"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("init");
+  });
+
+  it("rejects a missing required argument with a message naming it", async () => {
+    const command = Command.make("probe", { target: Argument.string("target") }, () => Effect.void);
+    const result = await captureRun((output) => runCommand(command, [], output));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Missing required argument: target");
+  });
+
+  it("fails rather than ignoring unsupported console operations", async () => {
+    const command = Command.make("probe", {}, () => Console.clear);
+    const result = await captureRun((output) => runCommand(command, [], output));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Console.clear");
   });
 });

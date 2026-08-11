@@ -5,8 +5,8 @@ none of it is an [ADR](./adr/). The rest is a constraint that looks like clutter
 silently removes a property something else depends on. [`docs/README.md`](./README.md) has the format.
 
 **Nothing here is production battle damage yet.** These are registry, toolchain, and measurement findings taken
-on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1). Re-measure before treating a number as current, and delete
-an entry outright once its upstream reason stops being true.
+on 2026-08-09 (macOS/arm64, bun 1.3.14, node 22.23.1) and 2026-08-11. Re-measure before treating a number as
+current, and delete an entry outright once its upstream reason stops being true.
 
 ## The toolchain
 
@@ -50,6 +50,60 @@ Adding the condition and trusting it to survive `vp check --fix` is the tidying 
 different major version than the one the code is written against. Every Effect dependency is pinned exactly in
 the workspace catalog. Widening one to a caret range because "it's all the same beta line" is the tidying that
 reintroduces this, and it fails at the next publish rather than at the next install.
+
+## The CLI framework
+
+**`Command.runWith` requires all five `Environment` services even when three are never used.** Its returned
+effect is typed against `FileSystem | Path | Terminal | ChildProcessSpawner | Stdio`, so `Effect.runPromise`
+will not type-check until every one of them is provided — including the spawner and terminal bearing must never
+touch. Bearing provides die-on-use implementations for the three it does not need, so any future code path that
+tries to read a terminal or spawn a subprocess dies on arrival instead of silently working
+([Bearing never spawns a subprocess (ADR 0018)](./adr/0018-bearing-never-spawns-a-subprocess.md)). Casting the
+effect to satisfy `runPromise` without providing them is the tidying that reintroduces this, and it does so as a
+subprocess that exists because a type was force-widened.
+
+**A handler failure is not a `CliError`, so the framework does not render it.** `runWith` catches and renders
+`CliError.ShowHelp` (unknown command, unknown flag, missing argument) itself — help to stdout, errors to stderr
+— and then fails the effect. A handler error like `TrackerNotFoundError` propagates unrendered, and the CLI must
+render `error: <message>` itself and map the exit status. Wrapping handler errors in `CliError.UserError` to
+"let the framework format them" is the tidying that reintroduces this, and it does so as `\nERROR\n` formatting
+that no test asserted, the day the first mutation lands.
+
+**`Effect.tryPromise`'s one-argument form hides the original error.** It wraps any rejection in a
+`Cause.UnknownError` whose message is "An error occurred in Effect.tryPromise", so a handler that fails with a
+domain error loses its `.message` entirely. The `{ try, catch: (error) => error }` object form preserves the
+original error as the failure. Trusting the single-argument form because setup "just returns a promise" is the
+tidying that reintroduces this, and it shows up as a stderr line naming the wrapper rather than the failure.
+
+**The exit status is mapped by the caller, and the framework never sets one.** `Command.runWith` returns an
+effect; `Effect.exit` + `Cause.squash` turns its failure into the error value, and the CLI maps success to 0,
+`CliError.ShowHelp` (the framework already rendered it) to 0 when its error list is empty and 1 otherwise, and
+every handler error to 1.
+[Exit status is binary (ADR 0035)](./adr/0035-exit-status-is-binary.md) fixes that mapping at zero or one.
+`Cause.squash` returns `unknown` and prefers the first typed failure, falling back to the defect value, so the
+squashed value is not reliably `instanceof Error` for the handler path — the `error: <message>` rendering has to
+handle both. Reading the exit status from `process.exitCode` set by the framework is the tidying that
+reintroduces this; the framework sets no exit code, so a command that "exits 0" in the tests and 1 in a
+subprocess is a mapping bug, not a framework bug.
+
+**A command carries both a handler and subcommands, and the root handler is the default command.** Bare
+`bearing` runs the root command's own handler; `bearing init` dispatches to a subcommand. So the default command
+is not a subcommand you add later — it is the root handler, declared up front with `Command.make("bearing",
+config, handler)` and then `.pipe(Command.withSubcommands([...]))`. Giving the root a handler and then also
+adding an explicit default subcommand, or adding the first subcommand without realising the root handler already
+answers bare invocation, is the tidying that reintroduces a second default command.
+
+**The framework's `CliConfig` ships built-in `--help`, `--version`, `--wizard`, and `--completions` flags.**
+Bearing enables only `--help` and has its own `completion` ticket; the wizard flag is interactive and therefore
+prohibited by [Effect's unstable CLI, pinned exactly and confined (ADR 0022)](./adr/0022-effects-unstable-cli-pinned-exactly-and-confined.md).
+`CliConfig.layer({ builtIns: [GlobalFlag.Help] })` pins the surface. Accepting the default built-ins because
+"they're just flags" is the tidying that reintroduces an interactive prompt via a flag nothing in this
+repository chose.
+
+**`--json` is a `Flag.boolean`, and there is no bare positional flag.** A read command's `--json` is declared in
+its config as `Flag.boolean("json")`, and the handler receives `{ json: boolean }` rather than raw argv. Reaching
+for a hand-rolled `args.includes("--json")` check inside the handler, or for a positional `Flag` constructor that
+does not exist, is the tidying that reintroduces a second argument parser alongside the one the framework runs.
 
 ## Startup
 
