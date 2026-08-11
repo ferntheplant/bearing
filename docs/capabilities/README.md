@@ -24,11 +24,9 @@ setup; the other capabilities are Designed.** The read path discovers the neares
 directories without discarding malformed documents, and projects valid tickets and backlog items for text or
 `--json`. Id-prefix resolution across the whole tracker backs `bearing show`, and `bearing backlog "..."` plans
 and applies a capture in one invocation, minting an id against the ids already on disk. `bearing ls` filtering
-and the blocking graph it exposes are built, and `bearing next` — the frontier, and the default command bare
-`bearing` runs — ranks the ready build work and ready decisions from that graph and reports each fogbound map.
-`bearing close` on a build ticket and `bearing rm` delete immediately and strip the closed id from every blocker
-list as a lossless rewrite. Derived map, fog, trail, and integrity analysis is still to come, as are the
-design-ticket dry run and closing a map.
+and the blocking graph it exposes are built. `bearing close` on a build ticket and `bearing rm` delete immediately
+and strip the closed id from every blocker list as a lossless rewrite. Trail and integrity analysis is still to
+come, as are the design-ticket dry run and closing a map.
 
 ## A note on command names
 

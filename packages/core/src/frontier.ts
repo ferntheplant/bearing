@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from "effect";
 import { Effect } from "effect";
 
-import type { MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
+import type { MalformedTrackerError, Ticket, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
 import { acquireValidObservation, deriveBlocking } from "./analysis.ts";
 
 export interface FrontierTicket {
@@ -29,8 +29,14 @@ export type FrontierResult =
   | { readonly tag: "ok"; readonly frontier: Frontier }
   | { readonly tag: "cycle"; readonly ids: readonly string[] };
 
-const byGateCountThenId = (a: FrontierTicket, b: FrontierTicket): number =>
-  b.gateCount - a.gateCount || a.id.localeCompare(b.id);
+const byGateCount = (a: FrontierTicket, b: FrontierTicket): number => b.gateCount - a.gateCount;
+
+const toFrontierTicket = (ticket: Ticket, gateCount: number): FrontierTicket => ({
+  id: ticket.id,
+  slug: ticket.slug,
+  project: ticket.project,
+  gateCount,
+});
 
 const singleLine = (text: string): string => text.replace(/\s+/g, " ").trim();
 
@@ -53,13 +59,8 @@ export const deriveFrontier = (
 
     const build = tickets
       .filter((ticket) => ticket.type === "build" && isReady(ticket.id))
-      .map((ticket) => ({
-        id: ticket.id,
-        slug: ticket.slug,
-        project: ticket.project,
-        gateCount: gateCount(ticket.id),
-      }))
-      .sort(byGateCountThenId);
+      .map((ticket) => toFrontierTicket(ticket, gateCount(ticket.id)))
+      .sort(byGateCount);
 
     const decide: FrontierDecideGroup[] = [];
     const fogbound: string[] = [];
@@ -78,13 +79,8 @@ export const deriveFrontier = (
         fogCount: map.patches.length,
         tickets: design
           .filter((ticket) => isReady(ticket.id))
-          .map((ticket) => ({
-            id: ticket.id,
-            slug: ticket.slug,
-            project: ticket.project,
-            gateCount: gateCount(ticket.id),
-          }))
-          .sort(byGateCountThenId),
+          .map((ticket) => toFrontierTicket(ticket, gateCount(ticket.id)))
+          .sort(byGateCount),
       });
     }
 
