@@ -1,7 +1,7 @@
 import type { ShowItem, Ticket } from "@bearing/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { renderJson, renderShow, renderShowFull, renderShowJson, renderText } from "#src/render.ts";
+import { renderJson, renderShow, renderText } from "#src/render.ts";
 
 const TICKETS: readonly Ticket[] = [
   {
@@ -86,39 +86,16 @@ const BACKLOG_SHOW: ShowItem = {
 describe("renderShow", () => {
   it("renders a ticket's frontmatter fields and body", () => {
     const text = renderShow(TICKET_SHOW);
-    expect(text).toBe("a1b2c3  the first slice  design  mvp\n        blockers: [kwjvxc]\n\n# The first slice\n\nBody.");
+    expect(text).toBe("type: design\nproject: mvp\nblockers: [kwjvxc]\n\n# The first slice\n\nBody.");
   });
 
   it("renders a backlog item's body without frontmatter fields", () => {
-    expect(renderShow(BACKLOG_SHOW)).toBe("c1d2e3  a captured idea\n\n# A captured idea\n\nProse.");
+    expect(renderShow(BACKLOG_SHOW)).toBe("# A captured idea\n\nProse.");
   });
 });
 
-describe("renderShowFull", () => {
-  it("prints the exact source verbatim", () => {
-    expect(renderShowFull(TICKET_SHOW)).toBe(TICKET_SHOW.source);
-  });
-});
-
-describe("renderShowJson", () => {
-  it("emits the values it rendered, without the raw source", () => {
-    expect(JSON.parse(renderShowJson(TICKET_SHOW))).toEqual({
-      kind: "ticket",
-      id: "a1b2c3",
-      slug: "the-first-slice",
-      type: "design",
-      project: "mvp",
-      blockers: ["kwjvxc"],
-      body: "# The first slice\n\nBody.",
-    });
-  });
-
-  it("emits a backlog item's values", () => {
-    expect(JSON.parse(renderShowJson(BACKLOG_SHOW))).toEqual({
-      kind: "backlog",
-      id: "c1d2e3",
-      slug: "a-captured-idea",
-      body: "# A captured idea\n\nProse.",
-    });
+describe("renderJson", () => {
+  it("round-trips a show item through the same value serializer", () => {
+    expect(JSON.parse(renderJson(TICKET_SHOW))).toEqual(TICKET_SHOW);
   });
 });

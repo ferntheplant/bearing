@@ -78,13 +78,9 @@ derived from the title and the body is opaque prose, so the only thing a listing
 filename — lowercased, punctuation stripped, hyphens turned back into spaces. `bearing` does exactly that today
 and prints titles that are subtly not the ones anyone wrote.
 
-`bearing show` makes the degradation visible rather than tolerable: its header prints the de-slugged title while
-the body it prints right below carries the real heading, so the two sit side by side and everyone can see the
-first is wrong.
-
 Three ways out, none obviously right: accept the degradation and say so; let bearing read the body's first
 heading, which contradicts the body being prose bearing does not parse; or stop claiming to print titles at all
-and print slugs. Every read command renders this, so it is worth settling before there are six of them.
+and print slugs. Ticket listings render this, so it is worth settling before their interface expands.
 
 ### Whether bearing emits colour at all
 

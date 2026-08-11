@@ -28,7 +28,8 @@ legible to whoever picks it up cold, human or agent.
   leave a duplicate id but cannot silently remove the ticket. Creating and retitling apply immediately.
 - **`bearing ls` filters by type, readiness, blocked-ness, project, or a query**, and **`bearing show` prints
   one.** `show` takes an id or an unambiguous id prefix, renders the frontmatter fields and body, and `--full`
-  prints the file's exact source. Both take `--json`, as every read in bearing does.
+  prints the file's exact source. `--full` and `--json` cannot be combined. Both commands take `--json`, as every
+  read in bearing does.
 - **Short id prefixes work everywhere an id does** — three or four characters is usually enough to type. A
   prefix matching more than one item is an error that names the candidates, never a guess between them.
 

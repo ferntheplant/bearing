@@ -285,14 +285,14 @@ describe("show", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("a1b2c3  first ticket  build  -\n\nBody.\n");
+    expect(result.stdout).toBe("type: build\n\nBody.\n");
   });
 
   it("resolves an unambiguous id prefix", async () => {
     const result = await captureRun(({ stdout, stderr }) => main(["show", "b1c2"], stdout, stderr, fixtureRoot));
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("b1c2d3  design question  design  mvp\n        blockers: [a1b2c3]\n\nQuestion body.\n");
+    expect(result.stdout).toBe("type: design\nproject: mvp\nblockers: [a1b2c3]\n\nQuestion body.\n");
   });
 
   it("prints a backlog item the same way", async () => {
@@ -302,7 +302,7 @@ describe("show", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("c1d2e3  captured\n\n# Captured\n\nBacklog body.\n");
+    expect(result.stdout).toBe("# Captured\n\nBacklog body.\n");
   });
 
   it("emits the values it rendered with --json", async () => {
@@ -320,6 +320,7 @@ describe("show", () => {
       project: undefined,
       blockers: [],
       body: "Body.",
+      source: "---\ntype: build\n---\n\nBody.\n",
     });
   });
 
@@ -331,6 +332,20 @@ describe("show", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe("---\ntype: build\n---\n\nBody.\n");
+  });
+
+  it("rejects combining --full and --json before reading the tracker", async () => {
+    for (const args of [
+      ["show", "a1b2c3", "--full", "--json"],
+      ["show", "a1b2c3", "--json", "--full"],
+    ]) {
+      const result = await captureRun(({ stdout, stderr }) => main(args, stdout, stderr, noTrackerRoot));
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("--full and --json cannot be used together");
+      expect(result.stderr).not.toContain("no .bearing tracker found");
+    }
   });
 
   it("exits 1 and names every candidate id for an ambiguous prefix", async () => {
@@ -363,7 +378,7 @@ describe("show", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("c1d2e3  nearest  build  -\n\nBody.\n");
+    expect(result.stdout).toBe("type: build\n\nBody.\n");
   });
 
   it("refuses a malformed tracker rather than resolving against it", async () => {

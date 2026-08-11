@@ -6,7 +6,7 @@ import { Cause, Console, Effect, Exit, Layer, Sink, Stdio, Stream, Terminal } fr
 import { Argument, CliConfig, CliError, CliOutput, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import { renderJson, renderSetupOutcome, renderShow, renderShowFull, renderShowJson, renderText } from "./render.ts";
+import { renderJson, renderSetupOutcome, renderShow, renderText } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
 import { BEARING_VERSION } from "./version.ts";
 
@@ -100,13 +100,16 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
     { id: Argument.string("id"), full: Flag.boolean("full"), json: Flag.boolean("json") },
     (config) =>
       Effect.gen(function* () {
+        if (config.full && config.json) {
+          return yield* Effect.fail(new Error("--full and --json cannot be used together"));
+        }
         const result = yield* showItem(cwd, config.id);
         switch (result.tag) {
           case "resolved": {
             const rendered = config.json
-              ? renderShowJson(result.item)
+              ? renderJson(result.item)
               : config.full
-                ? renderShowFull(result.item)
+                ? result.item.source
                 : renderShow(result.item);
             yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
             return;
