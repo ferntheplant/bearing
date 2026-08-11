@@ -1,7 +1,7 @@
 ---
 type: build
 project: mvp
-blockers: [ja2j4z, 3j66kq]
+blockers: [ja2j4z]
 ---
 
 # Derive the frontier with `bearing next`
@@ -9,9 +9,9 @@ blockers: [ja2j4z, 3j66kq]
 ## Background
 
 This is the command bearing exists to make good and the one an agent runs on every turn
-([The frontier](../../docs/capabilities/05-the-frontier.md)). Both of its inputs land before it: the fog and
-trail parsed by `ja2j4z`, and the blocking graph derived by `3j66kq`. What remains is ranking, the three
-sections, and the fogbound status line.
+([The frontier](../../docs/capabilities/05-the-frontier.md)). Both of its inputs are built: the fog and trail
+parsed by `ja2j4z`, and the blocking graph — every ticket's readiness and both transitive closures — derived in
+core and exposed through `bearing ls`. What remains is ranking, the three sections, and the fogbound status line.
 
 [A fogbound map is reported (ADR 0034)](../../docs/adr/0034-a-fogbound-map-is-reported.md) is the part most
 easily got wrong: the trigger is no **open** design tickets rather than no ready ones, it is per map rather than

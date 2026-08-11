@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveId, showItem } from "#src/analysis.ts";
+import { listTickets, resolveId, showItem, type TicketSelector } from "#src/analysis.ts";
 
 const TRACKER = "/workspace/.bearing";
 const VALID_MAP = `# MVP
@@ -256,5 +256,172 @@ describe("showItem", () => {
       tag: "resolved",
       item: { kind: "backlog", id: "c1d2e3", slug: "captured", body: "# Nested", source: "# Nested\n" },
     });
+  });
+});
+
+const ticketSource = (
+  type: "design" | "build",
+  { project, blockers }: { readonly project?: string; readonly blockers?: readonly string[] } = {},
+) => `---
+type: ${type}
+${project === undefined ? "" : `project: ${project}\n`}${blockers === undefined ? "" : `blockers: [${blockers.join(", ")}]\n`}---
+`;
+
+const runList = (files: Fixture, selector: TicketSelector = {}) =>
+  Effect.runPromise(Effect.provide(listTickets("/workspace/nested", selector), layer(files)));
+
+const listedIds = (result: Awaited<ReturnType<typeof runList>>): readonly string[] => {
+  expect(result.tag).toBe("ok");
+  if (result.tag !== "ok") {
+    return [];
+  }
+  return result.tickets.map((ticket) => ticket.id);
+};
+
+describe("listTickets", () => {
+  it("marks a ticket naming only absorbed blockers as ready, not blocked", async () => {
+    const files = fixture({
+      tickets: { ...TICKETS, "b1c2d3-second.md": ticketSource("build", { blockers: ["zzzzzz"] }) },
+    });
+
+    const result = await runList(files);
+    expect(result).toEqual({
+      tag: "ok",
+      tickets: expect.arrayContaining([
+        {
+          id: "b1c2d3",
+          slug: "second",
+          type: "build",
+          project: undefined,
+          blockers: ["zzzzzz"],
+          ready: true,
+          blockedBy: [],
+          unblocks: [],
+        },
+      ]),
+    });
+  });
+
+  it("derives the transitive closure both ways through a chain", async () => {
+    const files = fixture({
+      tickets: {
+        ...TICKETS,
+        "a2b3c4-third.md": ticketSource("build", { blockers: ["b1c2d3"] }),
+      },
+    });
+
+    const result = await runList(files);
+    expect(result).toEqual({
+      tag: "ok",
+      tickets: [
+        {
+          id: "a1b2c3",
+          slug: "first",
+          type: "design",
+          project: "mvp",
+          blockers: [],
+          ready: true,
+          blockedBy: [],
+          unblocks: ["b1c2d3", "a2b3c4"],
+        },
+        {
+          id: "a2b3c4",
+          slug: "third",
+          type: "build",
+          project: undefined,
+          blockers: ["b1c2d3"],
+          ready: false,
+          blockedBy: ["b1c2d3", "a1b2c3"],
+          unblocks: [],
+        },
+        {
+          id: "b1c2d3",
+          slug: "second",
+          type: "build",
+          project: undefined,
+          blockers: ["a1b2c3"],
+          ready: false,
+          blockedBy: ["a1b2c3"],
+          unblocks: ["a2b3c4"],
+        },
+      ],
+    });
+  });
+
+  it("reports a blocker cycle as a refusal naming the ids in it", async () => {
+    const files = fixture({
+      tickets: {
+        "a1b2c3-first.md": ticketSource("design", { project: "mvp", blockers: ["b1c2d3"] }),
+        "b1c2d3-second.md": ticketSource("build", { blockers: ["a1b2c3"] }),
+      },
+    });
+
+    const result = await runList(files);
+
+    expect(result).toEqual({ tag: "cycle", ids: ["a1b2c3", "b1c2d3"] });
+  });
+
+  it("reports a blocker cycle deeper than the runtime call stack", async () => {
+    const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
+    const ids = Array.from({ length: 60_000 }, (_, index) => {
+      let value = index;
+      let suffix = "";
+      for (let position = 0; position < 5; position++) {
+        suffix = `${alphabet[value % alphabet.length] as string}${suffix}`;
+        value = Math.floor(value / alphabet.length);
+      }
+      return `a${suffix}`;
+    });
+    const tickets = Object.fromEntries(
+      ids.map((id, index) => [
+        `${id}-ticket.md`,
+        ticketSource("build", { blockers: [ids[(index + 1) % ids.length] as string] }),
+      ]),
+    );
+
+    const result = await runList(fixture({ tickets }));
+
+    expect(result.tag).toBe("cycle");
+    if (result.tag !== "cycle") {
+      return;
+    }
+    expect(result.ids).toHaveLength(ids.length);
+    expect(result.ids[0]).toBe(ids[0]);
+    expect(result.ids.at(-1)).toBe(ids.at(-1));
+  });
+
+  it("filters by type, intersecting when several flags are combined", async () => {
+    expect(listedIds(await runList(fixture(), { types: ["build"] }))).toEqual(["a2b3c4", "b1c2d3"]);
+    expect(listedIds(await runList(fixture(), { types: ["design"] }))).toEqual(["a1b2c3"]);
+    expect(listedIds(await runList(fixture(), { types: ["build", "design"] }))).toEqual([]);
+    expect(listedIds(await runList(fixture(), { types: [] }))).toEqual([]);
+  });
+
+  it("filters by readiness", async () => {
+    expect(listedIds(await runList(fixture(), { readiness: ["ready"] }))).toEqual(["a1b2c3", "a2b3c4"]);
+    expect(listedIds(await runList(fixture(), { readiness: ["blocked"] }))).toEqual(["b1c2d3"]);
+    expect(listedIds(await runList(fixture(), { readiness: ["ready", "blocked"] }))).toEqual([]);
+    expect(listedIds(await runList(fixture(), { readiness: [] }))).toEqual([]);
+  });
+
+  it("filters by project and intersects with other filters", async () => {
+    expect(listedIds(await runList(fixture(), { project: "mvp" }))).toEqual(["a1b2c3"]);
+    expect(listedIds(await runList(fixture(), { types: ["design"], readiness: ["ready"], project: "mvp" }))).toEqual([
+      "a1b2c3",
+    ]);
+  });
+
+  it("refuses a project no map carries, naming the maps that exist", async () => {
+    const result = await runList(fixture(), { project: "missing" });
+
+    expect(result).toEqual({ tag: "no-project", project: "missing", projects: ["mvp"] });
+  });
+
+  it("refuses a malformed tracker rather than deriving against it", async () => {
+    const files = fixture({
+      tickets: { ...TICKETS, "bad.md": "no frontmatter\n" },
+    });
+
+    await expect(runList(files)).rejects.toMatchObject({ _tag: "MalformedTrackerError" });
   });
 });

@@ -1,7 +1,7 @@
 ---
 type: build
 project: mvp
-blockers: [twwbzc, 3j66kq]
+blockers: [twwbzc]
 ---
 
 # Close a build ticket and delete with `bearing rm`
@@ -15,7 +15,7 @@ the working tree, the commit, or the map.
 
 The work that is not trivial is stripping the closed id out of every blocker list, which is a lossless rewrite of
 another ticket's frontmatter — the first time bearing edits a file it did not write. It needs the blocking graph
-to know which files those are, which is why `3j66kq` blocks this.
+to know which files those are, which is now a core value exposed through `bearing ls`.
 
 Order matters and is fixed. The closing ticket is deleted first, then blocker lists are cleaned, so an
 interrupted close leaves satisfied blockers that `bearing check` reports and never dependents made ready while

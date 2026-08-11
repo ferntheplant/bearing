@@ -103,7 +103,8 @@ which is a much bigger promise than a filter, and acquisition already holds ever
 a decision rather than an implementation.
 
 Underneath it sits a question nobody has asked: whether `bearing ls` groups its output by project by default.
-`3j66kq` builds every other filter and deliberately leaves this one out.
+The **Filter tickets with `bearing ls`** build ticket delivered every other filter and deliberately left this
+one out.
 
 ## Out of scope
 

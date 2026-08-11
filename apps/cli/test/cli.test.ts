@@ -102,66 +102,23 @@ afterAll(async () => {
 });
 
 describe("main", () => {
-  it("discovers and lists a real tracker from a nested directory", async () => {
-    const cwd = join(fixtureRoot, "one", "two");
-    await mkdir(cwd, { recursive: true });
+  it("prints help rather than the ticket list when called bare", async () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+    const exitCode = await main([], stdout.writer, stderr.writer, fixtureRoot);
 
     expect(exitCode).toBe(0);
     expect(stderr.read()).toBe("");
-    expect(stdout.read()).toBe(
-      "a1b2c3  first ticket  build  -\n" + "b1c2d3  design question  design  mvp\n" + "        blockers: [a1b2c3]\n",
-    );
-  });
-
-  it("emits the same ticket values as JSON", async () => {
-    const stdout = capture();
-    const stderr = capture();
-
-    const exitCode = await main(["--json"], stdout.writer, stderr.writer, fixtureRoot);
-
-    expect(exitCode).toBe(0);
-    expect(stderr.read()).toBe("");
-    expect(JSON.parse(stdout.read())).toEqual([
-      {
-        id: "a1b2c3",
-        slug: "first-ticket",
-        type: "build",
-        blockers: [],
-      },
-      {
-        id: "b1c2d3",
-        slug: "design-question",
-        type: "design",
-        project: "mvp",
-        blockers: ["a1b2c3"],
-      },
-    ]);
-  });
-
-  it("uses the nearest ancestor tracker", async () => {
-    const nestedRoot = join(fixtureRoot, "nearest");
-    const cwd = join(nestedRoot, "inside");
-    await createTracker(nestedRoot, { "c1d2e3-nearest.md": ticketSource("build") });
-    await mkdir(cwd, { recursive: true });
-    const stdout = capture();
-    const stderr = capture();
-
-    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
-
-    expect(exitCode).toBe(0);
-    expect(stderr.read()).toBe("");
-    expect(stdout.read()).toBe("c1d2e3  nearest  build  -\n");
+    expect(stdout.read()).toContain("ls");
+    expect(stdout.read()).not.toContain("first ticket");
   });
 
   it("fails when no ancestor contains a tracker", async () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer, noTrackerRoot);
+    const exitCode = await main(["ls"], stdout.writer, stderr.writer, noTrackerRoot);
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
@@ -176,7 +133,7 @@ describe("main", () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+    const exitCode = await main(["ls"], stdout.writer, stderr.writer, cwd);
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
@@ -193,7 +150,7 @@ describe("main", () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+    const exitCode = await main(["ls"], stdout.writer, stderr.writer, cwd);
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
@@ -209,7 +166,7 @@ describe("main", () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+    const exitCode = await main(["ls"], stdout.writer, stderr.writer, cwd);
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
@@ -225,7 +182,7 @@ describe("main", () => {
     const stdout = capture();
     const stderr = capture();
 
-    const exitCode = await main([], stdout.writer, stderr.writer, cwd);
+    const exitCode = await main(["ls"], stdout.writer, stderr.writer, cwd);
 
     expect(exitCode).toBe(1);
     expect(stdout.read()).toBe("");
@@ -254,6 +211,7 @@ describe("main", () => {
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("init");
     expect(result.stdout).toContain("show");
+    expect(result.stdout).toContain("ls");
   });
 
   it("does not expose the framework's version flag", async () => {
@@ -588,5 +546,210 @@ describe("fog", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("trail row must be <id> | <decision> | <outcome>");
+  });
+});
+
+describe("ls", () => {
+  it("discovers and lists a real tracker from a nested directory", async () => {
+    const cwd = join(fixtureRoot, "one", "two");
+    await mkdir(cwd, { recursive: true });
+    const result = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, cwd));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(
+      "a1b2c3  first ticket  build  -  ready\n" +
+        "        unblocks: [b1c2d3]\n" +
+        "b1c2d3  design question  design  mvp  blocked\n" +
+        "        blockers: [a1b2c3]\n" +
+        "        blocked by: [a1b2c3]\n",
+    );
+  });
+
+  it("emits the values it rendered as JSON", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["ls", "--json"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual([
+      {
+        id: "a1b2c3",
+        slug: "first-ticket",
+        type: "build",
+        blockers: [],
+        ready: true,
+        blockedBy: [],
+        unblocks: ["b1c2d3"],
+      },
+      {
+        id: "b1c2d3",
+        slug: "design-question",
+        type: "design",
+        project: "mvp",
+        blockers: ["a1b2c3"],
+        ready: false,
+        blockedBy: ["a1b2c3"],
+        unblocks: [],
+      },
+    ]);
+  });
+
+  it("uses the nearest ancestor tracker", async () => {
+    const nestedRoot = join(fixtureRoot, "ls-nearest");
+    const cwd = join(nestedRoot, "inside");
+    await createTracker(nestedRoot, { "c1d2e3-nearest.md": ticketSource("build") });
+    await mkdir(cwd, { recursive: true });
+    const result = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, cwd));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("c1d2e3  nearest  build  -  ready\n");
+  });
+
+  it("filters by type", async () => {
+    const build = await captureRun(({ stdout, stderr }) => main(["ls", "--build"], stdout, stderr, fixtureRoot));
+    expect(build.exitCode).toBe(0);
+    expect(build.stdout).toBe("a1b2c3  first ticket  build  -  ready\n        unblocks: [b1c2d3]\n");
+
+    const design = await captureRun(({ stdout, stderr }) => main(["ls", "--design"], stdout, stderr, fixtureRoot));
+    expect(design.exitCode).toBe(0);
+    expect(design.stdout).toBe(
+      "b1c2d3  design question  design  mvp  blocked\n" +
+        "        blockers: [a1b2c3]\n" +
+        "        blocked by: [a1b2c3]\n",
+    );
+  });
+
+  it("filters by readiness", async () => {
+    const ready = await captureRun(({ stdout, stderr }) => main(["ls", "--ready"], stdout, stderr, fixtureRoot));
+    expect(ready.exitCode).toBe(0);
+    expect(ready.stdout).toBe("a1b2c3  first ticket  build  -  ready\n        unblocks: [b1c2d3]\n");
+
+    const blocked = await captureRun(({ stdout, stderr }) => main(["ls", "--blocked"], stdout, stderr, fixtureRoot));
+    expect(blocked.exitCode).toBe(0);
+    expect(blocked.stdout).toBe(
+      "b1c2d3  design question  design  mvp  blocked\n" +
+        "        blockers: [a1b2c3]\n" +
+        "        blocked by: [a1b2c3]\n",
+    );
+  });
+
+  it("filters by project", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["ls", "--project", "mvp"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      "b1c2d3  design question  design  mvp  blocked\n" +
+        "        blockers: [a1b2c3]\n" +
+        "        blocked by: [a1b2c3]\n",
+    );
+  });
+
+  it("intersects combined filters rather than erroring", async () => {
+    const none = await captureRun(({ stdout, stderr }) =>
+      main(["ls", "--build", "--design"], stdout, stderr, fixtureRoot),
+    );
+    expect(none.exitCode).toBe(0);
+    expect(none.stdout).toBe("\n");
+
+    const blocked = await captureRun(({ stdout, stderr }) =>
+      main(["ls", "--design", "--blocked"], stdout, stderr, fixtureRoot),
+    );
+    expect(blocked.exitCode).toBe(0);
+    expect(blocked.stdout).toBe(
+      "b1c2d3  design question  design  mvp  blocked\n" +
+        "        blockers: [a1b2c3]\n" +
+        "        blocked by: [a1b2c3]\n",
+    );
+  });
+
+  it("emits the filtered values it rendered as JSON", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["ls", "--ready", "--json"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual([
+      {
+        id: "a1b2c3",
+        slug: "first-ticket",
+        type: "build",
+        blockers: [],
+        ready: true,
+        blockedBy: [],
+        unblocks: ["b1c2d3"],
+      },
+    ]);
+  });
+
+  it("treats a ticket naming an absorbed blocker as ready", async () => {
+    const root = join(fixtureRoot, "ls-absorbed");
+    await createTracker(root, {
+      "a1b2c3-absorbed.md": `---
+type: build
+blockers: [zzzzzz]
+---
+
+Body.
+`,
+    });
+
+    const all = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, root));
+    expect(all.exitCode).toBe(0);
+    expect(all.stdout).toBe("a1b2c3  absorbed  build  -  ready\n        blockers: [zzzzzz]\n");
+
+    const blocked = await captureRun(({ stdout, stderr }) => main(["ls", "--blocked"], stdout, stderr, root));
+    expect(blocked.stdout).toBe("\n");
+
+    const ready = await captureRun(({ stdout, stderr }) => main(["ls", "--ready"], stdout, stderr, root));
+    expect(ready.stdout).toBe("a1b2c3  absorbed  build  -  ready\n        blockers: [zzzzzz]\n");
+  });
+
+  it("reports a blocker cycle as a refusal naming the ids in it", async () => {
+    const root = join(fixtureRoot, "ls-cycle");
+    await createTracker(root, {
+      "a1b2c3-one.md": `---
+type: build
+blockers: [b1c2d3]
+---
+
+One.
+`,
+      "b1c2d3-two.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Two.
+`,
+    });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: blocker cycle: [a1b2c3, b1c2d3]");
+  });
+
+  it("exits 1 for a project no map carries, naming the maps that exist", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["ls", "--project", "missing"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no map for project "missing"; maps: mvp');
+  });
+
+  it("refuses a malformed tracker rather than listing against it", async () => {
+    const root = join(fixtureRoot, "ls-malformed");
+    await createTracker(root, { "bad.md": "no frontmatter\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: malformed tracker:");
   });
 });
