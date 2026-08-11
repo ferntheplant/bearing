@@ -102,7 +102,7 @@ afterAll(async () => {
 });
 
 describe("main", () => {
-  it("prints help rather than the ticket list when called bare", async () => {
+  it("prints the frontier rather than help when called bare", async () => {
     const stdout = capture();
     const stderr = capture();
 
@@ -110,8 +110,9 @@ describe("main", () => {
 
     expect(exitCode).toBe(0);
     expect(stderr.read()).toBe("");
-    expect(stdout.read()).toContain("ls");
-    expect(stdout.read()).not.toContain("first ticket");
+    expect(stdout.read()).toContain("BUILD");
+    expect(stdout.read()).toContain("first ticket");
+    expect(stdout.read()).not.toContain("ls");
   });
 
   it("fails when no ancestor contains a tracker", async () => {
@@ -212,6 +213,7 @@ describe("main", () => {
     expect(result.stdout).toContain("init");
     expect(result.stdout).toContain("show");
     expect(result.stdout).toContain("ls");
+    expect(result.stdout).toContain("next");
   });
 
   it("does not expose the framework's version flag", async () => {
@@ -747,6 +749,178 @@ Two.
     const root = join(fixtureRoot, "ls-malformed");
     await createTracker(root, { "bad.md": "no frontmatter\n" });
     const result = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: malformed tracker:");
+  });
+});
+
+describe("next", () => {
+  it("prints BUILD, DECIDE, and TRIAGE in that order, with TRIAGE a count", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(
+      "BUILD\n" + "a1b2c3  first ticket  -\n" + "DECIDE\n" + "Ship bearing. (mvp, 1 fog)\n" + "TRIAGE\n" + "0\n",
+    );
+  });
+
+  it("renders the same value as bare bearing, and the same JSON either way", async () => {
+    const bare = await captureRun(({ stdout, stderr }) => main([], stdout, stderr, fixtureRoot));
+    const next = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, fixtureRoot));
+
+    expect(bare.exitCode).toBe(0);
+    expect(next.exitCode).toBe(0);
+    expect(next.stdout).toBe(bare.stdout);
+
+    const bareJson = await captureRun(({ stdout, stderr }) => main(["--json"], stdout, stderr, fixtureRoot));
+    const nextJson = await captureRun(({ stdout, stderr }) => main(["next", "--json"], stdout, stderr, fixtureRoot));
+    expect(nextJson.stdout).toBe(bareJson.stdout);
+    expect(JSON.parse(nextJson.stdout)).toEqual({
+      build: [{ id: "a1b2c3", slug: "first-ticket", gateCount: 1 }],
+      decide: [{ project: "mvp", destination: "Ship bearing.", fogCount: 1, tickets: [] }],
+      triageCount: 0,
+      fogbound: [],
+    });
+  });
+
+  it("keeps a build ticket out of BUILD until its blocker file is deleted", async () => {
+    const root = join(fixtureRoot, "next-blocked");
+    const mapWithoutFog = VALID_MAP.replace("### Reader depth\n\n", "");
+    await createTracker(
+      root,
+      {
+        "a1b2c3-blocker.md": ticketSource("build"),
+        "b1c2d3-waiting.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Waiting.
+`,
+      },
+      {},
+      { "mvp.md": mapWithoutFog },
+    );
+
+    const before = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+    expect(before.stdout).toBe("BUILD\na1b2c3  blocker  -\nDECIDE\nTRIAGE\n0\n");
+
+    await rm(join(root, ".bearing/tickets/a1b2c3-blocker.md"));
+
+    const after = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+    expect(after.stdout).toBe("BUILD\nb1c2d3  waiting  -\nDECIDE\nTRIAGE\n0\n");
+  });
+
+  it("ranks the ready ticket that transitively unblocks more above the one that unblocks less", async () => {
+    const root = join(fixtureRoot, "next-rank");
+    const mapWithoutFog = VALID_MAP.replace("### Reader depth\n\n", "");
+    await createTracker(
+      root,
+      {
+        "a1b2c3-keystone.md": ticketSource("build"),
+        "b1c2d3-leafs.md": ticketSource("build"),
+        "c1d2e3-mid.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Mid.
+`,
+        "d1e2f3-leaf.md": `---
+type: build
+blockers: [c1d2e3]
+---
+
+Leaf.
+`,
+      },
+      {},
+      { "mvp.md": mapWithoutFog },
+    );
+
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      "BUILD\n" + "a1b2c3  keystone  -\n" + "b1c2d3  leafs  -\n" + "DECIDE\n" + "TRIAGE\n" + "0\n",
+    );
+  });
+
+  it("keeps a fog-complete map out of DECIDE while its build tickets remain", async () => {
+    const root = join(fixtureRoot, "next-fog-complete");
+    const mapWithoutFog = VALID_MAP.replace("### Reader depth\n\n", "");
+    await createTracker(root, { "a1b2c3-build.md": ticketSource("build") }, {}, { "mvp.md": mapWithoutFog });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+
+    expect(result.stdout).toBe("BUILD\na1b2c3  build  -\nDECIDE\nTRIAGE\n0\n");
+  });
+
+  it("prints a fogbound map above the sections, including when BUILD and DECIDE are both empty", async () => {
+    const root = join(fixtureRoot, "next-fogbound");
+
+    await createTracker(root, {});
+
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("mvp is fogbound: fog left, no open design tickets\nBUILD\nDECIDE\nTRIAGE\n0\n");
+  });
+
+  it("keeps a map out of the fogbound report while its design ticket is blocked by build work", async () => {
+    const root = join(fixtureRoot, "next-not-fogbound");
+    await createTracker(root, {
+      "a1b2c3-build.md": ticketSource("build"),
+      "b1c2d3-design.md": `---
+type: design
+project: mvp
+blockers: [a1b2c3]
+---
+
+Question.
+`,
+    });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("fogbound");
+    expect(result.stdout).toContain("Ship bearing. (mvp, 1 fog)\n");
+  });
+
+  it("reports a blocker cycle as a refusal naming the ids in it", async () => {
+    const root = join(fixtureRoot, "next-cycle");
+    await createTracker(root, {
+      "a1b2c3-one.md": `---
+type: build
+blockers: [b1c2d3]
+---
+
+One.
+`,
+      "b1c2d3-two.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Two.
+`,
+    });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: blocker cycle: [a1b2c3, b1c2d3]");
+  });
+
+  it("refuses a malformed tracker rather than deriving against it", async () => {
+    const root = join(fixtureRoot, "next-malformed");
+    await createTracker(root, { "bad.md": "no frontmatter\n" });
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");

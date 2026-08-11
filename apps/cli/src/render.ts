@@ -2,6 +2,7 @@ import type {
   BacklogItem,
   CaptureApplyResult,
   FogReport,
+  Frontier,
   ListedTicket,
   RemovalApplyResult,
   RemovalError,
@@ -10,6 +11,27 @@ import type {
 } from "@bearing/core";
 
 export const renderList = (tickets: readonly ListedTicket[]): string => tickets.map(renderListedTicket).join("\n");
+
+export const renderFrontier = (frontier: Frontier): string => {
+  const lines: string[] = [];
+  for (const project of frontier.fogbound) {
+    lines.push(`${project} is fogbound: fog left, no open design tickets`);
+  }
+  lines.push("BUILD");
+  for (const ticket of frontier.build) {
+    lines.push(`${ticket.id}  ${ticket.slug.replaceAll("-", " ")}  ${ticket.project ?? "-"}`);
+  }
+  lines.push("DECIDE");
+  for (const group of frontier.decide) {
+    lines.push(`${group.destination} (${group.project}, ${group.fogCount} fog)`);
+    for (const ticket of group.tickets) {
+      lines.push(`  ${ticket.id}  ${ticket.slug.replaceAll("-", " ")}`);
+    }
+  }
+  lines.push("TRIAGE");
+  lines.push(String(frontier.triageCount));
+  return lines.join("\n");
+};
 
 export const renderBacklogList = (items: readonly BacklogItem[]): string =>
   items.map((item) => `${item.id}  ${item.slug.replaceAll("-", " ")}`).join("\n");

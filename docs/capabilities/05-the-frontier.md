@@ -31,10 +31,11 @@ and the one an agent runs on every turn.
 
 ## Where it stands
 
-**Designed.** The ranking input is built: the blocking graph is a core value exposed through `bearing ls`, which
-carries every ticket's readiness and both transitive closures and refuses a blocker cycle by name. The three
-sections, the ordering between them, the fogbound status line, and the default command are settled, not built.
-Bare `bearing` currently prints help and is waiting to become the frontier.
+**Built.** `bearing next` renders the three sections from the blocking graph and the maps, and bare `bearing` is
+the same command. BUILD lists the ready build tickets ranked by transitive gate count; DECIDE groups each map's
+ready design tickets under a heading carrying its destination and fog count; TRIAGE is the backlog count. The
+fogbound status line sits above the sections, derived per map from fog with no open design ticket, and prints
+even when BUILD and DECIDE are both empty.
 
 ## Decisions
 

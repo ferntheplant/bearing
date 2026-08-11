@@ -117,6 +117,19 @@ a copy-pasteable command; the natural fix here is editing a `blockers:` list, an
 Whether the answer is a command that removes a single id from a blocker list, or a check that honestly names a
 hand edit as the fix, is unsettled. A session building `bearing check` can land it on the spot.
 
+### How DECIDE groups are ordered and how an empty group prints
+
+The frontier heads each DECIDE group with its map's destination and fog count
+([The frontier](../../docs/capabilities/05-the-frontier.md)) and ranks the tickets inside by gate count like
+everything else. Nothing settles two things a real tracker now exercises: the order the groups print in, and
+what a map whose design tickets are all blocked prints — a heading with nothing under it, the "ordinary waiting"
+state [A fogbound map is reported (ADR 0034)](../../docs/adr/0034-a-fogbound-map-is-reported.md) describes
+without ever showing. Both are rendered today in an order nobody chose: groups in map filename order, empty
+groups as their bare heading.
+
+Whether groups order by their most ready decision, by project name, or by map, and whether a heading with
+nothing under it should print at all, is unsettled. A session touching the frontier can land it on the spot.
+
 ## Out of scope
 
 - **Everything in [`ABSTRACT.md`](../../ABSTRACT.md) §5.** The non-goals are settled and are not re-litigated

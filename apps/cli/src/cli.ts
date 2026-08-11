@@ -3,6 +3,7 @@
 import {
   applyCapture,
   applyRemoval,
+  deriveFrontier,
   listBacklog,
   listFog,
   listTickets,
@@ -23,6 +24,7 @@ import {
   renderBacklogList,
   renderCapture,
   renderFog,
+  renderFrontier,
   renderJson,
   renderList,
   renderRemoval,
@@ -189,6 +191,24 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("List the fog patches on one map, or across every map"));
 
+  const renderFrontierValue = (json: boolean) =>
+    Effect.gen(function* () {
+      const result = yield* deriveFrontier(cwd);
+      switch (result.tag) {
+        case "ok": {
+          const rendered = json ? renderJson(result.frontier) : renderFrontier(result.frontier);
+          yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+          return;
+        }
+        case "cycle":
+          return yield* Effect.fail(new Error(`blocker cycle: [${result.ids.join(", ")}]`));
+      }
+    });
+
+  const next = Command.make("next", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
+    Command.withDescription("Show the frontier: ready build work, ready decisions, and the backlog count"),
+  );
+
   const ls = Command.make(
     "ls",
     {
@@ -262,8 +282,8 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
     Command.withAlias("delete"),
   );
 
-  return Command.make("bearing", {}).pipe(
-    Command.withSubcommands([init, show, backlog, fog, ls, close, rm]),
+  return Command.make("bearing", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
+    Command.withSubcommands([init, show, backlog, fog, next, ls, close, rm]),
     Command.withDescription("Track work too large for one session"),
   );
 };
