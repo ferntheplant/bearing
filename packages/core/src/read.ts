@@ -16,7 +16,7 @@ import {
 
 export { MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
 
-export type { BacklogItem, MapDocument, MapEntry, Ticket, TicketType, TrailRow } from "./acquisition.ts";
+export type { BacklogItem, MapEntry, Ticket, TicketType } from "./acquisition.ts";
 
 const acquireValid = (
   startDirectory: string,

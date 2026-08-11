@@ -55,6 +55,11 @@ export interface MapEntry {
   readonly source: string;
 }
 
+interface MapDestination {
+  readonly text: string;
+  readonly source: string;
+}
+
 export interface TrailRow {
   readonly id: string;
   readonly decision: string;
@@ -64,7 +69,7 @@ export interface TrailRow {
 
 export interface MapDocument {
   readonly project: string;
-  readonly destination: string;
+  readonly destination: MapDestination;
   readonly intentions: readonly MapEntry[];
   readonly patches: readonly MapEntry[];
   readonly trail: readonly TrailRow[];
@@ -276,15 +281,20 @@ interface Heading {
   readonly title: string;
 }
 
+const isEscaped = (value: string, index: number): boolean => {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor--) {
+    backslashes++;
+  }
+  return backslashes % 2 === 1;
+};
+
 const splitTableRow = (row: string): readonly string[] => {
   const cells: string[] = [];
   let current = "";
   for (let index = 0; index < row.length; index++) {
     const character = row[index];
-    if (character === "\\" && row[index + 1] === "|") {
-      current += "|";
-      index++;
-    } else if (character === "|") {
+    if (character === "|" && !isEscaped(row, index)) {
       cells.push(current);
       current = "";
     } else {
@@ -306,9 +316,14 @@ const parseTrail = (
     if (!/^\s*\|/.test(line)) {
       continue;
     }
-    const trimmed = line.trim();
-    const body = trimmed.startsWith("|") ? trimmed.slice(1) : trimmed;
-    const inner = body.endsWith("|") ? body.slice(0, -1) : body;
+    const openingPipe = line.indexOf("|");
+    const body = line.slice(openingPipe + 1);
+    const bodyWithoutTrailingWhitespace = body.trimEnd();
+    const closingPipe = bodyWithoutTrailingWhitespace.length - 1;
+    const inner =
+      bodyWithoutTrailingWhitespace[closingPipe] === "|" && !isEscaped(bodyWithoutTrailingWhitespace, closingPipe)
+        ? bodyWithoutTrailingWhitespace.slice(0, closingPipe)
+        : body;
     const cells = splitTableRow(inner);
     if (cells.length >= 1 && cells.every((cell) => /^:?-+:?$/.test(cell.trim()))) {
       continue;
@@ -342,7 +357,8 @@ const parseMap = ({
     diagnostics.push(diagnostic(path, "filename", "map filename must have a non-empty stem"));
   }
 
-  const lines = source.split(/\r?\n/);
+  const sourceLines = source.match(/[^\r\n]*(?:\r\n|\n|$)/g)?.filter((line) => line.length > 0) ?? [];
+  const lines = sourceLines.map((line) => line.replace(/\r?\n$/, ""));
   const headings: Heading[] = [];
   let fence: string | undefined;
   for (const [lineNumber, line] of lines.entries()) {
@@ -387,12 +403,17 @@ const parseMap = ({
     diagnostics.push(diagnostic(path, "document", "map sections are out of order"));
   }
 
+  const sectionEnd = (section: Heading): number =>
+    sectionHeadings.find((heading) => heading.line > section.line)?.line ?? lines.length;
+
   const destination = sectionHeadings.find((heading) => heading.title === "Destination");
   let destinationText = "";
+  let destinationSource = "";
   if (destination !== undefined) {
-    const nextHeading = sectionHeadings.find((heading) => heading.line > destination.line);
+    const end = sectionEnd(destination);
+    destinationSource = sourceLines.slice(destination.line + 1, end).join("");
     destinationText = lines
-      .slice(destination.line + 1, nextHeading?.line)
+      .slice(destination.line + 1, end)
       .join("\n")
       .trim();
     if (destinationText.length === 0) {
@@ -405,18 +426,20 @@ const parseMap = ({
     if (section === undefined) {
       return [];
     }
-    const next = sectionHeadings.find((heading) => heading.line > section.line);
-    const end = next?.line ?? lines.length;
-    return headings
+    const end = sectionEnd(section);
+    const entries = headings
       .filter((heading) => heading.level === 3 && heading.line > section.line && heading.line < end)
-      .map((heading) => ({ heading: heading.title, source: lines[heading.line] ?? "" }));
+      .map((heading, index, matches) => ({
+        heading: heading.title,
+        source: sourceLines.slice(heading.line, matches[index + 1]?.line ?? end).join(""),
+      }));
+    return entries;
   };
 
   const trail = sectionHeadings.find((heading) => heading.title === "Trail");
   let trailRows: readonly TrailRow[] = [];
   if (trail !== undefined) {
-    const next = sectionHeadings.find((heading) => heading.line > trail.line);
-    const parsedTrail = parseTrail(path, lines.slice(trail.line + 1, next?.line));
+    const parsedTrail = parseTrail(path, lines.slice(trail.line + 1, sectionEnd(trail)));
     trailRows = parsedTrail.rows;
     diagnostics.push(...parsedTrail.diagnostics);
   }
@@ -425,7 +448,7 @@ const parseMap = ({
     ? Result.fail(diagnostics)
     : Result.succeed({
         project,
-        destination: destinationText,
+        destination: { text: destinationText, source: destinationSource },
         intentions: entriesIn("Not yet committed"),
         patches: entriesIn("Not yet specified"),
         trail: trailRows,

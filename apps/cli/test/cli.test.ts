@@ -551,7 +551,7 @@ describe("fog", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(JSON.parse(result.stdout)).toEqual([
-      { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth" }] },
+      { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth\n\n" }] },
     ]);
   });
 

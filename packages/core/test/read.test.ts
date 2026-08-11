@@ -353,9 +353,9 @@ describe("map parsing", () => {
 
     expect(parsedMap(observation)).toEqual({
       project: "mvp",
-      destination: "Ship bearing.",
-      intentions: [{ heading: "Ship a reader", source: "### Ship a reader" }],
-      patches: [{ heading: "Reader depth", source: "### Reader depth" }],
+      destination: { text: "Ship bearing.", source: "\nShip bearing.\n\n" },
+      intentions: [{ heading: "Ship a reader", source: "### Ship a reader\n\nIntention body.\n\n" }],
+      patches: [{ heading: "Reader depth", source: "### Reader depth\n\nPatch body.\n\n" }],
       trail: [
         {
           id: "kwjvxc",
@@ -371,8 +371,24 @@ describe("map parsing", () => {
   it("never reports an intention as fog", async () => {
     const parsed = parsedMap(await runAcquisition(fixture()));
 
-    expect(parsed.patches).toEqual([{ heading: "Reader depth", source: "### Reader depth" }]);
-    expect(parsed.intentions).toEqual([{ heading: "Ship a reader", source: "### Ship a reader" }]);
+    expect(parsed.patches).toEqual([{ heading: "Reader depth", source: "### Reader depth\n\n" }]);
+    expect(parsed.intentions).toEqual([{ heading: "Ship a reader", source: "### Ship a reader\n\n" }]);
+  });
+
+  it("retains CRLF source spans and escaped outcome content byte-for-byte", async () => {
+    const trailRow = "  | kwjvxc | Decision |  [label \\| value](target)  |  ";
+    const source = MAP_WITH_TRAIL.replace(TRAIL_ROW, trailRow).replaceAll("\n", "\r\n");
+
+    const parsed = parsedMap(await runAcquisition(fixture({ maps: { "mvp.md": source } })));
+
+    expect(parsed.destination).toEqual({ text: "Ship bearing.", source: "\r\nShip bearing.\r\n\r\n" });
+    expect(parsed.intentions[0]?.source).toBe("### Ship a reader\r\n\r\nIntention body.\r\n\r\n");
+    expect(parsed.trail[0]).toEqual({
+      id: "kwjvxc",
+      decision: "Decision",
+      outcome: "  [label \\| value](target)  ",
+      source: trailRow,
+    });
   });
 
   it("parses a map whose uncharted sections are empty into no entries", async () => {
@@ -441,8 +457,8 @@ describe("listFog", () => {
     expect(result).toEqual({
       tag: "fog",
       maps: [
-        { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth" }] },
-        { project: "second", patches: [{ heading: "Reader depth", source: "### Reader depth" }] },
+        { project: "mvp", patches: [{ heading: "Reader depth", source: "### Reader depth\n\n" }] },
+        { project: "second", patches: [{ heading: "Reader depth", source: "### Reader depth\n\nPatch body.\n\n" }] },
       ],
     });
   });
@@ -457,7 +473,9 @@ describe("listFog", () => {
 
     expect(result).toEqual({
       tag: "fog",
-      maps: [{ project: "second", patches: [{ heading: "Reader depth", source: "### Reader depth" }] }],
+      maps: [
+        { project: "second", patches: [{ heading: "Reader depth", source: "### Reader depth\n\nPatch body.\n\n" }] },
+      ],
     });
   });
 
