@@ -1,6 +1,11 @@
-import type { SetupOutcome, ShowItem, Ticket } from "@bearing/core";
+import type { BacklogItem, CaptureApplyResult, SetupOutcome, ShowItem, Ticket } from "@bearing/core";
 
 export const renderText = (tickets: readonly Ticket[]): string => tickets.map(renderTicket).join("\n");
+
+export const renderBacklogList = (items: readonly BacklogItem[]): string =>
+  items.map((item) => `${item.id}  ${item.slug.replaceAll("-", " ")}`).join("\n");
+
+export const renderCapture = (result: CaptureApplyResult): string => `wrote ${result.path}`;
 
 export const renderJson = (value: object): string => JSON.stringify(value, null, 2);
 

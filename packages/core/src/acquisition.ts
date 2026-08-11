@@ -1,4 +1,4 @@
-import { Data, Effect, FileSystem, Path, Result } from "effect";
+import { Clock, Data, Effect, FileSystem, Path, Result } from "effect";
 import { parse as parseYaml } from "yaml";
 
 const TRACKER_DIRECTORIES = ["backlog", "tickets", "maps"] as const;
@@ -6,6 +6,9 @@ const FRONTMATTER_FIELDS = new Set(["type", "project", "blockers"]);
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const ITEM_FILENAME_PATTERN = /^([0-9abcdefghjkmnpqrstvwxyz]{6})-([a-z0-9_]+(?:-[a-z0-9_]+)*)\.md$/;
 const MAX_SLUG_LENGTH = 60;
+const CROCKFORD_BASE32 = "0123456789abcdefghjkmnpqrstvwxyz";
+const ID_LENGTH = 6;
+const ID_SPACE = 32n ** BigInt(ID_LENGTH);
 const MAP_SECTIONS = [
   "Destination",
   "Notes",
@@ -131,6 +134,45 @@ const parseItemIdentity = ({
   }
   return Result.succeed({ id: match[1] ?? "", slug });
 };
+
+const deriveSlug = (title: string): string => {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9_ -]/g, "")
+    .replace(/[\s-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (slug.length === 0) {
+    return "untitled";
+  }
+  if (slug.length <= MAX_SLUG_LENGTH) {
+    return slug;
+  }
+  const hyphen = slug.slice(0, MAX_SLUG_LENGTH + 1).lastIndexOf("-");
+  return hyphen > 0 ? slug.slice(0, hyphen) : "untitled";
+};
+
+const encodeId = (value: bigint): string => {
+  let remainder = value % ID_SPACE;
+  let encoded = "";
+  for (let index = 0; index < ID_LENGTH; index++) {
+    encoded = `${CROCKFORD_BASE32[Number(remainder % 32n)] ?? "0"}${encoded}`;
+    remainder /= 32n;
+  }
+  return encoded;
+};
+
+export const mintItemIdentity = (observation: ValidTrackerObservation, title: string): Effect.Effect<ItemIdentity> =>
+  Effect.gen(function* () {
+    const existing = new Set([
+      ...observation.backlog.map((document) => document.parsed.success.id),
+      ...observation.tickets.map((document) => document.parsed.success.id),
+    ]);
+    let id = encodeId(yield* Clock.currentTimeNanos);
+    while (existing.has(id)) {
+      id = encodeId(yield* Clock.currentTimeNanos);
+    }
+    return { id, slug: deriveSlug(title) };
+  });
 
 const parseStringList = (
   path: string,

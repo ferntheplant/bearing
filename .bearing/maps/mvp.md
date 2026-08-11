@@ -80,7 +80,9 @@ and prints titles that are subtly not the ones anyone wrote.
 
 Three ways out, none obviously right: accept the degradation and say so; let bearing read the body's first
 heading, which contradicts the body being prose bearing does not parse; or stop claiming to print titles at all
-and print slugs. Ticket listings render this, so it is worth settling before their interface expands.
+and print slugs. Ticket and backlog listings render this — capture now writes the title as the body's first
+heading, so the first-heading option is available for captured items without any new parsing — and it is worth
+settling before their interfaces expand.
 
 ### Whether bearing emits colour at all
 
