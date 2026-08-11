@@ -24,4 +24,7 @@ split tracks deployability, and the publishing decision above is what makes it a
 way.
 
 Release mechanics stay simple because only one package publishes: a changelog discipline and a tag, published
-from CI with registry provenance, rather than a multi-package release orchestration.
+from CI with registry provenance, rather than a multi-package release orchestration. That describes the
+eventual release, not the current one —
+[Installation is a linked clone, and publishing is deferred (ADR 0038)](./0038-installation-is-a-linked-clone-and-publishing-is-deferred.md)
+holds where distribution actually stands, and settles the name.
