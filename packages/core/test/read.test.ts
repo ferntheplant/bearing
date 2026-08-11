@@ -15,6 +15,10 @@ Ship bearing.
 
 ## Trail
 
+## Not yet committed
+
+### Ship a reader
+
 ## Not yet specified
 
 ### Reader depth
@@ -222,6 +226,29 @@ status: open
     await expect(runList(malformedHeading)).rejects.toMatchObject({
       _tag: "MalformedTrackerError",
       message: expect.stringContaining("missing ## Destination section"),
+    });
+  });
+
+  it("requires the two uncharted sections and keeps them in order", async () => {
+    const missing = fixture({
+      maps: { "mvp.md": VALID_MAP.replace("## Not yet committed\n\n### Ship a reader\n\n", "") },
+    });
+    await expect(runList(missing)).rejects.toMatchObject({
+      _tag: "MalformedTrackerError",
+      message: expect.stringContaining("missing ## Not yet committed section"),
+    });
+
+    const swapped = fixture({
+      maps: {
+        "mvp.md": VALID_MAP.replace(
+          "## Not yet committed\n\n### Ship a reader\n\n## Not yet specified\n\n### Reader depth\n\n",
+          "## Not yet specified\n\n### Reader depth\n\n## Not yet committed\n\n### Ship a reader\n\n",
+        ),
+      },
+    });
+    await expect(runList(swapped)).rejects.toMatchObject({
+      _tag: "MalformedTrackerError",
+      message: expect.stringContaining("map sections are out of order"),
     });
   });
 

@@ -16,6 +16,10 @@ Ship bearing.
 
 ## Trail
 
+## Not yet committed
+
+### Ship a reader
+
 ## Not yet specified
 
 ### Reader depth

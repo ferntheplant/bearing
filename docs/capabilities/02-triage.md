@@ -10,7 +10,7 @@ come from.
   1. **Delete it** — not real, already fixed, duplicate.
   2. **A build ticket with no project** — specifiable now, no map owns it.
   3. **A ticket belonging to a project** — design or build, attached to a live map.
-  4. **A new map** — a nameable destination plus at least one thing you cannot yet specify.
+  4. **A new map** — a nameable destination plus at least one thing you intend or cannot yet specify.
   5. **Leave it** — unmoored fog, waiting for a destination.
 - **Every verdict but the first is the same move**, out of the backlog and into tickets, differing only in what
   the ticket says about itself. Nothing moves across directory levels and nothing is renamed.
@@ -18,8 +18,9 @@ come from.
 - **An interrupted triage fails toward duplication, not disappearance.** The promoted ticket is written before
   the backlog item is deleted, so interruption between them leaves a duplicate id that resolution and
   `bearing check` reject.
-- **Stub maps are allowed.** A destination and one patch of fog is a legitimate map. One patch and no
-  destination is verdict 5 — the destination is what draws the line, because naming one is the actual work.
+- **Stub maps are allowed.** A destination plus a single entry — an intention or a patch of fog, either one — is
+  a legitimate map. That entry with no destination is verdict 5: the destination is what draws the line, because
+  naming one is the actual work.
 - **`bearing triage <id>` takes the verdict as a flag**, so triaging a backlog in one sitting is a series of
   short commands rather than a form. Each command applies its verdict immediately.
 - **One id at a time, on purpose.** There is no bulk mode and no multi-id form. The verdict set is small enough
@@ -30,11 +31,6 @@ come from.
 
 **Designed.** Nothing is built. The verdict set, the stub-map threshold, and the promotion mechanics are
 settled.
-
-## Acceptance criteria
-
-Owns [`ABSTRACT.md`](../../ABSTRACT.md) §8 criteria **5** (promotion to an unprojected build ticket), **6**
-(promotion into an existing map, id unchanged) and **7** (dropping an item).
 
 ## Decisions
 

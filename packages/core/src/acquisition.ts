@@ -6,7 +6,14 @@ const FRONTMATTER_FIELDS = new Set(["type", "project", "blockers"]);
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const ITEM_FILENAME_PATTERN = /^([0-9abcdefghjkmnpqrstvwxyz]{6})-([a-z0-9_]+(?:-[a-z0-9_]+)*)\.md$/;
 const MAX_SLUG_LENGTH = 60;
-const MAP_SECTIONS = ["Destination", "Notes", "Trail", "Not yet specified", "Out of scope"] as const;
+const MAP_SECTIONS = [
+  "Destination",
+  "Notes",
+  "Trail",
+  "Not yet committed",
+  "Not yet specified",
+  "Out of scope",
+] as const;
 
 type TrackerDirectory = (typeof TRACKER_DIRECTORIES)[number];
 type DiagnosticSource = "structure" | "filename" | "frontmatter" | "document";

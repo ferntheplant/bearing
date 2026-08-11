@@ -92,8 +92,15 @@ existence.
 _Avoid_: goal, objective, definition of done (that is a ticket's, not a project's).
 
 **Notes**:
-The map's standing context — the domain, the skills every session should consult, the preferences that hold
-across the whole project. Prose, for humans and agents to read, never for bearing to parse.
+The map's standing context — the policy that holds across this project for its whole life. Prose, for humans and
+agents to read, never for bearing to parse, and never drained by a mapping pass. What is true of every map in a
+repository belongs in that repository's own instructions instead.
+
+**intention**:
+Something we are fairly sure we want, where what it is is clear and only the commitment is missing. Lives in a
+map's `Not yet committed` section, and is drained by a mapping pass exactly as fog is. Not a commitment: nothing
+blocks on one and nothing ranks it.
+_Avoid_: idea, todo, wishlist, candidate.
 
 **trail**:
 The record of design tickets already closed, in the order they closed, each row pointing at where its answer
@@ -103,7 +110,7 @@ decision log.
 
 **fog**:
 Work that cannot yet be stated as a question sharply enough to be a ticket. The material a map exists to burn
-off.
+off. Distinguished from an intention by certainty about _what_, never by size.
 _Avoid_: unknowns, TBD, uncertainty.
 
 **patch**:
@@ -134,9 +141,9 @@ row.
 ## Working
 
 **mapping pass**:
-A deliberate breadth-first pass over every patch a map holds, in which each patch leaves as one or more tickets,
-as a decision landed on the spot, or as fog that survives carrying the reason it survived. The first one charts
-the map; every later one is the same operation.
+A deliberate breadth-first pass over every intention and every patch a map holds, in which each leaves as one or
+more tickets, as a decision landed on the spot, or as material that survives carrying the reason it survived.
+The first one charts the map, sorting a loose idea across both sections; every later one is the same operation.
 _Avoid_: planning, grooming, refinement, remapping (there is no separate later kind).
 
 **walking**:

@@ -1,10 +1,14 @@
 # Mapping and walking alternate
 
-Work on a map runs in two phases that alternate. A **mapping pass** goes breadth-first over every fog patch the
-map holds, and each patch leaves the pass in one of three ways: as one or more tickets, as a decision landed on
-the spot in a durable artifact, or as fog that survives carrying the reason it survived. A second pass then
-wires blockers between the tickets just created. **Walking** works that batch, and the fog that closing a ticket
-produces is written down and deliberately left unsorted until the next pass.
+Work on a map runs in two phases that alternate. A **mapping pass** goes breadth-first over every piece of
+uncharted material the map holds, and each leaves the pass in one of three ways: as one or more tickets, as a
+decision landed on the spot in a durable artifact, or as material that survives carrying the reason it survived.
+A second pass then wires blockers between the tickets just created. **Walking** works that batch, and what
+closing a ticket turns up is written down and deliberately left unsorted until the next pass.
+
+A pass drains two lists, intentions and fog — see
+[A map holds intentions alongside fog (ADR 0039)](./0039-a-map-holds-intentions-alongside-fog.md), which added
+the first of them. This decision originally spoke of fog alone.
 
 The deferral is the decision. Sorting fog as it arrives sounds tidier and is not: recognising that a question
 has become sharp and answering it are the same act when done one patch at a time, so every arriving patch turns
