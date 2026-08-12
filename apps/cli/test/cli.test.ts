@@ -1517,3 +1517,74 @@ Second.
     expect(result.stderr).toContain('ambiguous id prefix "a": a1b2c3, a2b3c4');
   });
 });
+
+describe("retitle", () => {
+  it("renames only the resolved ticket immediately and preserves its bytes", async () => {
+    const root = join(fixtureRoot, "retitle-ticket");
+    const source = "---\r\ntype: build\r\n---\r\n\r\n# Original title\r\n\r\nBody.\r\n";
+    const other = ticketSource("build");
+    await createTracker(root, { "a1b2c3-original-title.md": source, "b1c2d3-other.md": other });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["retitle", "a1b", "A better title"], stdout, stderr, root),
+    );
+
+    const from = join(root, ".bearing/tickets/a1b2c3-original-title.md");
+    const to = join(root, ".bearing/tickets/a1b2c3-a-better-title.md");
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`renamed ${from} to ${to}\n`);
+    await expect(missing(from)).resolves.toBe(true);
+    await expect(readFile(to, "utf8")).resolves.toBe(source);
+    await expect(readFile(join(root, ".bearing/tickets/b1c2d3-other.md"), "utf8")).resolves.toBe(other);
+  });
+
+  it("succeeds without changing the file when the title derives the current slug", async () => {
+    const root = join(fixtureRoot, "retitle-no-op");
+    const source = ticketSource("build");
+    await createTracker(root, { "a1b2c3-original-title.md": source });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["retitle", "a1b2c3", "Original title!"], stdout, stderr, root),
+    );
+
+    const path = join(root, ".bearing/tickets/a1b2c3-original-title.md");
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`unchanged ${path}\n`);
+    await expect(readFile(path, "utf8")).resolves.toBe(source);
+  });
+
+  it("exits 1 for an ambiguous prefix and names the candidates", async () => {
+    const root = join(fixtureRoot, "retitle-ambiguous");
+    await createTracker(root, {
+      "a1b2c3-one.md": ticketSource("build"),
+      "a2b3c4-two.md": ticketSource("build"),
+    });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["retitle", "a", "New title"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('ambiguous id prefix "a": a1b2c3, a2b3c4');
+  });
+
+  it("emits the applied rename as JSON with --json", async () => {
+    const root = join(fixtureRoot, "retitle-json");
+    await createTracker(root, { "a1b2c3-original-title.md": ticketSource("build") });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["retitle", "a1b2c3", "A better title", "--json"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({
+      id: "a1b2c3",
+      slug: "a-better-title",
+      from: `${root}/.bearing/tickets/a1b2c3-original-title.md`,
+      to: `${root}/.bearing/tickets/a1b2c3-a-better-title.md`,
+      changed: true,
+    });
+  });
+});

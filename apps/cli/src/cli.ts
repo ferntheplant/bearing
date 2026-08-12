@@ -3,6 +3,7 @@
 import {
   applyCreation,
   applyRemoval,
+  applyRetitle,
   checkTracker,
   deriveFrontier,
   listBacklog,
@@ -11,8 +12,10 @@ import {
   planCapture,
   planClose,
   planRemove,
+  planRetitle,
   planTicketCreation,
   RemovalError,
+  RetitleError,
   showItem,
   TicketCreationError,
   type TicketSelector,
@@ -34,6 +37,8 @@ import {
   renderList,
   renderRemoval,
   renderRemovalError,
+  renderRetitle,
+  renderRetitleError,
   renderSetupOutcome,
   renderShow,
   renderTicketCreationError,
@@ -350,8 +355,20 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
     Command.withAlias("delete"),
   );
 
+  const retitle = Command.make(
+    "retitle",
+    { id: Argument.string("id"), title: Argument.string("title"), json: Flag.boolean("json") },
+    (config) =>
+      Effect.gen(function* () {
+        const plan = yield* planRetitle(cwd, config.id, config.title);
+        const result = yield* applyRetitle(plan);
+        const rendered = config.json ? renderJson(result) : renderRetitle(result);
+        yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+      }),
+  ).pipe(Command.withDescription("Rename a ticket from a new title without changing its contents"));
+
   return Command.make("bearing", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
-    Command.withSubcommands([init, show, backlog, newTicket, addTicket, fog, check, next, ls, close, rm]),
+    Command.withSubcommands([init, show, backlog, newTicket, addTicket, fog, check, next, ls, close, rm, retitle]),
     Command.withDescription("Track work too large for one session"),
   );
 };
@@ -371,6 +388,10 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
   }
   if (error instanceof RemovalError) {
     stderr.write(`error: ${renderRemovalError(error)}\n`);
+    return 1;
+  }
+  if (error instanceof RetitleError) {
+    stderr.write(`error: ${renderRetitleError(error)}\n`);
     return 1;
   }
   if (error instanceof TicketCreationError) {
