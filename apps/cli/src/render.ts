@@ -1,8 +1,10 @@
 import type {
   BacklogItem,
   CaptureApplyResult,
+  CheckResult,
   FogReport,
   Frontier,
+  IntegrityFinding,
   ListedTicket,
   RemovalApplyResult,
   RemovalError,
@@ -67,6 +69,33 @@ export const renderRemovalError = (error: RemovalError): string => {
       return `cannot close design ticket ${error.prefix} with bearing close; a design ticket closes against its trail row`;
     case "backlog-item":
       return `cannot close backlog item ${error.prefix} with bearing close; use bearing rm`;
+  }
+};
+
+export const renderCheck = (result: CheckResult): string => {
+  if (result.findings.length === 0) {
+    return "tracker is consistent";
+  }
+  return result.findings.map(renderFinding).join("\n");
+};
+
+const renderFinding = (finding: IntegrityFinding): string => {
+  const prefix = finding.severity === "error" ? "error" : "warning";
+  switch (finding.kind) {
+    case "parse":
+      return `${prefix}: ${finding.path}: ${finding.detail}`;
+    case "unknown-type":
+      return `${prefix}: ${finding.path}: type must be design or build`;
+    case "blocker-missing":
+      return `${prefix}: ${finding.path}: ticket ${finding.owner} names blocker ${finding.blocker}, which does not exist`;
+    case "project-missing":
+      return `${prefix}: ${finding.path}: ticket ${finding.owner} names project ${finding.project}, which no map carries`;
+    case "design-no-project":
+      return `${prefix}: ${finding.path}: design ticket ${finding.owner} has no project`;
+    case "duplicate-id":
+      return `${prefix}: id ${finding.id} is shared by ${finding.paths.join(", ")}`;
+    case "trail-row-open-ticket":
+      return `${prefix}: ${finding.path}: trail row names ticket ${finding.id}, which still exists\n        run: bearing close ${finding.id}`;
   }
 };
 

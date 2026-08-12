@@ -1,7 +1,6 @@
 ---
 type: build
 project: mvp
-blockers: [n3dd4b]
 ---
 
 # Assert in CI that nothing shipped names the applying flag

@@ -1,7 +1,6 @@
 ---
 type: build
 project: mvp
-blockers: [twwbzc]
 ---
 
 # Rename a ticket with `bearing retitle`

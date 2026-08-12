@@ -1,7 +1,6 @@
 ---
 type: build
 project: mvp
-blockers: [n3dd4b]
 ---
 
 # Generate shell completions

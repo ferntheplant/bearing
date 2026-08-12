@@ -1,7 +1,6 @@
 ---
 type: build
 project: mvp
-blockers: [twwbzc]
 ---
 
 # Promote and drop items with `bearing triage`

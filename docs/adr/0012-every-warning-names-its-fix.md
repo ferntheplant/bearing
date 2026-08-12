@@ -15,3 +15,9 @@ still exists, which is a violation of
 
 Errors carry no fix command. An error means the tracker is inconsistent rather than untidy, and what to do about
 it depends on which of two conflicting things was meant.
+
+A stale blocker id — an id in a ticket's `blockers:` list that no item carries — is an error, so it names no
+command. No command edits a `blockers:` list, and that is the point rather than a gap:
+[Tracker files are edited directly (ADR 0030)](./0030-tracker-files-are-edited-directly.md) already puts the
+list in the operator's hands, so the fix is the hand edit `bearing check` points at by naming the ticket and
+the id.
