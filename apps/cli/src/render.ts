@@ -1,7 +1,7 @@
 import type {
   BacklogItem,
-  CaptureApplyResult,
   CheckResult,
+  CreationApplyResult,
   DesignClosePlan,
   FogReport,
   Frontier,
@@ -11,6 +11,7 @@ import type {
   RemovalError,
   SetupOutcome,
   ShowItem,
+  TicketCreationError,
 } from "@bearing/core";
 
 const titleFromSlug = (slug: string): string => slug.replaceAll("-", " ");
@@ -50,7 +51,17 @@ export const renderFog = (maps: readonly FogReport[]): string =>
     )
     .join("\n\n");
 
-export const renderCapture = (result: CaptureApplyResult): string => `wrote ${result.path}`;
+export const renderCreation = (result: CreationApplyResult): string => `wrote ${result.path}`;
+
+export const renderTicketCreationError = (error: TicketCreationError): string => {
+  const projects = error.projects.join(", ") || "none";
+  switch (error.reason) {
+    case "design-no-project":
+      return `cannot create a design ticket without --project; maps: ${projects}`;
+    case "project-missing":
+      return `no map for project "${error.project}"; maps: ${projects}`;
+  }
+};
 
 export const renderRemoval = (result: RemovalApplyResult): string => {
   const lines = [`deleted ${result.removed}`];

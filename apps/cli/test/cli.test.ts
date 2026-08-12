@@ -332,6 +332,96 @@ describe("backlog", () => {
   });
 });
 
+describe("new", () => {
+  it("creates a projectless build ticket immediately with no project or blockers key", async () => {
+    const root = join(fixtureRoot, "new-build");
+    await createTracker(root);
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["new", "build", "Ship the feature"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const files = await readdir(join(root, ".bearing/tickets"));
+    const created = files.find((filename) => filename.endsWith("-ship-the-feature.md"));
+    expect(created).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{6}-ship-the-feature\.md$/);
+    const source = await readFile(join(root, ".bearing/tickets", created ?? ""), "utf8");
+    expect(source).toBe(`---
+type: build
+---
+
+# Ship the feature
+`);
+    expect(source).not.toContain("project:");
+    expect(source).not.toContain("blockers:");
+  });
+
+  it("creates a design ticket in an existing project", async () => {
+    const root = join(fixtureRoot, "new-design");
+    await createTracker(root);
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["new", "design", "Choose the seam", "--project", "mvp"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    const files = await readdir(join(root, ".bearing/tickets"));
+    const created = files.find((filename) => filename.endsWith("-choose-the-seam.md"));
+    const source = await readFile(join(root, ".bearing/tickets", created ?? ""), "utf8");
+    expect(source).toBe(`---
+type: design
+project: mvp
+---
+
+# Choose the seam
+`);
+    expect(source).not.toContain("blockers:");
+  });
+
+  it("refuses a design ticket with no project, names every map, and creates nothing", async () => {
+    const root = join(fixtureRoot, "new-design-no-project");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP.replace("# MVP", "# Other") });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["new", "design", "Choose the seam"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot create a design ticket without --project; maps: mvp, other");
+    expect(await readdir(join(root, ".bearing/tickets"))).toEqual([]);
+  });
+
+  it("refuses a project no map carries, names every map, and creates nothing", async () => {
+    const root = join(fixtureRoot, "new-missing-project");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP.replace("# MVP", "# Other") });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["new", "build", "Ship the feature", "--project", "missing"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no map for project "missing"; maps: mvp, other');
+    expect(await readdir(join(root, ".bearing/tickets"))).toEqual([]);
+  });
+
+  it.each(["create", "add"])("accepts %s as an alias for new", async (command) => {
+    const root = join(fixtureRoot, `new-alias-${command}`);
+    await createTracker(root);
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main([command, "build", `${command} ticket`], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const files = await readdir(join(root, ".bearing/tickets"));
+    expect(files.some((filename) => filename.endsWith(`-${command}-ticket.md`))).toBe(true);
+  });
+});
+
 describe("show", () => {
   it("prints a ticket's frontmatter fields and body", async () => {
     const result = await captureRun(({ stdout, stderr }) => main(["show", "a1b2c3"], stdout, stderr, fixtureRoot));

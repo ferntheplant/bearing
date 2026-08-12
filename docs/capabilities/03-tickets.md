@@ -45,7 +45,8 @@ projects valid ticket values for `apps/cli` to render or emit as `--json`
 them). Prefix resolution over the whole tracker is built as a core operation and backs `bearing show`, which
 prints one backlog item or ticket. `bearing ls`'s filters — type, readiness, blocked-ness, and project — are
 built on a blocking graph derived in core that carries each ticket's readiness and both transitive closures and
-refuses a blocker cycle by name; the query filter, creation, and retitling remain settled, not built. Bare
+refuses a blocker cycle by name. `bearing new` and its aliases create build and design tickets immediately,
+validating any project against the maps on disk; the query filter and retitling remain settled, not built. Bare
 `bearing` no longer lists tickets and is held for the frontier.
 
 ## Decisions

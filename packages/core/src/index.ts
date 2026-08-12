@@ -16,9 +16,9 @@ export type {
 } from "./analysis.ts";
 export { deriveFrontier } from "./frontier.ts";
 export type { Frontier, FrontierDecideGroup, FrontierResult, FrontierTicket } from "./frontier.ts";
-export { applyCapture, planCapture } from "./capture.ts";
-export type { CaptureApplyResult, CapturePlan } from "./capture.ts";
-export { CaptureWriteError } from "./capture.ts";
+export { applyCreation, planCapture, planTicketCreation } from "./capture.ts";
+export type { CreationApplyResult, CreationPlan } from "./capture.ts";
+export { CreationWriteError, TicketCreationError } from "./capture.ts";
 export { applyRemoval, planClose, planRemove } from "./remove.ts";
 export type {
   BuildClosePlan,
