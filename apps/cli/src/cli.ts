@@ -53,6 +53,9 @@ import { runSetup, type SetupRunner } from "./setup.ts";
 import { ansiStyle, plainStyle, type Style } from "./style.ts";
 import { BEARING_VERSION } from "./version.ts";
 
+const SUPPORTED_SHELLS = ["bash", "zsh", "fish"] as const;
+type SupportedShell = (typeof SUPPORTED_SHELLS)[number];
+
 interface Writer {
   write(text: string): unknown;
 }
@@ -155,6 +158,43 @@ const buildLayer = (output: OutputWriters, colors: boolean) =>
 const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: Style) => {
   const emit = (rendered: string) =>
     Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+
+  // The completion command generates from the whole tree, so the handler reads
+  // the root command this function returns rather than one of its own inputs.
+  // It is assigned before any handler runs, but after every subcommand exists.
+  let rootCommand: Command.Command.Any;
+
+  /**
+   * The framework derives a completion descriptor from the command tree and
+   * renders it through its own `--completions` action; bearing routes the
+   * action's Console output back through its own writers so the script is a
+   * value the handler can also emit as `--json`. Nothing here names a command,
+   * so the generated script always covers the tree that exists (ADR 0019).
+   */
+  const generateCompletions = (
+    shell: SupportedShell,
+  ): Effect.Effect<string, never, Console.Console | CliConfig.CliConfig> =>
+    Effect.gen(function* () {
+      const { builtIns } = yield* CliConfig.CliConfig;
+      let captured = "";
+      const capture = makeConsole({
+        stdout: { write: (chunk) => void (captured += chunk) },
+        stderr: { write: () => undefined },
+      });
+      yield* GlobalFlag.Completions.run(Option.some(shell), {
+        command: rootCommand,
+        commandPath: ["bearing"],
+        version: BEARING_VERSION,
+        builtIns,
+      }).pipe(Effect.provideService(Console.Console, capture));
+      // The framework's install comments assume the `--completions` built-in
+      // flag, which bearing pins off and replaces with `bearing completion`
+      // (docs/gotchas.md). Rewrite the reference so the shipped script names
+      // the command that actually exists.
+      return captured
+        .replace(/\n+$/, "")
+        .replaceAll(`${rootCommand.name} --completions `, `${rootCommand.name} completion `);
+    });
 
   const init = Command.make("init", {}, () =>
     Effect.gen(function* () {
@@ -425,15 +465,35 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
       }),
   ).pipe(Command.withDescription("Triage a backlog item into a ticket or delete it"));
 
+  const completion = Command.make(
+    "completion",
+    {
+      shell: Argument.optional(Argument.choice("shell", SUPPORTED_SHELLS)).pipe(
+        Argument.withDescription(`${SUPPORTED_SHELLS.join(" | ")} — which shell to generate completions for`),
+      ),
+    },
+    (config) =>
+      Effect.gen(function* () {
+        const json = yield* JsonOutput;
+        const shell = Option.getOrUndefined(config.shell);
+        if (shell === undefined) {
+          return yield* Effect.fail(new Error(`bearing completion needs a shell: ${SUPPORTED_SHELLS.join(" | ")}`));
+        }
+        const script = yield* generateCompletions(shell);
+        yield* emit(json ? renderJson({ shell, script }) : script);
+      }),
+  ).pipe(Command.withDescription("Generate shell completions for the named shell"));
+
   // A bare invocation prints help, the way every other CLI answers "what is
   // this?" (ADR 0044). `bearing next` is the only way to the frontier.
-  return Command.make("bearing", {}, () =>
+  rootCommand = Command.make("bearing", {}, () =>
     Effect.fail(new CliError.ShowHelp({ commandPath: ["bearing"], errors: [] })),
   ).pipe(
-    Command.withSubcommands([init, show, backlog, add, fog, doctor, next, ls, close, rm, retitle, triage]),
+    Command.withSubcommands([init, show, backlog, add, fog, doctor, next, ls, close, rm, retitle, triage, completion]),
     Command.withGlobalFlags([JsonOutput]),
     Command.withDescription("Track work across sessions"),
   );
+  return rootCommand;
 };
 
 const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
