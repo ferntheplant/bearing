@@ -31,6 +31,8 @@ export type {
 export { RemovalApplyError, RemovalError } from "./remove.ts";
 export { applyRetitle, planRetitle, RetitleApplyError, RetitleError } from "./retitle.ts";
 export type { RetitleApplyResult, RetitleEdit, RetitlePlan } from "./retitle.ts";
+export { applyTriage, planTriage, TriageApplyError, TriageError } from "./triage.ts";
+export type { TriageApplyResult, TriagePlan, TriageVerdict } from "./triage.ts";
 export { digestSkillTree, planSetup, applySetup } from "./setup.ts";
 export {
   SKILL_DIRECTORY,

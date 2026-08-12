@@ -15,6 +15,8 @@ import type {
   SetupOutcome,
   ShowItem,
   TicketCreationError,
+  TriageApplyResult,
+  TriageError,
 } from "@bearing/core";
 
 import { cell, type Style, widestOf } from "./style.ts";
@@ -173,6 +175,24 @@ export const renderRetitleError = (error: RetitleError): string => {
       return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
     case "backlog-item":
       return `cannot retitle backlog item ${error.prefix}; bearing retitle renames tickets`;
+  }
+};
+
+export const renderTriage = (result: TriageApplyResult, style: Style): string =>
+  result.verdict === "drop"
+    ? `deleted ${style.muted(result.from)}`
+    : `promoted ${style.id(result.id)} to ${style.muted(result.to)}`;
+
+export const renderTriageError = (error: TriageError): string => {
+  switch (error.reason) {
+    case "no-match":
+      return renderNoMatch(error.prefix);
+    case "ambiguous":
+      return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
+    case "ticket-item":
+      return `cannot triage ${error.prefix}: it is already a ticket`;
+    case "project-missing":
+      return `no map for project "${error.project}"; maps: ${error.projects?.join(", ") || "none"}`;
   }
 };
 

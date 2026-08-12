@@ -11,7 +11,7 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 | #   | Capability                                                 | Stands at |
 | --- | ---------------------------------------------------------- | --------- |
 | 1   | [Capture](./01-capture.md)                                 | Built     |
-| 2   | [Triage](./02-triage.md)                                   | Designed  |
+| 2   | [Triage](./02-triage.md)                                   | Built     |
 | 3   | [Tickets](./03-tickets.md)                                 | Partial   |
 | 4   | [Maps and fog](./04-maps-and-fog.md)                       | Partial   |
 | 5   | [The frontier](./05-the-frontier.md)                       | Built     |
@@ -20,16 +20,18 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 | 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Partial   |
 | 9   | [The command line](./09-the-command-line.md)               | Built     |
 
-**Capture, the frontier, integrity, and the command line are Built; closing is Partial alongside tickets, maps
-and fog, and setup; the other capabilities are Designed.** The read path discovers the nearest tracker, acquires
+**Capture, triage, the frontier, integrity, and the command line are Built; tickets, maps and fog, closing, and
+setup are Partial.** The read path discovers the nearest tracker, acquires
 all three directories without discarding malformed documents, and projects valid tickets and backlog items for
 text or `--json`. Id-prefix resolution across the whole tracker backs `bearing show`, and `bearing backlog "..."`
 plans and applies a capture in one invocation, minting an id against the ids already on disk. `bearing ls`
-filtering and the blocking graph it exposes are built. `bearing close` on a build ticket and `bearing rm` delete
-immediately and strip the closed id from every blocker list as a lossless rewrite. `bearing doctor` reads the
-whole tracker and reports all seven checks by name in one run — every parse failure, the five integrity error
-classes, and the single warning — with the error/warning distinction carried in the `--json` output and the exit
-status. Closing a map is still to come.
+filtering and the blocking graph it exposes are built. `bearing triage <id>` applies one verdict flag
+immediately — `--ticket` or `--to <project>` promotes the item to a build ticket with its id and body
+unchanged, `--drop` deletes it — writing the ticket before unlinking the backlog item. `bearing close` on a
+build ticket and `bearing rm` delete immediately and strip the closed id from every blocker list as a lossless
+rewrite. `bearing doctor` reads the whole tracker and reports all seven checks by name in one run — every parse
+failure, the five integrity error classes, and the single warning — with the error/warning distinction carried
+in the `--json` output and the exit status. Closing a map is still to come.
 
 ## A note on command names
 
