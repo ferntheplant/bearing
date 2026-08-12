@@ -58,9 +58,37 @@ export type IntegrityFinding =
       readonly id: string;
     };
 
-export interface CheckResult {
+export type CheckName = IntegrityFinding["kind"];
+
+/**
+ * One check and everything it found. A check with no findings passed, which is
+ * the thing `bearing doctor` reports that a bare list of findings cannot: that
+ * the check ran at all (ADR 0043).
+ */
+export interface CheckReport {
+  readonly name: CheckName;
+  readonly severity: IntegritySeverity;
   readonly findings: readonly IntegrityFinding[];
 }
+
+export interface CheckResult {
+  readonly checks: readonly CheckReport[];
+  readonly findings: readonly IntegrityFinding[];
+}
+
+/**
+ * The order `bearing doctor` reports in: the checks that decide whether the
+ * tracker can be read at all, then the ones over parsed values, then the map.
+ */
+const CHECK_ORDER: readonly { readonly name: CheckName; readonly severity: IntegritySeverity }[] = [
+  { name: "parse", severity: "error" },
+  { name: "duplicate-id", severity: "error" },
+  { name: "unknown-type", severity: "error" },
+  { name: "design-no-project", severity: "error" },
+  { name: "project-missing", severity: "error" },
+  { name: "blocker-missing", severity: "error" },
+  { name: "trail-row-open-ticket", severity: "warning" },
+];
 
 export const analyzeIntegrity = (observation: TrackerObservation): CheckResult => {
   const findings: IntegrityFinding[] = [];
@@ -164,7 +192,14 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
     }
   }
 
-  return { findings };
+  return {
+    findings,
+    checks: CHECK_ORDER.map(({ name, severity }) => ({
+      name,
+      severity,
+      findings: findings.filter((finding) => finding.kind === name),
+    })),
+  };
 };
 
 export const checkTracker = (
