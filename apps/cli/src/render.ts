@@ -4,6 +4,7 @@ import type {
   CheckResult,
   CreationApplyResult,
   DesignClosePlan,
+  MapCloseApplyResult,
   FogReport,
   Frontier,
   IntegrityFinding,
@@ -124,6 +125,9 @@ export const renderRemoval = (result: RemovalApplyResult, style: Style): string 
   return lines.join("\n");
 };
 
+export const renderMapClose = (result: MapCloseApplyResult, style: Style): string =>
+  `deleted map ${style.muted(result.removed)}`;
+
 export const renderDesignClose = (plan: DesignClosePlan, style: Style): string => {
   const lines = [
     style.heading("DESIGN TICKET"),
@@ -159,6 +163,10 @@ export const renderRemovalError = (error: RemovalError): string => {
       return `cannot close design ticket ${error.prefix}: project ${error.project} has no trail row for it`;
     case "trail-outcome-empty":
       return `cannot close design ticket ${error.prefix}: its trail row in project ${error.project} has an empty outcome`;
+    case "map-missing":
+      return `no map named "${error.prefix}"; maps: ${error.candidates.join(", ") || "none"}`;
+    case "map-has-tickets":
+      return `cannot close map "${error.prefix}": tickets still name it: ${error.candidates.join(", ")}`;
   }
 };
 

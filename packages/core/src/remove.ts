@@ -18,7 +18,9 @@ export class RemovalError extends Data.TaggedError("RemovalError")<{
     | "design-no-project"
     | "project-missing"
     | "trail-row-missing"
-    | "trail-outcome-empty";
+    | "trail-outcome-empty"
+    | "map-missing"
+    | "map-has-tickets";
   readonly prefix: string;
   readonly candidates: readonly string[];
   readonly project?: string;
@@ -62,10 +64,20 @@ export interface DesignClosePlan extends RemovalPlan {
   readonly unblocks: readonly ResolvedItem[];
 }
 
+export interface MapClosePlan {
+  readonly project: string;
+  readonly path: string;
+}
+
 export interface RemovalApplyResult {
   readonly id: string;
   readonly removed: string;
   readonly rewrote: readonly string[];
+}
+
+export interface MapCloseApplyResult {
+  readonly project: string;
+  readonly removed: string;
 }
 
 type RemovalReason = RemovalError["reason"];
@@ -238,18 +250,49 @@ export const planClose = (
       : { kind: "build", ...removal };
   });
 
+export const planMapClose = (
+  startDirectory: string,
+  project: string,
+): Effect.Effect<
+  MapClosePlan,
+  RemovalError | TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const observation = yield* acquireValidObservation(startDirectory);
+    const map = observation.maps.find((document) => document.parsed.success.project === project);
+    if (map === undefined) {
+      return yield* Effect.fail(
+        refusal(
+          "map-missing",
+          project,
+          observation.maps.map((document) => document.parsed.success.project),
+        ),
+      );
+    }
+    const tickets = observation.tickets
+      .filter((document) => document.parsed.success.project === project)
+      .map((document) => document.parsed.success.id);
+    if (tickets.length > 0) {
+      return yield* Effect.fail(refusal("map-has-tickets", project, tickets));
+    }
+    return { project, path: map.path };
+  });
+
+const removePath = (path: string): Effect.Effect<void, RemovalApplyError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    yield* fs
+      .remove(path)
+      .pipe(Effect.mapError((error) => new RemovalApplyError({ operation: "remove", path, message: error.message })));
+  });
+
 export const applyRemoval = (
   plan: RemovalPlan,
 ): Effect.Effect<RemovalApplyResult, RemovalApplyError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    yield* fs
-      .remove(plan.target.path)
-      .pipe(
-        Effect.mapError(
-          (error) => new RemovalApplyError({ operation: "remove", path: plan.target.path, message: error.message }),
-        ),
-      );
+    yield* removePath(plan.target.path);
     const rewrote: string[] = [];
     for (const rewrite of plan.rewrites) {
       yield* fs
@@ -263,3 +306,8 @@ export const applyRemoval = (
     }
     return { id: plan.target.id, removed: plan.target.path, rewrote };
   });
+
+export const applyMapClose = (
+  plan: MapClosePlan,
+): Effect.Effect<MapCloseApplyResult, RemovalApplyError, FileSystem.FileSystem> =>
+  Effect.as(removePath(plan.path), { project: plan.project, removed: plan.path });

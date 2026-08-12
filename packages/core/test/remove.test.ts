@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyRemoval, planClose, planRemove } from "#src/remove.ts";
+import { applyMapClose, applyRemoval, planClose, planMapClose, planRemove } from "#src/remove.ts";
 
 import { directory, file, Harness, layer, type FsEntry } from "./fs-harness.ts";
 
@@ -331,6 +331,51 @@ second body.
   });
 });
 
+describe("planMapClose", () => {
+  it("plans deleting the exact map even when it still carries fog and trail rows", async () => {
+    const harness = new Harness(entries({}));
+
+    await expect(
+      Effect.runPromise(Effect.provide(planMapClose(`${WORKSPACE}/nested`, "mvp"), layer(harness))),
+    ).resolves.toEqual({ project: "mvp", path: `${TRACKER}/maps/mvp.md` });
+  });
+
+  it("refuses while any build or design ticket names the map", async () => {
+    const harness = new Harness(
+      entries({
+        [`${TRACKER}/tickets/a1b2c3-build.md`]: file(ticket("build", "build", [], true)),
+        [`${TRACKER}/tickets/b1c2d3-design.md`]: file(ticket("design", "design")),
+      }),
+    );
+
+    await expect(
+      Effect.runPromise(Effect.provide(planMapClose(`${WORKSPACE}/nested`, "mvp"), layer(harness))),
+    ).rejects.toMatchObject({
+      _tag: "RemovalError",
+      reason: "map-has-tickets",
+      prefix: "mvp",
+      candidates: ["a1b2c3", "b1c2d3"],
+    });
+  });
+
+  it("requires the exact filename stem and names the maps that exist", async () => {
+    const harness = new Harness(
+      entries({
+        [`${TRACKER}/maps/other.md`]: file(VALID_MAP),
+      }),
+    );
+
+    await expect(
+      Effect.runPromise(Effect.provide(planMapClose(`${WORKSPACE}/nested`, "mv"), layer(harness))),
+    ).rejects.toMatchObject({
+      _tag: "RemovalError",
+      reason: "map-missing",
+      prefix: "mv",
+      candidates: ["mvp", "other"],
+    });
+  });
+});
+
 describe("stripBlockers rewrite losslessness", () => {
   it("rewrites a blocker list keeping every other byte of the file identical", async () => {
     const original = `---
@@ -550,5 +595,24 @@ second body.
       operation: "remove",
       path: `${TRACKER}/tickets/a1b2c3-first.md`,
     });
+  });
+});
+
+describe("applyMapClose", () => {
+  it("deletes only the map file", async () => {
+    const files = entries({
+      [`${TRACKER}/backlog/c1d2e3-captured.md`]: file("# Captured\n"),
+      [`${TRACKER}/maps/other.md`]: file(VALID_MAP),
+    });
+    const harness = new Harness(files);
+    const plan = await Effect.runPromise(Effect.provide(planMapClose(`${WORKSPACE}/nested`, "mvp"), layer(harness)));
+
+    await expect(Effect.runPromise(Effect.provide(applyMapClose(plan), layer(harness)))).resolves.toEqual({
+      project: "mvp",
+      removed: `${TRACKER}/maps/mvp.md`,
+    });
+    expect(harness.entries.get(`${TRACKER}/maps/mvp.md`)).toBeUndefined();
+    expect(harness.entries.get(`${TRACKER}/maps/other.md`)).toEqual(file(VALID_MAP));
+    expect(harness.entries.get(`${TRACKER}/backlog/c1d2e3-captured.md`)).toEqual(file("# Captured\n"));
   });
 });

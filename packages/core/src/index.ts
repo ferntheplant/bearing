@@ -19,11 +19,13 @@ export type { Frontier, FrontierDecideGroup, FrontierResult, FrontierTicket } fr
 export { applyCreation, planCapture, planTicketCreation } from "./capture.ts";
 export type { CreationApplyResult, CreationPlan } from "./capture.ts";
 export { CreationWriteError, TicketCreationError } from "./capture.ts";
-export { applyRemoval, planClose, planRemove } from "./remove.ts";
+export { applyMapClose, applyRemoval, planClose, planMapClose, planRemove } from "./remove.ts";
 export type {
   BuildClosePlan,
   ClosePlan,
   DesignClosePlan,
+  MapCloseApplyResult,
+  MapClosePlan,
   RemovalApplyResult,
   RemovalPlan,
   RemovalRewrite,

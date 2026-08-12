@@ -2,6 +2,7 @@
 
 import {
   applyCreation,
+  applyMapClose,
   applyRemoval,
   applyRetitle,
   applyTriage,
@@ -12,6 +13,7 @@ import {
   listTickets,
   planCapture,
   planClose,
+  planMapClose,
   planRemove,
   planRetitle,
   planTicketCreation,
@@ -39,6 +41,7 @@ import {
   renderFrontier,
   renderJson,
   renderList,
+  renderMapClose,
   renderRemoval,
   renderRemovalError,
   renderRetitle,
@@ -387,13 +390,28 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
   const close = Command.make(
     "close",
     {
-      id: Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one")),
+      id: Argument.optional(Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one"))),
+      map: Flag.string("map").pipe(Flag.withDescription("Close the map with this filename stem"), Flag.atMost(1)),
       confirm: Flag.boolean("confirm").pipe(Flag.withHidden),
     },
     (config) =>
       Effect.gen(function* () {
         const json = yield* JsonOutput;
-        const plan = yield* planClose(cwd, config.id);
+        const id = Option.getOrUndefined(config.id);
+        const project = config.map[0];
+        if (project !== undefined) {
+          if (id !== undefined) {
+            return yield* Effect.fail(new Error("bearing close takes one target: an id or --map <project>"));
+          }
+          const plan = yield* planMapClose(cwd, project);
+          const result = yield* applyMapClose(plan);
+          yield* emit(json ? renderJson(result) : renderMapClose(result, style));
+          return;
+        }
+        if (id === undefined) {
+          return yield* Effect.fail(new Error("bearing close needs an id or --map <project>"));
+        }
+        const plan = yield* planClose(cwd, id);
         if (plan.kind === "design" && !config.confirm) {
           yield* emit(json ? renderJson(plan) : renderDesignClose(plan, style));
           return;
@@ -401,7 +419,7 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
         const result = yield* applyRemoval(plan);
         yield* emit(json ? renderJson(result) : renderRemoval(result, style));
       }),
-  ).pipe(Command.withDescription("Close a ticket, deleting it and stripping its id from every blocker list"));
+  ).pipe(Command.withDescription("Close a ticket or map, deleting it from the tracker"));
 
   const rm = Command.make(
     "rm",
