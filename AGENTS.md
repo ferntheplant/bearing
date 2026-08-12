@@ -61,7 +61,8 @@ Two glossaries are binding, and using their words exactly is the point of having
 Most of these have an ADR behind them. If a rule seems wrong, look for its ADR before working around it.
 
 - The domain package returns values; only the CLI turns a value into a string. Nothing in the domain imports a
-  terminal, formats output, or knows about colour.
+  terminal, formats output, or knows about colour. Colour is a `Style` passed into every renderer, never a
+  colour named at a call site.
 - Every mutation has separate planning and applying operations. Bare commands run both; a bare design close
   runs only its plan.
 - The domain depends on the filesystem, path, and clock services and nothing else. The Bun implementations are
@@ -74,7 +75,9 @@ Most of these have an ADR behind them. If a rule seems wrong, look for its ADR b
 - Tracker prose is edited directly; there is no edit command.
 - Tracker commands discover the nearest ancestor's `.bearing/` and fail on a malformed one rather than searching
   past it. There is no configuration.
-- `--json` on every read, `NO_COLOR` respected, no interactive prompts.
+- `--json` is a global flag on every command, `NO_COLOR` and a non-terminal stdout suppress colour, and there are
+  no interactive prompts.
+- One name per command. No aliases.
 - Nothing shipped — help text, skill, error messages — names the flag that applies a design close.
 
 ## Definition of done

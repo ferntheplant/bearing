@@ -7,9 +7,9 @@ provides inspection and restoration.
 
 Completed edits are ordered so that a partial apply is noisy rather than plausibly false. Closing deletes the
 ticket before stripping its id from blocker lists: interruption can leave dangling blockers, which are already
-satisfied and which `bearing check` reports, instead of making dependents look ready while the blocker still
+satisfied and which `bearing doctor` reports, instead of making dependents look ready while the blocker still
 exists. Triage and retitle write the destination before deleting the source: interruption can leave a duplicate
-id, which resolution and `bearing check` reject, instead of making an item disappear as though it had been
+id, which resolution and `bearing doctor` reject, instead of making an item disappear as though it had been
 deliberately deleted.
 
 ## Consequences

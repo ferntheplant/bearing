@@ -6,13 +6,16 @@ find out when an edit broke a link.
 
 ## What you can expect
 
-- **`bearing check` is the whole of it.** It reads everything and reports; it is not a mode of another command.
+- **`bearing doctor` is the whole of it.** It reads everything and reports; it is not a mode of another command.
+- **Every check reports, including the ones that pass.** The output names each check and says what it found, so
+  "was that even looked at?" is answered by the command rather than by the source. A check that finds nothing
+  says so by name; a check that finds something lists its findings underneath it.
 - **Unexpected files at the tracker root are tolerated silently.** Acquisition reads only `backlog/`, `tickets/`,
   and `maps/`, and anything else sitting in `.bearing/` is not a finding. Tolerating means saying nothing, and
   that is chosen rather than accidental: the error set is closed
   ([Every warning names its fix (ADR 0012)](../adr/0012-every-warning-names-its-fix.md)), so naming a file
   bearing does not own would be a sixth class and a decision, not a report.
-- **Parse failures are loud.** Every command refuses a tracker whose structure it cannot parse; `bearing check`
+- **Parse failures are loud.** Every command refuses a tracker whose structure it cannot parse; `bearing doctor`
   accumulates those failures rather than stopping at the first one.
 - **Integrity errors, which mean parsed values are inconsistent:** a ticket blocked by an id that does not
   exist, a ticket naming a project that does not exist, a design ticket with no project, an unknown type, a
@@ -27,19 +30,19 @@ find out when an edit broke a link.
   diff.
 - **The warning stays meaningful.** The whole point of naming the fix is that nobody learns to ignore the
   output, which is also why there is only one warning left to ignore.
-- **No update broadcasting in the MVP.** `bearing check`, setup, and ordinary commands stay local and print no
+- **No update broadcasting in the MVP.** `bearing doctor`, setup, and ordinary commands stay local and print no
   version notice.
-- **Process status is binary across the CLI.** Zero means the requested operation succeeded, including a valid
-  no-op and a warnings-only integrity check; one covers every refusal, invalid invocation, integrity error, and
-  operational failure. Structured diagnostics carry the distinction.
+- **A warnings-only run still succeeds.** Exit status across the whole CLI is binary
+  ([The command line](./09-the-command-line.md)); here that means warnings exit 0 and any error exits 1.
 
 ## Where it stands
 
-**Built.** `bearing check` reads the whole tracker and reports every parse failure and all five error classes in
-one run, plus the one warning, and renders the same value as `--json` with the severity carried in the data. A
-warnings-only tracker and a clean tracker both exit 0 (a clean one says so), and any error exits 1. The warning
-names `bearing close <id>` as its copy-pasteable entry into the design-close dry run, which prints the applying
-re-run.
+**Built.** `bearing doctor` reads the whole tracker and runs seven checks in one pass — document parsing, id
+collisions, ticket types, design ticket projects, project references, blocker references, and trail rows —
+naming each one and listing its findings underneath, then closing with a count. It renders the same value as
+`--json`, with the checks, their severity, and their findings all carried in the data. A warnings-only tracker
+and a clean tracker both exit 0 (a clean one says so), and any error exits 1. The warning names
+`bearing close <id>` as its copy-pasteable entry into the design-close dry run, which prints the applying re-run.
 
 ## Decisions
 
@@ -55,5 +58,7 @@ re-run.
   interrupted apply tends toward the duplicate ids and dangling blockers this command reports.
 - [Core exposes operations, not tracker internals (ADR 0027)](../adr/0027-core-exposes-operations-not-tracker-internals.md)
   — why malformed documents remain evidence in the one tracker read instead of stopping it at the first error.
+- [`bearing doctor` reports every check it ran (ADR 0043)](../adr/0043-doctor-reports-every-check-it-ran.md) —
+  why a passing check prints, and why the name changed.
 - [Exit status is binary (ADR 0035)](../adr/0035-exit-status-is-binary.md) — why diagnostics, rather than a
   growing set of process statuses, distinguish failures.

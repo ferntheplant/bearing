@@ -18,12 +18,12 @@ legible to whoever picks it up cold, human or agent.
   is a satisfied one. A design question that needs concrete build work to land remains a design ticket blocked
   by that build ticket; `bearing rm` is for a commitment that turned out not to be real. Readiness is derived
   from the blocking graph, and a blocker cycle is a refusal naming the ids in it rather than a hang.
-- **A build ticket may belong to no project; a design ticket must belong to one.** `bearing new design` with no
+- **A build ticket may belong to no project; a design ticket must belong to one.** `bearing add design` with no
   project is an error that names the maps that exist so the next command is obvious. Not a prompt, not a
-  default, not a map created behind your back. `create` and `add` are aliases for `new`; all three accept
-  `--json` and return the created ticket's id, slug, and path.
+  default, not a map created behind your back. `bearing add` is the only name for it, and it returns the created
+  ticket's id, slug, and path.
 - **Ticket content is edited directly.** Bearing has no `edit` command and never launches an editor. Bodies and
-  frontmatter are yours; `bearing check` reports structural mistakes.
+  frontmatter are yours; `bearing doctor` reports structural mistakes.
 - **`bearing retitle` owns renaming.** The title lives in the filename, so retitling by hand is how you get a
   name that lies; the id survives and no other file changes. The new name is written before the old one is
   deleted, so interruption can
@@ -33,8 +33,8 @@ legible to whoever picks it up cold, human or agent.
   Each row renders the ticket's readiness, and the value it renders carries the transitive blocking closure —
   who blocks it and what it unblocks — the same graph the frontier will rank on. **`bearing show` prints one.**
   `show` takes an id or an unambiguous id prefix, renders the frontmatter fields and body, and `--full` prints
-  the file's exact source. `--full` and `--json` cannot be combined. Both commands take `--json`, as every
-  read in bearing does.
+  the file's exact source. `--full` and `--json` cannot be combined; `--json` itself is global
+  ([The command line](./09-the-command-line.md)).
 - **Short id prefixes work everywhere an id does** — three or four characters is usually enough to type. A
   prefix matching more than one item is an error that names the candidates, never a guess between them.
 
@@ -46,10 +46,12 @@ projects valid ticket values for `apps/cli` to render or emit as `--json`
 them). Prefix resolution over the whole tracker is built as a core operation and backs `bearing show`, which
 prints one backlog item or ticket. `bearing ls`'s filters — type, readiness, blocked-ness, and project — are
 built on a blocking graph derived in core that carries each ticket's readiness and both transitive closures and
-refuses a blocker cycle by name. `bearing new` and its aliases create build and design tickets immediately,
-validating any project against the maps on disk. `bearing retitle` resolves a ticket by id prefix, derives its
+refuses a blocker cycle by name. `bearing add` creates build and design tickets immediately, validating any
+project against the maps on disk. `bearing retitle` resolves a ticket by id prefix, derives its
 new slug, and applies the ordered write-then-delete rename without changing its contents; only the query filter
-remains settled, not built. Bare `bearing` no longer lists tickets and is held for the frontier.
+remains settled, not built. Each `bearing ls` row leads with type, project, and readiness, then the id and the
+title, with every column padded to the widest value shown. Bare `bearing` prints help
+([A bare invocation prints help (ADR 0044)](../adr/0044-a-bare-invocation-prints-help.md)).
 
 ## Decisions
 
