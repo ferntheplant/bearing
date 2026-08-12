@@ -6,7 +6,7 @@ export const APPLYING_FLAG = "--confirm";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("..", import.meta.url));
 export const SHIPPED_SKILL_ROOT = resolve(REPOSITORY_ROOT, "skills/bearing-wayfinder");
-const BUILT_BINARY = resolve(REPOSITORY_ROOT, "apps/cli/dist/cli.mjs");
+export const BUILT_BINARY = resolve(REPOSITORY_ROOT, "apps/cli/dist/cli.mjs");
 
 const reason =
   "ADR 0016 keeps the applying flag out of shipped guidance so a design close must reveal it only after the caller reads the dry-run trail row";

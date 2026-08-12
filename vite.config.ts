@@ -101,7 +101,10 @@ export default defineConfig({
         dependsOn: ["@bearing/cli#build"],
         cache: false,
       },
-      test: "bunx --bun vp test run --reporter=minimal tools",
+      test: {
+        command: "bunx --bun vp test run --reporter=minimal tools",
+        dependsOn: ["@bearing/cli#build"],
+      },
     },
   },
   test: {
