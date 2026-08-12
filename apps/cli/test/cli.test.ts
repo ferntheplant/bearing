@@ -1539,6 +1539,22 @@ describe("retitle", () => {
     await expect(readFile(join(root, ".bearing/tickets/b1c2d3-other.md"), "utf8")).resolves.toBe(other);
   });
 
+  it("preserves ticket bytes that are not valid UTF-8", async () => {
+    const root = join(fixtureRoot, "retitle-invalid-utf8");
+    await createTracker(root, { "a1b2c3-original-title.md": ticketSource("build") });
+    const from = join(root, ".bearing/tickets/a1b2c3-original-title.md");
+    const to = join(root, ".bearing/tickets/a1b2c3-a-better-title.md");
+    const bytes = new Uint8Array([...new TextEncoder().encode(ticketSource("build")), 0xff, 0xfe]);
+    await writeFile(from, bytes);
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["retitle", "a1b2c3", "A better title"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    await expect(readFile(to)).resolves.toEqual(Buffer.from(bytes));
+  });
+
   it("succeeds without changing the file when the title derives the current slug", async () => {
     const root = join(fixtureRoot, "retitle-no-op");
     const source = ticketSource("build");

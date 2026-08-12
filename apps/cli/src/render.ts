@@ -90,10 +90,12 @@ export const renderDesignClose = (plan: DesignClosePlan): string => {
   return lines.join("\n");
 };
 
+const renderNoMatch = (prefix: string): string => `no item matches id prefix "${prefix}"`;
+
 export const renderRemovalError = (error: RemovalError): string => {
   switch (error.reason) {
     case "no-match":
-      return `no item matches id prefix "${error.prefix}"`;
+      return renderNoMatch(error.prefix);
     case "ambiguous":
       return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
     case "backlog-item":
@@ -115,7 +117,7 @@ export const renderRetitle = (result: RetitleApplyResult): string =>
 export const renderRetitleError = (error: RetitleError): string => {
   switch (error.reason) {
     case "no-match":
-      return `no item matches id prefix "${error.prefix}"`;
+      return renderNoMatch(error.prefix);
     case "ambiguous":
       return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
     case "backlog-item":

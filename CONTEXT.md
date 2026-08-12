@@ -72,7 +72,9 @@ survives a retitle. It is for typing at a shell; it is not what prose calls a th
 _Avoid_: key, ticket number, ref.
 
 **slug**:
-The human-readable half of an item's name, derived from its title. Changes when the title changes.
+A filename-safe name: lowercase ASCII letters, digits, underscores, and single hyphens between non-empty
+segments. An item's slug is the human-readable half of its name, derived from its title and changed by a
+retitle. A map's slug is its stable, directly chosen project name.
 
 ## The map
 

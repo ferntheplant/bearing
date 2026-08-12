@@ -1,11 +1,6 @@
 import { Data, Effect, FileSystem, Path } from "effect";
 
-import {
-  deriveSlug,
-  type MalformedTrackerError,
-  type TrackerNotFoundError,
-  type TrackerReadError,
-} from "./acquisition.ts";
+import { deriveSlug, TrackerReadError, type MalformedTrackerError, type TrackerNotFoundError } from "./acquisition.ts";
 import { acquireValidObservation, buildIndex, resolve } from "./analysis.ts";
 
 export class RetitleError extends Data.TaggedError("RetitleError")<{
@@ -21,7 +16,7 @@ export class RetitleApplyError extends Data.TaggedError("RetitleApplyError")<{
 }> {}
 
 export type RetitleEdit =
-  | { readonly operation: "write-file"; readonly path: string; readonly source: string }
+  | { readonly operation: "write-file"; readonly path: string; readonly bytes: Uint8Array }
   | { readonly operation: "remove"; readonly path: string };
 
 export interface RetitlePlan {
@@ -53,6 +48,7 @@ export const planRetitle = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const observation = yield* acquireValidObservation(startDirectory);
     const resolution = resolve(buildIndex(observation), prefix);
@@ -74,18 +70,26 @@ export const planRetitle = (
         const entry = resolution.entry;
         const slug = deriveSlug(title);
         const destination = path.join(path.dirname(entry.path), `${entry.id}-${slug}.md`);
+        const edits: RetitleEdit[] = [];
+        if (destination !== entry.path) {
+          const bytes = yield* fs.readFile(entry.path).pipe(
+            Effect.mapError(
+              (error) =>
+                new TrackerReadError({
+                  operation: "read-file",
+                  path: entry.path,
+                  message: `cannot read file ${entry.path}: ${error.message}`,
+                }),
+            ),
+          );
+          edits.push({ operation: "write-file", path: destination, bytes }, { operation: "remove", path: entry.path });
+        }
         return {
           id: entry.id,
           slug,
           from: entry.path,
           to: destination,
-          edits:
-            destination === entry.path
-              ? []
-              : [
-                  { operation: "write-file", path: destination, source: entry.source },
-                  { operation: "remove", path: entry.path },
-                ],
+          edits,
         };
       }
     }
@@ -100,7 +104,7 @@ export const applyRetitle = (
       switch (edit.operation) {
         case "write-file":
           yield* fs
-            .writeFileString(edit.path, edit.source, { flag: "wx" })
+            .writeFile(edit.path, edit.bytes, { flag: "wx" })
             .pipe(
               Effect.mapError(
                 (error) => new RetitleApplyError({ operation: "write-file", path: edit.path, message: error.message }),

@@ -2,11 +2,14 @@ import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
 
 export type FsEntry =
   | { readonly type: "directory" }
-  | { readonly type: "file"; readonly content: string }
+  | { readonly type: "file"; readonly content: string | Uint8Array }
   | { readonly type: "link"; readonly target: string };
 
 export const directory = (): FsEntry => ({ type: "directory" });
-export const file = (content: string): FsEntry => ({ type: "file", content });
+export const file = (content: string | Uint8Array): FsEntry => ({
+  type: "file",
+  content,
+});
 export const link = (target: string): FsEntry => ({ type: "link", target });
 
 const normalize = (path: string): string => {
@@ -126,6 +129,15 @@ const makeMethods = (harness: Harness): Partial<FileSystem.FileSystem> => ({
       }
       return [...names];
     }),
+  readFile: (path) =>
+    Effect.gen(function* () {
+      const physical = yield* Effect.sync(() => harness.resolve(path));
+      const entry = harness.entries.get(physical);
+      if (entry === undefined || entry.type !== "file") {
+        return yield* Effect.fail(notFound("readFile", path));
+      }
+      return typeof entry.content === "string" ? new TextEncoder().encode(entry.content) : entry.content;
+    }),
   readFileString: (path) =>
     Effect.gen(function* () {
       const physical = yield* Effect.sync(() => harness.resolve(path));
@@ -133,7 +145,7 @@ const makeMethods = (harness: Harness): Partial<FileSystem.FileSystem> => ({
       if (entry === undefined || entry.type !== "file") {
         return yield* Effect.fail(notFound("readFileString", path));
       }
-      return entry.content;
+      return typeof entry.content === "string" ? entry.content : new TextDecoder().decode(entry.content);
     }),
   readLink: (path) =>
     Effect.gen(function* () {
@@ -153,6 +165,17 @@ const makeMethods = (harness: Harness): Partial<FileSystem.FileSystem> => ({
           harness.entries.set(normalize(path), directory());
           harness.afterMakeDirectory?.(normalize(path));
         }),
+  writeFile: (path, data, options) =>
+    Effect.gen(function* () {
+      if (harness.fails("write-file", path)) {
+        return yield* Effect.fail(invalid("writeFile", path));
+      }
+      const physical = yield* Effect.sync(() => harness.resolve(path));
+      if (options?.flag === "wx" && harness.entries.has(physical)) {
+        return yield* Effect.fail(alreadyExists("writeFile", path));
+      }
+      harness.entries.set(physical, file(data.slice()));
+    }),
   writeFileString: (path, data, options) =>
     Effect.gen(function* () {
       if (harness.fails("write-file", path)) {

@@ -8,6 +8,7 @@ import { directory, file, Harness, layer, type FsEntry } from "./fs-harness.ts";
 const WORKSPACE = "/workspace";
 const TRACKER = `${WORKSPACE}/.bearing`;
 const SOURCE = "---\r\ntype: build\r\nproject: mvp\r\n---\r\n\r\n# Original title\r\n\r\nBody.\r\n";
+const SOURCE_BYTES = new TextEncoder().encode(SOURCE);
 
 const entries = (overrides: Readonly<Record<string, FsEntry>> = {}): Readonly<Record<string, FsEntry>> => ({
   [`${TRACKER}/backlog`]: directory(),
@@ -35,7 +36,7 @@ describe("planRetitle", () => {
         {
           operation: "write-file",
           path: `${TRACKER}/tickets/a1b2c3-a-better-title.md`,
-          source: SOURCE,
+          bytes: SOURCE_BYTES,
         },
         { operation: "remove", path: `${TRACKER}/tickets/a1b2c3-original-title.md` },
       ],
@@ -87,7 +88,7 @@ describe("applyRetitle", () => {
     from: `${TRACKER}/tickets/a1b2c3-original-title.md`,
     to: `${TRACKER}/tickets/a1b2c3-a-better-title.md`,
     edits: [
-      { operation: "write-file" as const, path: `${TRACKER}/tickets/a1b2c3-a-better-title.md`, source: SOURCE },
+      { operation: "write-file" as const, path: `${TRACKER}/tickets/a1b2c3-a-better-title.md`, bytes: SOURCE_BYTES },
       { operation: "remove" as const, path: `${TRACKER}/tickets/a1b2c3-original-title.md` },
     ],
   };
@@ -102,8 +103,20 @@ describe("applyRetitle", () => {
       to: PLAN.to,
       changed: true,
     });
-    expect(harness.entries.get(PLAN.to)).toEqual(file(SOURCE));
+    expect(harness.entries.get(PLAN.to)).toEqual(file(SOURCE_BYTES));
     expect(harness.entries.has(PLAN.from)).toBe(false);
+  });
+
+  it("preserves bytes that are not valid UTF-8", async () => {
+    const bytes = new Uint8Array([...SOURCE_BYTES, 0xff, 0xfe]);
+    const from = `${TRACKER}/tickets/a1b2c3-original-title.md`;
+    const to = `${TRACKER}/tickets/a1b2c3-a-better-title.md`;
+    const plan = await runPlan(entries({ [from]: file(bytes) }), "a1b2c3", "A better title");
+    const harness = new Harness(entries({ [from]: file(bytes) }));
+
+    await Effect.runPromise(Effect.provide(applyRetitle(plan), layer(harness)));
+
+    expect(harness.entries.get(to)).toEqual(file(bytes));
   });
 
   it("leaves both byte-identical files when removing the old path fails after the write", async () => {
@@ -115,7 +128,7 @@ describe("applyRetitle", () => {
       path: PLAN.from,
     });
     expect(harness.entries.get(PLAN.from)).toEqual(file(SOURCE));
-    expect(harness.entries.get(PLAN.to)).toEqual(file(SOURCE));
+    expect(harness.entries.get(PLAN.to)).toEqual(file(SOURCE_BYTES));
   });
 
   it("does not overwrite an existing destination", async () => {
