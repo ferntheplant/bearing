@@ -136,6 +136,51 @@ third body.
     });
   });
 
+  it("reports a ticket blocked by duplicate occurrences of the closing id as unblocked", async () => {
+    const map = VALID_MAP.replace(
+      "## Trail\n\n",
+      "## Trail\n\n| id | Decision | Outcome |\n| --- | --- | --- |\n| a1b2c3 | First | Done |\n\n",
+    );
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first")),
+      [`${TRACKER}/tickets/b1c2d3-second.md`]: file(ticket("build", "second", ["a1b2c3", "a1b2c3"])),
+      [`${TRACKER}/maps/mvp.md`]: file(map),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).resolves.toMatchObject({
+      unblocks: [
+        {
+          id: "b1c2d3",
+          path: `${TRACKER}/tickets/b1c2d3-second.md`,
+        },
+      ],
+    });
+  });
+
+  it("does not report a self-blocking design ticket as unblocking itself", async () => {
+    const map = VALID_MAP.replace(
+      "## Trail\n\n",
+      "## Trail\n\n| id | Decision | Outcome |\n| --- | --- | --- |\n| a1b2c3 | First | Done |\n\n",
+    );
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first", ["a1b2c3"])),
+      [`${TRACKER}/maps/mvp.md`]: file(map),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).resolves.toMatchObject({ unblocks: [] });
+  });
+
+  it("refuses a design ticket with no project", async () => {
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first", [], false)),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).rejects.toMatchObject({
+      _tag: "RemovalError",
+      reason: "design-no-project",
+    });
+  });
+
   it("refuses a design ticket whose project has no map", async () => {
     const files = entries({
       [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first").replace("mvp", "missing")),

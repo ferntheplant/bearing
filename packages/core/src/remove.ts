@@ -128,11 +128,11 @@ const planResolvedRemoval = (
     return { target: { kind: entry.kind, id: entry.id, slug: entry.slug, path: entry.path }, rewrites };
   });
 
-export const planRemove = (
+const resolveRemovalTarget = (
   startDirectory: string,
   prefix: string,
 ): Effect.Effect<
-  RemovalPlan,
+  readonly [Parameters<typeof buildIndex>[0], ResolvableEntry],
   RemovalError | TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -150,11 +150,22 @@ export const planRemove = (
             resolution.candidates.map((entry) => entry.id),
           ),
         );
-      case "match": {
-        const entry: ResolvableEntry = resolution.entry;
-        return yield* planResolvedRemoval(observation, entry);
-      }
+      case "match":
+        return [observation, resolution.entry] as const;
     }
+  });
+
+export const planRemove = (
+  startDirectory: string,
+  prefix: string,
+): Effect.Effect<
+  RemovalPlan,
+  RemovalError | TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const [observation, entry] = yield* resolveRemovalTarget(startDirectory, prefix);
+    return yield* planResolvedRemoval(observation, entry);
   });
 
 const planDesignClose = (
@@ -179,10 +190,14 @@ const planDesignClose = (
       return yield* Effect.fail(refusal("trail-outcome-empty", entry.id, [], project));
     }
     const unblocks = observation.tickets
-      .filter(
-        (document) =>
-          document.parsed.success.blockers.length === 1 && document.parsed.success.blockers.includes(entry.id),
-      )
+      .filter((document) => {
+        const ticket = document.parsed.success;
+        return (
+          ticket.id !== entry.id &&
+          ticket.blockers.includes(entry.id) &&
+          ticket.blockers.every((blocker) => blocker === entry.id)
+        );
+      })
       .map((document) => ({
         kind: "ticket" as const,
         id: document.parsed.success.id,
@@ -213,30 +228,14 @@ export const planClose = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const observation = yield* acquireValidObservation(startDirectory);
-    const resolution = resolve(buildIndex(observation), prefix);
-    switch (resolution.tag) {
-      case "no-match":
-        return yield* Effect.fail(refusal("no-match", prefix, []));
-      case "ambiguous":
-        return yield* Effect.fail(
-          refusal(
-            "ambiguous",
-            prefix,
-            resolution.candidates.map((entry) => entry.id),
-          ),
-        );
-      case "match": {
-        const entry = resolution.entry;
-        if (entry.kind === "backlog") {
-          return yield* Effect.fail(refusal("backlog-item", entry.id, []));
-        }
-        const removal = yield* planResolvedRemoval(observation, entry);
-        return entry.parsed.type === "design"
-          ? yield* planDesignClose(observation, entry, removal)
-          : { kind: "build", ...removal };
-      }
+    const [observation, entry] = yield* resolveRemovalTarget(startDirectory, prefix);
+    if (entry.kind === "backlog") {
+      return yield* Effect.fail(refusal("backlog-item", entry.id, []));
     }
+    const removal = yield* planResolvedRemoval(observation, entry);
+    return entry.parsed.type === "design"
+      ? yield* planDesignClose(observation, entry, removal)
+      : { kind: "build", ...removal };
   });
 
 export const applyRemoval = (
