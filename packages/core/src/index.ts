@@ -20,7 +20,14 @@ export { applyCapture, planCapture } from "./capture.ts";
 export type { CaptureApplyResult, CapturePlan } from "./capture.ts";
 export { CaptureWriteError } from "./capture.ts";
 export { applyRemoval, planClose, planRemove } from "./remove.ts";
-export type { RemovalApplyResult, RemovalPlan, RemovalRewrite } from "./remove.ts";
+export type {
+  BuildClosePlan,
+  ClosePlan,
+  DesignClosePlan,
+  RemovalApplyResult,
+  RemovalPlan,
+  RemovalRewrite,
+} from "./remove.ts";
 export { RemovalApplyError, RemovalError } from "./remove.ts";
 export { digestSkillTree, planSetup, applySetup } from "./setup.ts";
 export {

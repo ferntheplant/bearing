@@ -976,7 +976,7 @@ describe("check", () => {
     );
   });
 
-  it.skip("enters the design-close flow when the warning's named command is run", async () => {
+  it("enters the design-close flow when the warning's named command is run", async () => {
     const root = join(fixtureRoot, "check-warning-fix");
     await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
     const check = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
@@ -1145,23 +1145,150 @@ Second.
     await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
   });
 
-  it("refuses a design ticket instead of falling through, deleting nothing", async () => {
-    const root = join(fixtureRoot, "close-design");
-    await createTracker(root, {
-      "a1b2c3-first.md": `---
+  it("does not advertise the design-close applying flag in help", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "--help"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).not.toContain("--confirm");
+  });
+
+  it("prints a design-close dry run with the ticket and byte-identical trail row, changing nothing", async () => {
+    const root = join(fixtureRoot, "close-design-dry-run");
+    const source = `---
 type: design
 project: mvp
 ---
 
-Question.
+# Question
+
+Is this settled?
+`;
+    await createTracker(
+      root,
+      {
+        "a1b2c3-first.md": source,
+        "b1c2d3-second.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Second.
 `,
+      },
+      {},
+      { "mvp.md": TRAIL_MAP },
+    );
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain(source.trimEnd());
+    expect(result.stdout).toContain("| a1b2c3 | Some decision | [row](outcome) |");
+    expect(result.stdout).toContain(`WOULD DELETE ${root}/.bearing/tickets/a1b2c3-first.md`);
+    expect(result.stdout).toContain(`WOULD UNBLOCK b1c2d3 ${root}/.bearing/tickets/b1c2d3-second.md`);
+    expect(result.stdout).toContain("Re-run with: bearing close a1b2c3 --confirm");
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(false);
+    await expect(readFile(join(root, ".bearing/tickets/b1c2d3-second.md"), "utf8")).resolves.toContain(
+      "blockers: [a1b2c3]",
+    );
+  });
+
+  it("emits the design-close plan as JSON without applying it", async () => {
+    const root = join(fixtureRoot, "close-design-json");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      kind: "design",
+      ticket: {
+        id: "a1b2c3",
+        project: "mvp",
+        path: `${root}/.bearing/tickets/a1b2c3-first.md`,
+        source: ticketSource("design", "mvp"),
+      },
+      trail: {
+        path: `${root}/.bearing/maps/mvp.md`,
+        row: {
+          id: "a1b2c3",
+          source: "| a1b2c3 | Some decision | [row](outcome) |",
+        },
+      },
+      unblocks: [],
+      rewrites: [],
     });
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(false);
+  });
+
+  it("applies a design close under the flag printed by the dry run", async () => {
+    const root = join(fixtureRoot, "close-design-confirm");
+    await createTracker(
+      root,
+      {
+        "a1b2c3-first.md": ticketSource("design", "mvp"),
+        "b1c2d3-second.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Second.
+`,
+      },
+      {},
+      { "mvp.md": TRAIL_MAP },
+    );
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["close", "a1b2c3", "--confirm"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(
+      `deleted ${root}/.bearing/tickets/a1b2c3-first.md\n` +
+        `stripped a1b2c3 from ${root}/.bearing/tickets/b1c2d3-second.md\n`,
+    );
+    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
+    await expect(readFile(join(root, ".bearing/tickets/b1c2d3-second.md"), "utf8")).resolves.toBe(`---
+type: build
+---
+
+Second.
+`);
+  });
+
+  it("refuses a design close when its map has no trail row", async () => {
+    const root = join(fixtureRoot, "close-design-no-row");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") });
     const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("cannot close design ticket");
+    expect(result.stderr).toContain("project mvp has no trail row for it");
+    expect(result.stderr).not.toContain("--confirm");
     await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(false);
+  });
+
+  it("refuses a design close when its trail outcome is empty", async () => {
+    const root = join(fixtureRoot, "close-design-empty-outcome");
+    const map = TRAIL_MAP.replace("[row](outcome)", "   ");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": map });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("trail row in project mvp has an empty outcome");
+  });
+
+  it("refuses a design close when its project has no map", async () => {
+    const root = join(fixtureRoot, "close-design-no-map");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "missing") });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("no map carries project missing");
   });
 
   it("refuses a backlog item, naming bearing rm as the way to delete it", async () => {

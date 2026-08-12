@@ -96,14 +96,127 @@ third body.
     ]);
   });
 
-  it("refuses a design ticket instead of falling through to the build close", async () => {
+  it("plans a design close against its non-empty trail row", async () => {
+    const map = VALID_MAP.replace(
+      "## Trail\n\n",
+      "## Trail\n\n| id | Decision | Outcome |\n| --- | --- | --- |\n| a1b2c3 | First | [ADR](../../docs/adr/0001.md) |\n\n",
+    );
     const files = entries({
       [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first")),
+      [`${TRACKER}/tickets/b1c2d3-second.md`]: file(ticket("build", "second", ["a1b2c3"])),
+      [`${TRACKER}/tickets/c1d2e3-third.md`]: file(ticket("build", "third", ["a1b2c3", "b1c2d3"])),
+      [`${TRACKER}/maps/mvp.md`]: file(map),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).resolves.toMatchObject({
+      kind: "design",
+      ticket: {
+        id: "a1b2c3",
+        project: "mvp",
+        path: `${TRACKER}/tickets/a1b2c3-first.md`,
+        source: ticket("design", "first"),
+      },
+      trail: {
+        path: `${TRACKER}/maps/mvp.md`,
+        row: {
+          id: "a1b2c3",
+          outcome: " [ADR](../../docs/adr/0001.md) ",
+          source: "| a1b2c3 | First | [ADR](../../docs/adr/0001.md) |",
+        },
+      },
+      unblocks: [
+        {
+          kind: "ticket",
+          id: "b1c2d3",
+          slug: "second",
+          path: `${TRACKER}/tickets/b1c2d3-second.md`,
+        },
+      ],
+      rewrites: [{ path: `${TRACKER}/tickets/b1c2d3-second.md` }, { path: `${TRACKER}/tickets/c1d2e3-third.md` }],
+    });
+  });
+
+  it("reports a ticket blocked by duplicate occurrences of the closing id as unblocked", async () => {
+    const map = VALID_MAP.replace(
+      "## Trail\n\n",
+      "## Trail\n\n| id | Decision | Outcome |\n| --- | --- | --- |\n| a1b2c3 | First | Done |\n\n",
+    );
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first")),
+      [`${TRACKER}/tickets/b1c2d3-second.md`]: file(ticket("build", "second", ["a1b2c3", "a1b2c3"])),
+      [`${TRACKER}/maps/mvp.md`]: file(map),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).resolves.toMatchObject({
+      unblocks: [
+        {
+          id: "b1c2d3",
+          path: `${TRACKER}/tickets/b1c2d3-second.md`,
+        },
+      ],
+    });
+  });
+
+  it("does not report a self-blocking design ticket as unblocking itself", async () => {
+    const map = VALID_MAP.replace(
+      "## Trail\n\n",
+      "## Trail\n\n| id | Decision | Outcome |\n| --- | --- | --- |\n| a1b2c3 | First | Done |\n\n",
+    );
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first", ["a1b2c3"])),
+      [`${TRACKER}/maps/mvp.md`]: file(map),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).resolves.toMatchObject({ unblocks: [] });
+  });
+
+  it("refuses a design ticket with no project", async () => {
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first", [], false)),
     });
 
     await expect(runPlan(files, "a1b2c3", "close")).rejects.toMatchObject({
       _tag: "RemovalError",
-      reason: "design-ticket",
+      reason: "design-no-project",
+    });
+  });
+
+  it("refuses a design ticket whose project has no map", async () => {
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first").replace("mvp", "missing")),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).rejects.toMatchObject({
+      _tag: "RemovalError",
+      reason: "project-missing",
+      project: "missing",
+    });
+  });
+
+  it("refuses a design ticket with no trail row", async () => {
+    const files = entries({ [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first")) });
+
+    await expect(runPlan(files, "a1b2c3", "close")).rejects.toMatchObject({
+      _tag: "RemovalError",
+      reason: "trail-row-missing",
+      project: "mvp",
+    });
+  });
+
+  it("refuses a design ticket whose trail outcome is empty", async () => {
+    const map = VALID_MAP.replace(
+      "## Trail\n\n",
+      "## Trail\n\n| id | Decision | Outcome |\n| --- | --- | --- |\n| a1b2c3 | First |   |\n\n",
+    );
+    const files = entries({
+      [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticket("design", "first")),
+      [`${TRACKER}/maps/mvp.md`]: file(map),
+    });
+
+    await expect(runPlan(files, "a1b2c3", "close")).rejects.toMatchObject({
+      _tag: "RemovalError",
+      reason: "trail-outcome-empty",
+      project: "mvp",
     });
   });
 

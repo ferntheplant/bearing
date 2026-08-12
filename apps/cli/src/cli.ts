@@ -25,6 +25,7 @@ import {
   renderBacklogList,
   renderCapture,
   renderCheck,
+  renderDesignClose,
   renderFog,
   renderFrontier,
   renderJson,
@@ -284,15 +285,27 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("List tickets, filtered by type, readiness, or project"));
 
-  const close = Command.make("close", { id: Argument.string("id"), json: Flag.boolean("json") }, (config) =>
-    Effect.gen(function* () {
-      const plan = yield* planClose(cwd, config.id);
-      const result = yield* applyRemoval(plan);
-      const rendered = config.json ? renderJson(result) : renderRemoval(result);
-      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
-    }),
+  const close = Command.make(
+    "close",
+    {
+      id: Argument.string("id"),
+      json: Flag.boolean("json"),
+      confirm: Flag.boolean("confirm").pipe(Flag.withHidden),
+    },
+    (config) =>
+      Effect.gen(function* () {
+        const plan = yield* planClose(cwd, config.id);
+        if (plan.kind === "design" && !config.confirm) {
+          const rendered = config.json ? renderJson(plan) : renderDesignClose(plan);
+          yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+          return;
+        }
+        const result = yield* applyRemoval(plan);
+        const rendered = config.json ? renderJson(result) : renderRemoval(result);
+        yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+      }),
   ).pipe(
-    Command.withDescription("Close a build ticket, deleting it and stripping its id from every blocker list"),
+    Command.withDescription("Close a ticket, deleting it and stripping its id from every blocker list"),
     Command.withAlias("done"),
   );
 

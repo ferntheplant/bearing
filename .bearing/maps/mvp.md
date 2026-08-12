@@ -57,22 +57,6 @@ frontier can land it on the spot.
 
 ## Not yet specified
 
-### How a trail-row warning's named fix actually closes a design ticket
-
-The integrity warning for a trail row naming a ticket that still exists names `bearing close <id>` as its fix, and
-the integrity capability says that command "applies its one named edit directly". But a trail row names a design
-ticket by rule, and closing a design ticket is a dry run first
-([Only design-ticket closing is a dry run (ADR 0029)](../../docs/adr/0029-only-design-ticket-closing-is-a-dry-run.md))
-whose applying flag is learned only from the dry run's output
-([The confirmation flag is undocumented on purpose (ADR 0016)](../../docs/adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)).
-So the copy-pasteable command the warning prints is really a two-invocation sequence: run it, read the row and the
-flag, re-run it with the flag. The capability's "applies directly" wording is false for the only kind of ticket a
-trail row names, and nothing ships yet that would close a design ticket at all — the warning names a command that
-only resolves the warning once the design-close lands.
-
-Whether the warning should keep naming the bare command (the dry run being the point), or the capability should
-stop promising "directly", is unsettled. A session building the design close can land it on the spot.
-
 ### Where a printed title comes from
 
 An id is a handle and a title is what a human reads (§3.4), but bearing has no access to a title. The slug is

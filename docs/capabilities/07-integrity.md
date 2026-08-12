@@ -22,8 +22,9 @@ find out when an edit broke a link.
   a row someone wrote in advance.
 - **Trail outcome prose stays prose.** Bearing checks that the row exists and has a non-empty outcome when a
   design ticket closes; it does not parse or follow links embedded in that outcome.
-- **There is no `--fix`.** The warning prints the command that resolves it. Running that command applies its one
-  named edit directly, which is more legible than a bulk-produced diff.
+- **There is no `--fix`.** The warning prints the command that enters the design-close dry run for that ticket;
+  the dry run then prints the re-run that applies its one named edit. This is more legible than a bulk-produced
+  diff.
 - **The warning stays meaningful.** The whole point of naming the fix is that nobody learns to ignore the
   output, which is also why there is only one warning left to ignore.
 - **No update broadcasting in the MVP.** `bearing check`, setup, and ordinary commands stay local and print no
@@ -34,13 +35,11 @@ find out when an edit broke a link.
 
 ## Where it stands
 
-**Partial.** `bearing check` reads the whole tracker and reports every parse failure and all five error classes
-in one run, plus the one warning, and renders the same value as `--json` with the severity carried in the data.
-A warnings-only tracker and a clean tracker both exit 0 (a clean one says so), and any error exits 1. The
-warning names `bearing close <id>` as its copy-pasteable fix. What remains is that the command the warning names
-resolves the instance only once the design-ticket dry run lands — that apply is
-[Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md),
-not this capability.
+**Built.** `bearing check` reads the whole tracker and reports every parse failure and all five error classes in
+one run, plus the one warning, and renders the same value as `--json` with the severity carried in the data. A
+warnings-only tracker and a clean tracker both exit 0 (a clean one says so), and any error exits 1. The warning
+names `bearing close <id>` as its copy-pasteable entry into the design-close dry run, which prints the applying
+re-run.
 
 ## Decisions
 
