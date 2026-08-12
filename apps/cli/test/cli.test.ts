@@ -1652,7 +1652,10 @@ Second.
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('no map named "mv"; maps: mvp, other');
-    await expect(readdir(join(root, ".bearing/maps"))).resolves.toEqual(["mvp.md", "other.md"]);
+    await expect(readdir(join(root, ".bearing/maps")).then((names) => names.sort())).resolves.toEqual([
+      "mvp.md",
+      "other.md",
+    ]);
   });
 
   it("refuses repeated map targets rather than choosing one", async () => {
@@ -1665,7 +1668,10 @@ Second.
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain("USAGE");
     expect(result.stderr).toContain('Invalid value for flag --map: "2 occurrences". Expected: at most 1 value');
-    await expect(readdir(join(root, ".bearing/maps"))).resolves.toEqual(["mvp.md", "other.md"]);
+    await expect(readdir(join(root, ".bearing/maps")).then((names) => names.sort())).resolves.toEqual([
+      "mvp.md",
+      "other.md",
+    ]);
   });
 
   it("never resolves a positional id as a map name", async () => {
