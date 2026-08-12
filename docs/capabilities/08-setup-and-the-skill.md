@@ -55,7 +55,8 @@ without searching farther. What the skill's text must and must not carry is sett
 unwritten — the file that ships and installs today is a stub that says so. Installation by linked clone runs
 today and is verified end to end: a linked `bearing` creates a tracker and installs the skill in a directory
 outside this repository, with no registry, npm, or Node involved. Shell completion generation also runs today.
-Publishing is deliberately not a path at all.
+CI checks the full shipped skill tree and every command's generated help from the built binary for the applying
+flag. Publishing is deliberately not a path at all.
 
 ## Decisions
 
