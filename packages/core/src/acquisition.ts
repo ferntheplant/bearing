@@ -184,7 +184,7 @@ const parseItemIdentity = ({
   return Result.succeed({ id: match[1] ?? "", slug });
 };
 
-const deriveSlug = (title: string): string => {
+export const deriveSlug = (title: string): string => {
   const slug = title
     .toLowerCase()
     .replace(/[^a-z0-9_ -]/g, "")

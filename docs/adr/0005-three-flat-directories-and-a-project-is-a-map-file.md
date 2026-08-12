@@ -2,8 +2,8 @@
 
 The tracker is three flat directories — untriaged items, every ticket, and every map. A project has no
 directory: **a project _is_ a map file**, and a ticket belongs to one by naming its slug-safe stem in
-frontmatter. A map is named `<slug>.md`, using the same filename-safe grammar and 60-character limit as an
-item's slug. Unlike an item's slug, the project slug is chosen directly rather than derived from a title.
+frontmatter. Its filename follows the shared slug grammar in
+[Three frontmatter fields, and the body is prose (ADR 0024)](./0024-three-frontmatter-fields-and-the-body-is-prose.md).
 
 The rejected alternative nested tickets under a per-project directory, making membership a path. Two things were
 wrong with it. Promotion became a move across directory levels, so the cheapest triage verdict was the most

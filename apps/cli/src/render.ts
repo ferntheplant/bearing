@@ -9,6 +9,8 @@ import type {
   ListedTicket,
   RemovalApplyResult,
   RemovalError,
+  RetitleApplyResult,
+  RetitleError,
   SetupOutcome,
   ShowItem,
   TicketCreationError,
@@ -88,10 +90,12 @@ export const renderDesignClose = (plan: DesignClosePlan): string => {
   return lines.join("\n");
 };
 
+const renderNoMatch = (prefix: string): string => `no item matches id prefix "${prefix}"`;
+
 export const renderRemovalError = (error: RemovalError): string => {
   switch (error.reason) {
     case "no-match":
-      return `no item matches id prefix "${error.prefix}"`;
+      return renderNoMatch(error.prefix);
     case "ambiguous":
       return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
     case "backlog-item":
@@ -104,6 +108,20 @@ export const renderRemovalError = (error: RemovalError): string => {
       return `cannot close design ticket ${error.prefix}: project ${error.project} has no trail row for it`;
     case "trail-outcome-empty":
       return `cannot close design ticket ${error.prefix}: its trail row in project ${error.project} has an empty outcome`;
+  }
+};
+
+export const renderRetitle = (result: RetitleApplyResult): string =>
+  result.changed ? `renamed ${result.from} to ${result.to}` : `unchanged ${result.from}`;
+
+export const renderRetitleError = (error: RetitleError): string => {
+  switch (error.reason) {
+    case "no-match":
+      return renderNoMatch(error.prefix);
+    case "ambiguous":
+      return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
+    case "backlog-item":
+      return `cannot retitle backlog item ${error.prefix}; bearing retitle renames tickets`;
   }
 };
 

@@ -29,6 +29,8 @@ export type {
   RemovalRewrite,
 } from "./remove.ts";
 export { RemovalApplyError, RemovalError } from "./remove.ts";
+export { applyRetitle, planRetitle, RetitleApplyError, RetitleError } from "./retitle.ts";
+export type { RetitleApplyResult, RetitleEdit, RetitlePlan } from "./retitle.ts";
 export { digestSkillTree, planSetup, applySetup } from "./setup.ts";
 export {
   SKILL_DIRECTORY,
