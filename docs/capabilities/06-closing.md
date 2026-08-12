@@ -38,11 +38,11 @@ tracker is live.
 
 ## Where it stands
 
-**Partial.** `bearing close` is built for build and design tickets, and `bearing rm` is built for any item. Build
-closing and removal apply on their first invocation; design closing returns a dry run with the ticket and exact
-trail row, then applies on the re-run it prints. Every close deletes the file before rewriting blocker lists,
-the rewrite is lossless, and an emptied `blockers` key is removed rather than left as `[]`. Closing a map is
-settled, not built.
+**Built.** `bearing close` closes build and design tickets or the map named by `--map`, and `bearing rm` deletes
+any item. Build and map closing and removal apply on their first invocation; design closing returns a dry run
+with the ticket and exact trail row, then applies on the re-run it prints. Every ticket close deletes the file
+before rewriting blocker lists, the rewrite is lossless, and an emptied `blockers` key is removed rather than
+left as `[]`. A map close refuses while a ticket names it and otherwise deletes only the map file.
 
 ## Decisions
 

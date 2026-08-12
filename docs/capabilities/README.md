@@ -15,7 +15,7 @@ thing is the way it is; [`docs/README.md`](../README.md) says how to write any o
 | 3   | [Tickets](./03-tickets.md)                                 | Partial   |
 | 4   | [Maps and fog](./04-maps-and-fog.md)                       | Partial   |
 | 5   | [The frontier](./05-the-frontier.md)                       | Built     |
-| 6   | [Closing](./06-closing.md)                                 | Partial   |
+| 6   | [Closing](./06-closing.md)                                 | Built     |
 | 7   | [Integrity](./07-integrity.md)                             | Built     |
 | 8   | [Setup and the shipped skill](./08-setup-and-the-skill.md) | Partial   |
 | 9   | [The command line](./09-the-command-line.md)               | Built     |

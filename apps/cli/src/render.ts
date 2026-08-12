@@ -4,6 +4,7 @@ import type {
   CheckResult,
   CreationApplyResult,
   DesignClosePlan,
+  MapCloseApplyResult,
   FogReport,
   Frontier,
   IntegrityFinding,
@@ -124,6 +125,9 @@ export const renderRemoval = (result: RemovalApplyResult, style: Style): string 
   return lines.join("\n");
 };
 
+export const renderMapClose = (result: MapCloseApplyResult, style: Style): string =>
+  `deleted map ${style.muted(result.removed)}`;
+
 export const renderDesignClose = (plan: DesignClosePlan, style: Style): string => {
   const lines = [
     style.heading("DESIGN TICKET"),
@@ -146,19 +150,23 @@ const renderNoMatch = (prefix: string): string => `no item matches id prefix "${
 export const renderRemovalError = (error: RemovalError): string => {
   switch (error.reason) {
     case "no-match":
-      return renderNoMatch(error.prefix);
+      return renderNoMatch(error.target);
     case "ambiguous":
-      return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
+      return `ambiguous id prefix "${error.target}": ${error.candidates.join(", ")}`;
     case "backlog-item":
-      return `cannot close backlog item ${error.prefix} with bearing close; use bearing rm`;
+      return `cannot close backlog item ${error.target} with bearing close; use bearing rm`;
     case "design-no-project":
-      return `cannot close design ticket ${error.prefix}: it has no project`;
+      return `cannot close design ticket ${error.target}: it has no project`;
     case "project-missing":
-      return `cannot close design ticket ${error.prefix}: no map carries project ${error.project}`;
+      return `cannot close design ticket ${error.target}: no map carries project ${error.project}`;
     case "trail-row-missing":
-      return `cannot close design ticket ${error.prefix}: project ${error.project} has no trail row for it`;
+      return `cannot close design ticket ${error.target}: project ${error.project} has no trail row for it`;
     case "trail-outcome-empty":
-      return `cannot close design ticket ${error.prefix}: its trail row in project ${error.project} has an empty outcome`;
+      return `cannot close design ticket ${error.target}: its trail row in project ${error.project} has an empty outcome`;
+    case "map-missing":
+      return `no map named "${error.target}"; maps: ${error.candidates.join(", ") || "none"}`;
+    case "map-has-tickets":
+      return `cannot close map "${error.target}": tickets still name it: ${error.candidates.join(", ")}`;
   }
 };
 

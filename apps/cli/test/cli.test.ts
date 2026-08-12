@@ -1613,6 +1613,87 @@ Second.
       rewrote: [`${root}/.bearing/tickets/b1c2d3-second.md`],
     });
   });
+
+  it("deletes a map on the first invocation and edits no other file", async () => {
+    const root = join(fixtureRoot, "close-map");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" }, { "mvp.md": VALID_MAP });
+    const backlogPath = join(root, ".bearing/backlog/c1d2e3-captured.md");
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "--map", "mvp"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`deleted map ${root}/.bearing/maps/mvp.md\n`);
+    await expect(missing(join(root, ".bearing/maps/mvp.md"))).resolves.toBe(true);
+    await expect(readFile(backlogPath, "utf8")).resolves.toBe("# Captured\n");
+  });
+
+  it("refuses a map close while tickets name it and deletes nothing", async () => {
+    const root = join(fixtureRoot, "close-map-with-tickets");
+    const tickets = {
+      "a1b2c3-build.md": ticketSource("build", "mvp"),
+      "b1c2d3-design.md": ticketSource("design", "mvp"),
+    };
+    await createTracker(root, tickets);
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "--map", "mvp"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('cannot close map "mvp": tickets still name it: a1b2c3, b1c2d3');
+    await expect(missing(join(root, ".bearing/maps/mvp.md"))).resolves.toBe(false);
+    await expect(readdir(join(root, ".bearing/tickets")).then((names) => names.sort())).resolves.toEqual(
+      Object.keys(tickets).sort(),
+    );
+  });
+
+  it("requires a map's exact filename stem and names the maps that exist", async () => {
+    const root = join(fixtureRoot, "close-map-missing");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "--map", "mv"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('no map named "mv"; maps: mvp, other');
+    await expect(readdir(join(root, ".bearing/maps")).then((names) => names.sort())).resolves.toEqual([
+      "mvp.md",
+      "other.md",
+    ]);
+  });
+
+  it("refuses repeated map targets rather than choosing one", async () => {
+    const root = join(fixtureRoot, "close-map-repeated");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP });
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["close", "--map", "mvp", "--map", "other"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("USAGE");
+    expect(result.stderr).toContain('Invalid value for flag --map: "2 occurrences". Expected: at most 1 value');
+    await expect(readdir(join(root, ".bearing/maps")).then((names) => names.sort())).resolves.toEqual([
+      "mvp.md",
+      "other.md",
+    ]);
+  });
+
+  it("never resolves a positional id as a map name", async () => {
+    const root = join(fixtureRoot, "close-map-positional");
+    await createTracker(root, {}, {}, { "a1b2c3.md": VALID_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('no item matches id prefix "a1b2c3"');
+    await expect(missing(join(root, ".bearing/maps/a1b2c3.md"))).resolves.toBe(false);
+  });
+
+  it("emits a map close result as JSON", async () => {
+    const root = join(fixtureRoot, "close-map-json");
+    await createTracker(root, {}, {}, { "mvp.md": VALID_MAP });
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["close", "--map", "mvp", "--json"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ project: "mvp", removed: `${root}/.bearing/maps/mvp.md` });
+  });
 });
 
 describe("rm", () => {
