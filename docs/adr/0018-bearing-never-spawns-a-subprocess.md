@@ -2,6 +2,9 @@
 
 Bearing does not shell out to git, or to anything else. It has no process-execution dependency at all. Its
 service dependencies are a filesystem, a path implementation, and a clock, and that is the complete list.
+Here, Bearing means the shipped runtime: repository build and validation tooling may invoke the built binary as
+a black box. That keeps process execution out of the product while allowing CI to test generated behaviour
+rather than infer it from source.
 
 This started as a hot-path worry and ended as a deletion. Two features wanted git, and neither survived contact
 with what it cost:

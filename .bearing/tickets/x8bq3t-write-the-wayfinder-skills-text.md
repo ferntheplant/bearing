@@ -1,7 +1,7 @@
 ---
 type: build
 project: mvp
-blockers: [66r5rr, 73jcw6]
+blockers: [73jcw6]
 ---
 
 # Write the wayfinder skill's text

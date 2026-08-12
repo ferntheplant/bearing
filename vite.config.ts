@@ -95,6 +95,17 @@ export default defineConfig({
   },
   run: {
     cache: true,
+    tasks: {
+      "assert-undocumented-applying-flag": {
+        command: "bun tools/assert-undocumented-applying-flag.ts",
+        dependsOn: ["@bearing/cli#build"],
+        cache: false,
+      },
+      test: {
+        command: "bunx --bun vp test run --reporter=minimal tools",
+        dependsOn: ["@bearing/cli#build"],
+      },
+    },
   },
   test: {
     passWithNoTests: false,

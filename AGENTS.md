@@ -67,7 +67,8 @@ Most of these have an ADR behind them. If a rule seems wrong, look for its ADR b
   runs only its plan.
 - The domain depends on the filesystem, path, and clock services and nothing else. The Bun implementations are
   supplied at the CLI's entry point.
-- No subprocesses, ever, and no dependency on git being installed.
+- The shipped runtime never spawns subprocesses and has no dependency on git being installed. Repository
+  validation may invoke the built binary to inspect generated behaviour.
 - Every import of `effect/unstable/cli` lives in the CLI package. Effect versions are pinned exactly, never
   ranged.
 - Bearing never prompts interactively; the prompt module is prohibited by lint.
