@@ -12,7 +12,7 @@ Triage is where something stops being a finding and becomes a commitment. Four o
 differing only in frontmatter — and the fifth, leaving the item alone, is not a command at all.
 
 Promotion is ordered like a retitle: the ticket is written before the backlog item is deleted, so an interrupted
-triage fails toward a duplicate id that resolution and `bearing check` reject rather than toward the item
+triage fails toward a duplicate id that resolution and `bearing doctor` reject rather than toward the item
 disappearing ([Mutations are ordered, not atomic (ADR 0025)](../../docs/adr/0025-mutations-are-ordered-not-atomic.md)).
 
 ## Scope

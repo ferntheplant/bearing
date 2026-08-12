@@ -201,8 +201,26 @@ describe("deriveFrontier", () => {
     });
 
     const frontier = await frontierOf(files);
+    // The map is being worked, so it is not starved; but it has no ready
+    // decision, so it is not on the decision frontier either. Its build ticket
+    // is where the work is.
     expect(frontier.fogbound).toEqual([]);
-    expect(frontier.decide).toEqual([{ project: "mvp", destination: "Ship bearing.", fogCount: 1, tickets: [] }]);
+    expect(frontier.decide).toEqual([]);
+    expect(frontier.build).toHaveLength(1);
+  });
+
+  it("orders decide groups by their most consequential decision, not by map filename", async () => {
+    const files = fixture({
+      maps: { "alpha.md": VALID_MAP, "zulu.md": VALID_MAP },
+      tickets: {
+        "a1b2c3-quiet.md": ticketSource("design", { project: "alpha" }),
+        "b1c2d3-gate.md": ticketSource("design", { project: "zulu" }),
+        "c1d2e3-blocked.md": ticketSource("build", { project: "zulu", blockers: ["b1c2d3"] }),
+      },
+    });
+
+    const frontier = await frontierOf(files);
+    expect(frontier.decide.map((group) => group.project)).toEqual(["zulu", "alpha"]);
   });
 
   it("reports a blocker cycle as a refusal naming the ids in it", async () => {

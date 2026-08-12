@@ -9,7 +9,7 @@ tracker is live.
 - **Closing deletes the file and strips the id from every ticket blocked by it.** There is no completed state,
   no archive directory, and no recovery path — the deleting commit is the record.
 - **Closing is ordered, not atomic.** The closing ticket is deleted before blocker lists are cleaned. If the
-  apply is interrupted, the remaining references are satisfied blockers that `bearing check` reports, never
+  apply is interrupted, the remaining references are satisfied blockers that `bearing doctor` reports, never
   dependents made ready while their blocker still exists.
 - **A build ticket closes with no close-specific gate.** Its evidence is the diff it ships with, and that is
   recoverable from history. Bearing still acquires and validates the tracker, but it does not inspect the
@@ -29,8 +29,8 @@ tracker is live.
   more often, and resolving one argument as either an id or a map name would make the common case ambiguous to
   save a flag on the rare one.
 - **`bearing rm` deletes without closing**, immediately, for anything resolvable — a backlog item or a ticket —
-  stripping the id from every blocker list the same way a close does. `done` is an alias for `close`, and
-  `delete` for `rm`.
+  stripping the id from every blocker list the same way a close does. `close` and `rm` are the only names for
+  these; there is no `done` or `delete` ([The command line](./09-the-command-line.md)).
 - **No prompts.** A design close's second look is a dry run and a re-run, which is a transcript rather than a
   question an agent cannot answer.
 - **Deleting the ticket inside the change that lands the work is deliberate.** A reviewer seeing the ticket

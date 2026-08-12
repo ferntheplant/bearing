@@ -91,7 +91,11 @@ subprocess is a mapping bug, not a framework bug.
 is not a subcommand you add later — it is the root handler, declared up front with `Command.make("bearing",
 config, handler)` and then `.pipe(Command.withSubcommands([...]))`. Giving the root a handler and then also
 adding an explicit default subcommand, or adding the first subcommand without realising the root handler already
-answers bare invocation, is the tidying that reintroduces a second default command.
+answers bare invocation, is the tidying that reintroduces a second default command. Bearing's root handler exists
+and does one thing: it fails with `CliError.ShowHelp`, which `Command.runWith` catches and renders as help
+([A bare invocation prints help (ADR 0044)](./adr/0044-a-bare-invocation-prints-help.md)). Deleting the handler
+because "it does nothing" does not print help — it fails to typecheck, because the root of a command tree needs
+one.
 
 **The framework's `CliConfig` ships built-in `--help`, `--version`, `--wizard`, and `--completions` flags.**
 Bearing enables only `--help` and has its own `completion` ticket; the wizard flag is interactive and therefore
@@ -100,10 +104,20 @@ prohibited by [Effect's unstable CLI, pinned exactly and confined (ADR 0022)](./
 "they're just flags" is the tidying that reintroduces an interactive prompt via a flag nothing in this
 repository chose.
 
-**`--json` is a `Flag.boolean`, and there is no bare positional flag.** A read command's `--json` is declared in
-its config as `Flag.boolean("json")`, and the handler receives `{ json: boolean }` rather than raw argv. Reaching
-for a hand-rolled `args.includes("--json")` check inside the handler, or for a positional `Flag` constructor that
-does not exist, is the tidying that reintroduces a second argument parser alongside the one the framework runs.
+**`--json` is a global flag, and a global flag reaches its handler through the Effect context, not the config
+object.** It is built with `GlobalFlag.setting("json")({ flag: Flag.boolean("json") })`, attached once with
+`Command.withGlobalFlags([JsonOutput])` on the root, and read inside a handler as `yield* JsonOutput` — it never
+appears in that command's config record. `CliConfig.layer({ builtIns: [...] })` is _not_ the way to register one:
+its `builtIns` is typed to the framework's own five built-ins and rejects a custom flag. Re-declaring `--json` in
+a command's config so it "shows up like the other flags", or reaching for a hand-rolled `args.includes("--json")`
+inside the handler, is the tidying that reintroduces a second argument parser alongside the one the framework
+runs.
+
+**The framework prints a choice's accepted values in flag help but not in argument help.** `appendChoiceKeys`
+runs in `toFlagDoc` and has no counterpart for arguments, so `Argument.choice("type", ["build", "design"])`
+renders as a bare `type choice` with no hint of what it accepts. Bearing writes the values into the argument's
+own description instead, which is why `bearing add --help` says `build | design` in prose. Deleting that as
+redundant — the framework surely shows the choices — is the tidying that puts the enum back out of reach.
 
 ## Startup
 

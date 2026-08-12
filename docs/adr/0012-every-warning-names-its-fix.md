@@ -1,6 +1,6 @@
 # Every warning names its fix, and there is no bulk mode
 
-`bearing check` has no `--fix`. Every warning it prints carries the exact command that resolves that one
+`bearing doctor` has no `--fix`. Every warning it prints carries the exact command that resolves that one
 instance, and the operator runs the ones they mean.
 
 A bulk fixer produces a diff nobody reads over a class of problem nobody looked at. A named command per warning
@@ -19,5 +19,5 @@ it depends on which of two conflicting things was meant.
 A stale blocker id — an id in a ticket's `blockers:` list that no item carries — is an error, so it names no
 command. No command edits a `blockers:` list, and that is the point rather than a gap:
 [Tracker files are edited directly (ADR 0030)](./0030-tracker-files-are-edited-directly.md) already puts the
-list in the operator's hands, so the fix is the hand edit `bearing check` points at by naming the ticket and
+list in the operator's hands, so the fix is the hand edit `bearing doctor` points at by naming the ticket and
 the id.

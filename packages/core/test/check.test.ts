@@ -54,7 +54,34 @@ describe("checkTracker", () => {
   it("reports nothing for a clean tracker", async () => {
     const result = await runCheck(entries());
 
-    expect(result).toEqual({ findings: [] });
+    expect(result.findings).toEqual([]);
+  });
+
+  it("reports every check it ran, in a fixed order, even when all of them pass", async () => {
+    const result = await runCheck(entries());
+
+    expect(result.checks.map((check) => check.name)).toEqual([
+      "parse",
+      "duplicate-id",
+      "unknown-type",
+      "design-no-project",
+      "project-missing",
+      "blocker-missing",
+      "trail-row-open-ticket",
+    ]);
+    expect(result.checks.every((check) => check.findings.length === 0)).toBe(true);
+  });
+
+  it("files a finding under the check that produced it and leaves the rest passing", async () => {
+    const result = await runCheck(
+      entries({ [`${TRACKER}/tickets/a1b2c3-first.md`]: file(ticketSource("build", { blockers: ["zzzzzz"] })) }),
+    );
+
+    const failed = result.checks.filter((check) => check.findings.length > 0);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.name).toBe("blocker-missing");
+    expect(failed[0]?.severity).toBe("error");
+    expect(failed[0]?.findings).toEqual(result.findings);
   });
 
   it("reports a ticket blocked by an id that does not exist", async () => {

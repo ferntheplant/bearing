@@ -17,7 +17,7 @@ come from.
 - **The item's id survives triage**, so anything you wrote down referring to it still resolves.
 - **An interrupted triage fails toward duplication, not disappearance.** The promoted ticket is written before
   the backlog item is deleted, so interruption between them leaves a duplicate id that resolution and
-  `bearing check` reject.
+  `bearing doctor` reject.
 - **Stub maps are allowed.** A destination plus a single entry — an intention or a patch of fog, either one — is
   a legitimate map. That entry with no destination is verdict 5: the destination is what draws the line, because
   naming one is the actual work.
