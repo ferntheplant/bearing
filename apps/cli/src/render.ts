@@ -1,8 +1,10 @@
 import type {
   BacklogItem,
   CaptureApplyResult,
+  CheckResult,
   FogReport,
   Frontier,
+  IntegrityFinding,
   ListedTicket,
   RemovalApplyResult,
   RemovalError,
@@ -68,6 +70,22 @@ export const renderRemovalError = (error: RemovalError): string => {
     case "backlog-item":
       return `cannot close backlog item ${error.prefix} with bearing close; use bearing rm`;
   }
+};
+
+export const renderCheck = (result: CheckResult): string => {
+  if (result.findings.length === 0) {
+    return "tracker is consistent";
+  }
+  return result.findings.map(renderFinding).join("\n");
+};
+
+const renderFinding = (finding: IntegrityFinding): string => {
+  const prefix = finding.severity === "error" ? "error" : "warning";
+  const lines = [`${prefix}: ${finding.message}`];
+  if (finding.kind === "trail-row-open-ticket") {
+    lines.push(`        run: ${finding.fix}`);
+  }
+  return lines.join("\n");
 };
 
 export const renderJson = (value: object): string => JSON.stringify(value, null, 2);

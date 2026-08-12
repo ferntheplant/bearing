@@ -7,6 +7,11 @@ find out when an edit broke a link.
 ## What you can expect
 
 - **`bearing check` is the whole of it.** It reads everything and reports; it is not a mode of another command.
+- **Unexpected files at the tracker root are tolerated silently.** Acquisition reads only `backlog/`, `tickets/`,
+  and `maps/`, and anything else sitting in `.bearing/` is not a finding. Tolerating means saying nothing, and
+  that is chosen rather than accidental: the error set is closed
+  ([Every warning names its fix (ADR 0012)](../adr/0012-every-warning-names-its-fix.md)), so naming a file
+  bearing does not own would be a sixth class and a decision, not a report.
 - **Parse failures are loud.** Every command refuses a tracker whose structure it cannot parse; `bearing check`
   accumulates those failures rather than stopping at the first one.
 - **Integrity errors, which mean parsed values are inconsistent:** a ticket blocked by an id that does not
@@ -29,11 +34,13 @@ find out when an edit broke a link.
 
 ## Where it stands
 
-**Partial.** Tracker acquisition retains every malformed document and ticket listing refuses with accumulated
-filename, frontmatter, and local-document diagnostics. The id index behind duplicate detection is built — prefix
-resolution spans the whole tracker, so two items sharing an id are already reported as ambiguous. `bearing
-check`, the rest of the cross-document integrity analysis, the single warning, and fix commands remain settled,
-not built.
+**Partial.** `bearing check` reads the whole tracker and reports every parse failure and all five error classes
+in one run, plus the one warning, and renders the same value as `--json` with the severity carried in the data.
+A warnings-only tracker and a clean tracker both exit 0 (a clean one says so), and any error exits 1. The
+warning names `bearing close <id>` as its copy-pasteable fix. What remains is that the command the warning names
+resolves the instance only once the design-ticket dry run lands — that apply is
+[Only design-ticket closing is a dry run (ADR 0029)](../adr/0029-only-design-ticket-closing-is-a-dry-run.md),
+not this capability.
 
 ## Decisions
 

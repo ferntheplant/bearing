@@ -1,7 +1,6 @@
 ---
 type: build
 project: mvp
-blockers: [ja2j4z]
 ---
 
 # Close a design ticket against its trail row

@@ -3,6 +3,7 @@
 import {
   applyCapture,
   applyRemoval,
+  checkTracker,
   deriveFrontier,
   listBacklog,
   listFog,
@@ -23,6 +24,7 @@ import { ChildProcessSpawner } from "effect/unstable/process";
 import {
   renderBacklogList,
   renderCapture,
+  renderCheck,
   renderFog,
   renderFrontier,
   renderJson,
@@ -42,6 +44,19 @@ interface Writer {
 export interface OutputWriters {
   readonly stdout: Writer;
   readonly stderr: Writer;
+}
+
+/**
+ * The `bearing check` command renders its findings to stdout and then fails with
+ * this sentinel when any of them is an error, so the process exits 1. `exitStatus`
+ * maps it back to 1 without writing anything else, because the rendered findings
+ * already carried the distinction (ADR 0035).
+ */
+class IntegrityCheckFailed extends Error {
+  constructor() {
+    super("integrity check found errors");
+    this.name = "IntegrityCheckFailed";
+  }
 }
 
 const makeConsole = ({ stdout, stderr }: OutputWriters): Console.Console => {
@@ -205,6 +220,17 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }
     });
 
+  const check = Command.make("check", { json: Flag.boolean("json") }, (config) =>
+    Effect.gen(function* () {
+      const result = yield* checkTracker(cwd);
+      const rendered = config.json ? renderJson(result) : renderCheck(result);
+      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+      if (result.findings.some((finding) => finding.severity === "error")) {
+        return yield* Effect.fail(new IntegrityCheckFailed());
+      }
+    }),
+  ).pipe(Command.withDescription("Check the whole tracker for integrity errors and warnings"));
+
   const next = Command.make("next", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
     Command.withDescription("Show the frontier: ready build work, ready decisions, and the backlog count"),
   );
@@ -283,7 +309,7 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
   );
 
   return Command.make("bearing", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
-    Command.withSubcommands([init, show, backlog, fog, next, ls, close, rm]),
+    Command.withSubcommands([init, show, backlog, fog, check, next, ls, close, rm]),
     Command.withDescription("Track work too large for one session"),
   );
 };
@@ -295,6 +321,11 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
     // A pure help request exits 0; every parse error exits 1. The framework
     // already rendered help and errors through the Console service.
     return error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : 1;
+  }
+  if (error instanceof IntegrityCheckFailed) {
+    // The rendered findings already went to stdout; the exit status only
+    // carries the error/no-error verdict (ADR 0035).
+    return 1;
   }
   if (error instanceof RemovalError) {
     stderr.write(`error: ${renderRemovalError(error)}\n`);

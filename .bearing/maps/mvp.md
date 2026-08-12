@@ -42,20 +42,6 @@ A row is a design ticket's closure and nothing else, so a decision settled witho
 
 ## Not yet committed
 
-### Decide what bearing does with unexpected files at the tracker root
-
-Acquisition stats the tracker root and then reads only `backlog/`, `tickets/`, and `maps/`. Anything else sitting
-in `.bearing/` is silently ignored, which is how `README.md` landed there without touching the parser — and
-silently ignored is a behaviour nobody chose.
-
-The intent is that a tracker tolerates files bearing does not own, since the alternative is bearing having an
-opinion about a directory a human also uses. What is unsettled is whether tolerating means saying nothing, and
-the error set is closed
-([Every warning names its fix (ADR 0012)](../../docs/adr/0012-every-warning-names-its-fix.md)), so adding a class
-is a decision rather than an implementation detail. A session building `bearing check` can land it on the spot.
-
-Whether adoption produces such a file in the first place graduated out of here and is now `73jcw6`.
-
 ### Widen the starvation signal, or leave it about fog alone
 
 A map with entries here and no open design tickets is in the same position a fogbound map is in: material left,
@@ -70,6 +56,22 @@ still be productive. What is unsettled is only the wording and the derivation, a
 frontier can land it on the spot.
 
 ## Not yet specified
+
+### How a trail-row warning's named fix actually closes a design ticket
+
+The integrity warning for a trail row naming a ticket that still exists names `bearing close <id>` as its fix, and
+the integrity capability says that command "applies its one named edit directly". But a trail row names a design
+ticket by rule, and closing a design ticket is a dry run first
+([Only design-ticket closing is a dry run (ADR 0029)](../../docs/adr/0029-only-design-ticket-closing-is-a-dry-run.md))
+whose applying flag is learned only from the dry run's output
+([The confirmation flag is undocumented on purpose (ADR 0016)](../../docs/adr/0016-the-confirm-flag-is-undocumented-on-purpose.md)).
+So the copy-pasteable command the warning prints is really a two-invocation sequence: run it, read the row and the
+flag, re-run it with the flag. The capability's "applies directly" wording is false for the only kind of ticket a
+trail row names, and nothing ships yet that would close a design ticket at all — the warning names a command that
+only resolves the warning once the design-close lands.
+
+Whether the warning should keep naming the bare command (the dry run being the point), or the capability should
+stop promising "directly", is unsettled. A session building the design close can land it on the spot.
 
 ### Where a printed title comes from
 
@@ -105,17 +107,6 @@ a decision rather than an implementation.
 Underneath it sits a question nobody has asked: whether `bearing ls` groups its output by project by default.
 The **Filter tickets with `bearing ls`** build ticket delivered every other filter and deliberately left this
 one out.
-
-### How a stale blocker id gets out of a blocker list
-
-Closing `twwbzc`, `ja2j4z`, and `n3dd4b` by hand left their ids in the `blockers:` lists of nine live tickets,
-and `bearing close` only strips an id when that id is the one being closed — a dangling id cannot be resolved,
-so nothing strips it. When `bearing check` lands, these become integrity errors, and
-[Every warning names its fix (ADR 0012)](../../docs/adr/0012-every-warning-names-its-fix.md) says each must name
-a copy-pasteable command; the natural fix here is editing a `blockers:` list, and no command edits one.
-
-Whether the answer is a command that removes a single id from a blocker list, or a check that honestly names a
-hand edit as the fix, is unsettled. A session building `bearing check` can land it on the spot.
 
 ### How DECIDE groups are ordered and how an empty group prints
 

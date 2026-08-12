@@ -928,6 +928,149 @@ Two.
   });
 });
 
+const TRAIL_MAP = `# MVP
+
+## Destination
+
+Ship bearing.
+
+## Notes
+
+## Trail
+
+| id | Decision | Outcome |
+| --- | --- | --- |
+| a1b2c3 | Some decision | [row](outcome) |
+
+## Not yet committed
+
+### Ship a reader
+
+## Not yet specified
+
+### Reader depth
+
+## Out of scope
+`;
+
+describe("check", () => {
+  it("reports nothing for a clean tracker, saying so rather than printing nothing", async () => {
+    const root = join(fixtureRoot, "check-clean");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe("tracker is consistent\n");
+  });
+
+  it("exits 0 for warnings and no errors, rendering the warning and its named fix command", async () => {
+    const root = join(fixtureRoot, "check-warning");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") }, {}, { "mvp.md": TRAIL_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(
+      `warning: ${root}/.bearing/maps/mvp.md: trail row names ticket a1b2c3, which still exists\n        run: bearing close a1b2c3\n`,
+    );
+  });
+
+  it("exits 1 for any error, reporting every class in one run", async () => {
+    const root = join(fixtureRoot, "check-errors");
+    await createTracker(
+      root,
+      {
+        "a1b2c3-first.md": `---
+type: build
+blockers: [zzzzzz]
+---
+
+Body.
+`,
+        "b1c2d3-second.md": `---
+type: build
+project: missing
+---
+
+Body.
+`,
+      },
+      {},
+      { "mvp.md": TRAIL_MAP },
+    );
+    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("error:");
+    expect(result.stdout).toContain("names blocker zzzzzz, which does not exist");
+    expect(result.stdout).toContain("names project missing, which no map carries");
+  });
+
+  it("emits the values it rendered as JSON, carrying the severity in the data", async () => {
+    const root = join(fixtureRoot, "check-json");
+    await createTracker(
+      root,
+      {
+        "a1b2c3-first.md": `---
+type: build
+blockers: [zzzzzz]
+---
+
+Body.
+`,
+      },
+      {},
+      { "mvp.md": TRAIL_MAP },
+    );
+    const result = await captureRun(({ stdout, stderr }) => main(["check", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    const parsed = JSON.parse(result.stdout) as { findings: { severity: string }[] };
+    expect(parsed.findings.map((finding) => finding.severity)).toContain("error");
+    expect(parsed.findings.map((finding) => finding.severity)).toContain("warning");
+  });
+
+  it("reports a warnings-only tracker as zero via --json too", async () => {
+    const root = join(fixtureRoot, "check-json-warning");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") }, {}, { "mvp.md": TRAIL_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["check", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const parsed = JSON.parse(result.stdout) as { findings: { severity: string }[] };
+    expect(parsed.findings).toEqual([
+      {
+        severity: "warning",
+        kind: "trail-row-open-ticket",
+        path: `${root}/.bearing/maps/mvp.md`,
+        id: "a1b2c3",
+        fix: "bearing close a1b2c3",
+        message: `${root}/.bearing/maps/mvp.md: trail row names ticket a1b2c3, which still exists`,
+      },
+    ]);
+  });
+
+  it("rejects a bulk-applying flag instead of applying it", async () => {
+    const root = join(fixtureRoot, "check-fix");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) => main(["check", "--fix"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unrecognized flag: --fix");
+  });
+
+  it("fails when no ancestor contains a tracker", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, noTrackerRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("error: no .bearing tracker found");
+  });
+});
+
 const missing = async (path: string): Promise<boolean> => {
   try {
     await access(path);
