@@ -41,7 +41,9 @@ runs update the installation.
   one, so the two can never teach different surfaces.
 - **It hands off rather than half-doing the next step.** The skill's job ends at a ticket someone could pick up.
   Turning that into the repo's own execution contract is the repo's job, with the repo's own format.
-- **`bearing completion <shell>`** generates shell completions.
+- **`bearing completion <shell>`** generates a Bash, Zsh, or Fish completion script on stdout from the live
+  command tree, so the script always covers the commands that exist and never names the flag that applies a
+  design close.
 
 ## Where it stands
 
@@ -52,10 +54,8 @@ from its current directory, uses the nearest `.bearing/`, and refuses a malforme
 without searching farther. What the skill's text must and must not carry is settled, but the text itself is
 unwritten — the file that ships and installs today is a stub that says so. Installation by linked clone runs
 today and is verified end to end: a linked `bearing` creates a tracker and installs the skill in a directory
-outside this repository, with no registry, npm, or Node involved. `bearing completion <shell>` generates a
-Bash, Zsh, or Fish completion script on stdout from the live command tree, so the script always covers the
-commands that exist and never names the flag that applies a design close. Publishing is deliberately not a
-path at all.
+outside this repository, with no registry, npm, or Node involved. Shell completion generation also runs today.
+Publishing is deliberately not a path at all.
 
 ## Decisions
 

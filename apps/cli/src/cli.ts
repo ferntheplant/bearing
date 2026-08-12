@@ -53,6 +53,9 @@ import { runSetup, type SetupRunner } from "./setup.ts";
 import { ansiStyle, plainStyle, type Style } from "./style.ts";
 import { BEARING_VERSION } from "./version.ts";
 
+const SUPPORTED_SHELLS = ["bash", "zsh", "fish"] as const;
+type SupportedShell = (typeof SUPPORTED_SHELLS)[number];
+
 interface Writer {
   write(text: string): unknown;
 }
@@ -169,7 +172,7 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
    * so the generated script always covers the tree that exists (ADR 0019).
    */
   const generateCompletions = (
-    shell: "bash" | "zsh" | "fish",
+    shell: SupportedShell,
   ): Effect.Effect<string, never, Console.Console | CliConfig.CliConfig> =>
     Effect.gen(function* () {
       const { builtIns } = yield* CliConfig.CliConfig;
@@ -465,8 +468,8 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
   const completion = Command.make(
     "completion",
     {
-      shell: Argument.optional(Argument.choice("shell", ["bash", "zsh", "fish"])).pipe(
-        Argument.withDescription("bash | zsh | fish — which shell to generate completions for"),
+      shell: Argument.optional(Argument.choice("shell", SUPPORTED_SHELLS)).pipe(
+        Argument.withDescription(`${SUPPORTED_SHELLS.join(" | ")} — which shell to generate completions for`),
       ),
     },
     (config) =>
@@ -474,7 +477,7 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
         const json = yield* JsonOutput;
         const shell = Option.getOrUndefined(config.shell);
         if (shell === undefined) {
-          return yield* Effect.fail(new Error("bearing completion needs a shell: bash | zsh | fish"));
+          return yield* Effect.fail(new Error(`bearing completion needs a shell: ${SUPPORTED_SHELLS.join(" | ")}`));
         }
         const script = yield* generateCompletions(shell);
         yield* emit(json ? renderJson({ shell, script }) : script);
