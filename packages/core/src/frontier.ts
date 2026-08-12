@@ -73,16 +73,29 @@ export const deriveFrontier = (
         }
         continue;
       }
+      const ready = design
+        .filter((ticket) => isReady(ticket.id))
+        .map((ticket) => toFrontierTicket(ticket, gateCount(ticket.id)))
+        .sort(byGateCount);
+      // A map whose design tickets are all blocked has nothing to decide, so it
+      // is not on the decision frontier. Its build tickets still rank in BUILD,
+      // which is where the map's remaining work actually is (ADR 0042).
+      if (ready.length === 0) {
+        continue;
+      }
       decide.push({
         project: map.project,
         destination: singleLine(map.destination.text),
         fogCount: map.patches.length,
-        tickets: design
-          .filter((ticket) => isReady(ticket.id))
-          .map((ticket) => toFrontierTicket(ticket, gateCount(ticket.id)))
-          .sort(byGateCount),
+        tickets: ready,
       });
     }
+    // Groups lead with the map holding the most consequential decision, the same
+    // rule the tickets inside a group rank by (ADR 0004). Map filename order,
+    // which is what fell out before, was nobody's choice.
+    decide.sort(
+      (a, b) => (b.tickets[0]?.gateCount ?? 0) - (a.tickets[0]?.gateCount ?? 0) || a.project.localeCompare(b.project),
+    );
 
     return {
       tag: "ok",
