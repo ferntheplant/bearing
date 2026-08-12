@@ -74,6 +74,12 @@ actually runs — update the capability file in the same breath, including its *
 is only useful while "Designed" and "Built" mean what they say; one file that overstates its state costs the
 reader trust in all of them.
 
+Treat a capability catalogue `README.md` as an index unless the repository format says otherwise: update its
+status metadata, not its prose with a second description of the behaviour. Before finishing, compare every
+capability, ADR, and catalogue entry changed in the session. Every user promise must occur in one capability
+file, every ADR must contain only decision and rationale, and every catalogue entry must contain only the fields
+the repository format assigns it; replace repeated behaviour with a link or delete it.
+
 Two moves matter more than the writing:
 
 - **Route the question, don't answer it in place.** A decision that surfaces while writing a capability becomes

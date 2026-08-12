@@ -262,7 +262,7 @@ describe("main", () => {
     expect(JSON.parse(before.stdout)).toHaveLength(2);
   });
 
-  it.each(["init", "show", "backlog", "add", "fog", "doctor", "next", "ls", "close", "rm", "retitle"])(
+  it.each(["init", "show", "backlog", "add", "fog", "doctor", "next", "ls", "close", "rm", "retitle", "triage"])(
     "describes every argument %s takes, rather than printing a bare name and type",
     async (command) => {
       const result = await captureRun(({ stdout, stderr }) => main([command, "--help"], stdout, stderr, fixtureRoot));
@@ -1779,5 +1779,192 @@ describe("retitle", () => {
       to: `${root}/.bearing/tickets/a1b2c3-a-better-title.md`,
       changed: true,
     });
+  });
+});
+
+describe("triage", () => {
+  it("promotes a backlog item to a projectless build ticket with --ticket, id and body unchanged", async () => {
+    const root = join(fixtureRoot, "triage-ticket");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n\nBody.\n" });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "c1d2e3", "--ticket"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`promoted c1d2e3 to ${root}/.bearing/tickets/c1d2e3-captured.md\n`);
+    await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(true);
+    await expect(readFile(join(root, ".bearing/tickets/c1d2e3-captured.md"), "utf8")).resolves.toBe(`---
+type: build
+---
+
+# Captured
+
+Body.
+`);
+  });
+
+  it("promotes a backlog item into a named map with --to, adding only frontmatter", async () => {
+    const root = join(fixtureRoot, "triage-to");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n\nBody.\n" });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "c1d2e3", "--to", "mvp"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`promoted c1d2e3 to ${root}/.bearing/tickets/c1d2e3-captured.md\n`);
+    await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(true);
+    await expect(readFile(join(root, ".bearing/tickets/c1d2e3-captured.md"), "utf8")).resolves.toBe(`---
+type: build
+project: mvp
+---
+
+# Captured
+
+Body.
+`);
+  });
+
+  it("resolves an unambiguous id prefix", async () => {
+    const root = join(fixtureRoot, "triage-prefix");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["triage", "c1d", "--ticket"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`promoted c1d2e3 to ${root}/.bearing/tickets/c1d2e3-captured.md\n`);
+  });
+
+  it("deletes the backlog item with --drop", async () => {
+    const root = join(fixtureRoot, "triage-drop");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["triage", "c1d2e3", "--drop"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`deleted ${root}/.bearing/backlog/c1d2e3-captured.md\n`);
+    await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(true);
+  });
+
+  it("exits 1 for --to naming a map no file carries, names the maps, and deletes nothing", async () => {
+    const root = join(fixtureRoot, "triage-missing-project");
+    await createTracker(
+      root,
+      {},
+      { "c1d2e3-captured.md": "# Captured\n" },
+      { "mvp.md": VALID_MAP, "other.md": SECOND_MAP },
+    );
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "c1d2e3", "--to", "missing"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no map for project "missing"; maps: mvp, other');
+    await expect(readFile(join(root, ".bearing/backlog/c1d2e3-captured.md"), "utf8")).resolves.toBe("# Captured\n");
+  });
+
+  it("exits 1 triaging an id that is already a ticket, saying so", async () => {
+    const root = join(fixtureRoot, "triage-ticket-item");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") }, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "a1b2c3", "--ticket"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("cannot triage a1b2c3: it is already a ticket");
+    await expect(readFile(join(root, ".bearing/tickets/a1b2c3-first.md"), "utf8")).resolves.toBe(ticketSource("build"));
+  });
+
+  it("exits 1 when two verdict flags are given together, and deletes nothing", async () => {
+    const root = join(fixtureRoot, "triage-two-verdicts");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "c1d2e3", "--ticket", "--drop"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--ticket");
+    expect(result.stderr).toContain("--drop");
+    await expect(readFile(join(root, ".bearing/backlog/c1d2e3-captured.md"), "utf8")).resolves.toBe("# Captured\n");
+  });
+
+  it("exits 1 when no verdict flag is given, and deletes nothing", async () => {
+    const root = join(fixtureRoot, "triage-no-verdict");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["triage", "c1d2e3"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("verdict");
+    await expect(readFile(join(root, ".bearing/backlog/c1d2e3-captured.md"), "utf8")).resolves.toBe("# Captured\n");
+  });
+
+  it("emits the applied verdict as JSON with --json", async () => {
+    const root = join(fixtureRoot, "triage-json");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "c1d2e3", "--to", "mvp", "--json"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({
+      id: "c1d2e3",
+      slug: "captured",
+      verdict: "project",
+      from: `${root}/.bearing/backlog/c1d2e3-captured.md`,
+      to: `${root}/.bearing/tickets/c1d2e3-captured.md`,
+      project: "mvp",
+    });
+  });
+
+  it("emits a drop as JSON without a destination", async () => {
+    const root = join(fixtureRoot, "triage-drop-json");
+    await createTracker(root, {}, { "c1d2e3-captured.md": "# Captured\n" });
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["triage", "c1d2e3", "--drop", "--json"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      id: "c1d2e3",
+      slug: "captured",
+      verdict: "drop",
+      from: `${root}/.bearing/backlog/c1d2e3-captured.md`,
+    });
+  });
+
+  it("describes the verdict flags in --help", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["triage", "--help"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("--ticket");
+    expect(result.stdout).toContain("--to");
+    expect(result.stdout).toContain("--drop");
+  });
+
+  it("exits 1 for a prefix matching nothing", async () => {
+    const root = join(fixtureRoot, "triage-nomatch");
+    await createTracker(root);
+
+    const result = await captureRun(({ stdout, stderr }) => main(["triage", "zzzz", "--ticket"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('no item matches id prefix "zzzz"');
   });
 });

@@ -4,6 +4,7 @@ import {
   applyCreation,
   applyRemoval,
   applyRetitle,
+  applyTriage,
   checkTracker,
   deriveFrontier,
   listBacklog,
@@ -14,12 +15,15 @@ import {
   planRemove,
   planRetitle,
   planTicketCreation,
+  planTriage,
   RemovalError,
   RetitleError,
   showItem,
   TicketCreationError,
+  TriageError,
   type TicketSelector,
   type TicketType,
+  type TriageVerdict,
 } from "@bearing/core";
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { Cause, Console, Effect, Exit, Layer, Option, Sink, Stdio, Stream, Terminal } from "effect";
@@ -42,6 +46,8 @@ import {
   renderSetupOutcome,
   renderShow,
   renderTicketCreationError,
+  renderTriage,
+  renderTriageError,
 } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
 import { ansiStyle, plainStyle, type Style } from "./style.ts";
@@ -386,12 +392,45 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: St
       }),
   ).pipe(Command.withDescription("Rename a ticket from a new title without changing its contents"));
 
+  const triage = Command.make(
+    "triage",
+    {
+      id: Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one")),
+      ticket: Flag.boolean("ticket").pipe(Flag.withDescription("Promote the item to a build ticket with no project")),
+      to: Flag.optional(Flag.string("to").pipe(Flag.withDescription("Promote the item into the named map"))),
+      drop: Flag.boolean("drop").pipe(Flag.withDescription("Delete the backlog item")),
+    },
+    (config) =>
+      Effect.gen(function* () {
+        const json = yield* JsonOutput;
+        const chosen = [
+          ...(config.ticket ? ["--ticket"] : []),
+          ...(Option.isSome(config.to) ? [`--to ${config.to.value}`] : []),
+          ...(config.drop ? ["--drop"] : []),
+        ];
+        if (chosen.length === 0) {
+          return yield* Effect.fail(new Error("bearing triage needs a verdict: --ticket, --to <project>, or --drop"));
+        }
+        if (chosen.length > 1) {
+          return yield* Effect.fail(new Error(`bearing triage takes one verdict, not: ${chosen.join(", ")}`));
+        }
+        const verdict: TriageVerdict = config.ticket
+          ? { kind: "ticket" }
+          : Option.isSome(config.to)
+            ? { kind: "project", project: config.to.value }
+            : { kind: "drop" };
+        const plan = yield* planTriage(cwd, config.id, verdict);
+        const result = yield* applyTriage(plan);
+        yield* emit(json ? renderJson(result) : renderTriage(result, style));
+      }),
+  ).pipe(Command.withDescription("Triage a backlog item into a ticket or delete it"));
+
   // A bare invocation prints help, the way every other CLI answers "what is
   // this?" (ADR 0044). `bearing next` is the only way to the frontier.
   return Command.make("bearing", {}, () =>
     Effect.fail(new CliError.ShowHelp({ commandPath: ["bearing"], errors: [] })),
   ).pipe(
-    Command.withSubcommands([init, show, backlog, add, fog, doctor, next, ls, close, rm, retitle]),
+    Command.withSubcommands([init, show, backlog, add, fog, doctor, next, ls, close, rm, retitle, triage]),
     Command.withGlobalFlags([JsonOutput]),
     Command.withDescription("Track work across sessions"),
   );
@@ -420,6 +459,10 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
   }
   if (error instanceof TicketCreationError) {
     stderr.write(`error: ${renderTicketCreationError(error)}\n`);
+    return 1;
+  }
+  if (error instanceof TriageError) {
+    stderr.write(`error: ${renderTriageError(error)}\n`);
     return 1;
   }
   const message = error instanceof Error ? error.message : String(error);

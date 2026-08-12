@@ -79,6 +79,11 @@ from it turned out to be wrong. Write a new ADR when the decision itself changes
 
 `docs/capabilities/NN-slug.md`, numbered in the order a user meets them, with a `README.md` as the catalogue.
 
+The catalogue `README.md` is an index: it carries each capability's name, order, and **Stands at** value, but no
+summary of its behaviour or command surface. When a capability changes, update its file and only the matching
+status cell in the catalogue. This keeps every promise in exactly one capability file rather than caching it in
+the index.
+
 Descriptive behaviour, in the vocabulary of `CONTEXT.md`. A capability file answers "what does this do for the
 person using it, and how far along is it?" It **points at** the decisions that shaped it and never restates
 them — if you find yourself explaining _why_, you are writing an ADR.
@@ -121,6 +126,10 @@ stays right.
 
 Use the glossary's words exactly. The catalogue is the largest body of prose in the repo, so it is where
 vocabulary drift shows up first.
+
+Before finishing a documentation change, compare every changed capability, ADR, and catalogue entry. A user
+promise belongs only in its capability file; an ADR keeps only the decision and rationale; the catalogue keeps
+only index and status data. Replace any repeated behaviour with a link or delete it.
 
 ## `CONTEXT.md`
 
