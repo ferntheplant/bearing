@@ -1,7 +1,7 @@
 import { Clock, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyCapture, planCapture } from "#src/capture.ts";
+import { applyCreation, planCapture, planTicketCreation } from "#src/capture.ts";
 
 import { directory, file, Harness, layer, link, type FsEntry } from "./fs-harness.ts";
 
@@ -176,7 +176,95 @@ describe("planCapture", () => {
   });
 });
 
-describe("applyCapture", () => {
+describe("planTicketCreation", () => {
+  const runTicketPlan = (
+    entries: Readonly<Record<string, FsEntry>>,
+    type: "build" | "design",
+    title: string,
+    project?: string,
+  ) => {
+    const harness = new Harness(entries);
+    return Effect.runPromise(
+      Effect.provide(
+        planTicketCreation(`${WORKSPACE}/nested`, type, title, project),
+        Layer.merge(layer(harness), clockLayer([decodeId("1a2b3c")])),
+      ),
+    );
+  };
+
+  it("plans a projectless build ticket with only its type in frontmatter", async () => {
+    const plan = await runTicketPlan(TRACKER_ENTRIES, "build", "Ship the feature");
+
+    expect(plan).toEqual({
+      id: "1a2b3c",
+      slug: "ship-the-feature",
+      title: "Ship the feature",
+      source: `---
+type: build
+---
+
+# Ship the feature
+`,
+      path: `${TRACKER}/tickets/1a2b3c-ship-the-feature.md`,
+    });
+    expect(plan.source).not.toContain("project:");
+    expect(plan.source).not.toContain("blockers:");
+  });
+
+  it("plans a design ticket belonging to an existing project", async () => {
+    await expect(runTicketPlan(TRACKER_ENTRIES, "design", "Choose the seam", "mvp")).resolves.toMatchObject({
+      source: `---
+type: design
+project: mvp
+---
+
+# Choose the seam
+`,
+      path: `${TRACKER}/tickets/1a2b3c-choose-the-seam.md`,
+    });
+  });
+
+  it("serializes a project slug as a YAML string when it resembles another scalar", async () => {
+    const entries = {
+      ...TRACKER_ENTRIES,
+      [`${TRACKER}/maps/null.md`]: file(VALID_MAP.replace("# MVP", "# Null")),
+    };
+
+    await expect(runTicketPlan(entries, "design", "Choose the seam", "null")).resolves.toMatchObject({
+      source: `---
+type: design
+project: "null"
+---
+
+# Choose the seam
+`,
+    });
+  });
+
+  it("refuses a design ticket with no project and names every map", async () => {
+    const entries = {
+      ...TRACKER_ENTRIES,
+      [`${TRACKER}/maps/other.md`]: file(VALID_MAP.replace("# MVP", "# Other")),
+    };
+
+    await expect(runTicketPlan(entries, "design", "Choose the seam")).rejects.toMatchObject({
+      _tag: "TicketCreationError",
+      reason: "design-no-project",
+      projects: ["mvp", "other"],
+    });
+  });
+
+  it("refuses any ticket naming a project no map carries", async () => {
+    await expect(runTicketPlan(TRACKER_ENTRIES, "build", "Ship the feature", "missing")).rejects.toMatchObject({
+      _tag: "TicketCreationError",
+      reason: "project-missing",
+      project: "missing",
+      projects: ["mvp"],
+    });
+  });
+});
+
+describe("applyCreation", () => {
   it("writes the planned source to the planned path", async () => {
     const harness = new Harness({ ...TRACKER_ENTRIES, [`${TRACKER}/backlog`]: directory() });
     const plan = {
@@ -187,7 +275,7 @@ describe("applyCapture", () => {
       path: `${TRACKER}/backlog/1a2b3c-capture-a-backlog-item.md`,
     };
 
-    const result = await Effect.runPromise(Effect.provide(applyCapture(plan), layer(harness)));
+    const result = await Effect.runPromise(Effect.provide(applyCreation(plan), layer(harness)));
 
     expect(result).toEqual({
       id: "1a2b3c",
@@ -199,7 +287,7 @@ describe("applyCapture", () => {
     );
   });
 
-  it("reports a write failure as a CaptureWriteError", async () => {
+  it("reports a write failure as a CreationWriteError", async () => {
     const harness = new Harness(
       { ...TRACKER_ENTRIES, [`${TRACKER}/backlog`]: directory() },
       { operation: "write-file", path: `${TRACKER}/backlog/1a2b3c-capture-a-backlog-item.md` },
@@ -212,8 +300,8 @@ describe("applyCapture", () => {
       path: `${TRACKER}/backlog/1a2b3c-capture-a-backlog-item.md`,
     };
 
-    await expect(Effect.runPromise(Effect.provide(applyCapture(plan), layer(harness)))).rejects.toMatchObject({
-      _tag: "CaptureWriteError",
+    await expect(Effect.runPromise(Effect.provide(applyCreation(plan), layer(harness)))).rejects.toMatchObject({
+      _tag: "CreationWriteError",
       operation: "write-file",
       path: `${TRACKER}/backlog/1a2b3c-capture-a-backlog-item.md`,
     });
@@ -230,8 +318,8 @@ describe("applyCapture", () => {
       path,
     };
 
-    await expect(Effect.runPromise(Effect.provide(applyCapture(plan), layer(harness)))).rejects.toMatchObject({
-      _tag: "CaptureWriteError",
+    await expect(Effect.runPromise(Effect.provide(applyCreation(plan), layer(harness)))).rejects.toMatchObject({
+      _tag: "CreationWriteError",
       operation: "write-file",
       path,
     });

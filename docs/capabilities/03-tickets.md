@@ -20,7 +20,8 @@ legible to whoever picks it up cold, human or agent.
   from the blocking graph, and a blocker cycle is a refusal naming the ids in it rather than a hang.
 - **A build ticket may belong to no project; a design ticket must belong to one.** `bearing new design` with no
   project is an error that names the maps that exist so the next command is obvious. Not a prompt, not a
-  default, not a map created behind your back. `create` and `add` are aliases for `new`.
+  default, not a map created behind your back. `create` and `add` are aliases for `new`; all three accept
+  `--json` and return the created ticket's id, slug, and path.
 - **Ticket content is edited directly.** Bearing has no `edit` command and never launches an editor. Bodies and
   frontmatter are yours; `bearing check` reports structural mistakes.
 - **`bearing retitle` owns renaming.** The title lives in the filename, so retitling by hand is how you get a
@@ -45,7 +46,8 @@ projects valid ticket values for `apps/cli` to render or emit as `--json`
 them). Prefix resolution over the whole tracker is built as a core operation and backs `bearing show`, which
 prints one backlog item or ticket. `bearing ls`'s filters — type, readiness, blocked-ness, and project — are
 built on a blocking graph derived in core that carries each ticket's readiness and both transitive closures and
-refuses a blocker cycle by name; the query filter, creation, and retitling remain settled, not built. Bare
+refuses a blocker cycle by name. `bearing new` and its aliases create build and design tickets immediately,
+validating any project against the maps on disk; the query filter and retitling remain settled, not built. Bare
 `bearing` no longer lists tickets and is held for the frontier.
 
 ## Decisions

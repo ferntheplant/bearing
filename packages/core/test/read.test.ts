@@ -211,6 +211,24 @@ blockers:
     await expect(runList(files)).rejects.toMatchObject({ _tag: "MalformedTrackerError" });
   });
 
+  it("rejects map filenames that are not slugs or exceed 60 characters", async () => {
+    const slug = "a".repeat(61);
+    const files = fixture({
+      maps: {
+        "Not Safe.md": VALID_MAP,
+        [`${slug}.md`]: VALID_MAP,
+      },
+    });
+
+    const observation = await runAcquisition(files);
+
+    expect(observation.diagnostics).toEqual([
+      expect.objectContaining({ source: "filename", message: "map filename is not <slug>.md" }),
+      expect.objectContaining({ source: "filename", message: "slug must be at most 60 characters" }),
+    ]);
+    await expect(runList(files)).rejects.toMatchObject({ _tag: "MalformedTrackerError" });
+  });
+
   it("refuses listing when a backlog item and map are malformed", async () => {
     const files = fixture({
       backlog: {

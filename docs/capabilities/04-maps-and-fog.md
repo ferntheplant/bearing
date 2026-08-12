@@ -7,7 +7,8 @@ picks up the work next.
 ## What you can expect
 
 - **A project is a map.** There is no other thing — no directory, no config entry, no record. Creating a map
-  creates the project; deleting it ends it.
+  creates the project; deleting it ends it. Its filename is `<slug>.md`, and that stable, slug-safe name is what
+  tickets carry as their project.
 - **A map carries six sections, in this order**: `Destination`, `Notes`, `Trail`, `Not yet committed`,
   `Not yet specified`, and `Out of scope` — what you are aiming at, what holds across the project, what has been
   settled, what you intend, what you cannot yet state, and the boundaries declared up front. They descend by
@@ -41,9 +42,10 @@ picks up the work next.
 
 ## Where it stands
 
-**Partial.** Acquisition parses a map's destination, intentions, patches, and trail rows — each retaining its
-exact source, and a malformed trail row kept as a diagnostic rather than a thrown parse. `bearing fog` lists the
-patches on one map or across every map, and refuses an unknown project by naming the maps that exist. The
+**Partial.** Acquisition validates a map's slug-safe filename and parses its destination, intentions, patches,
+and trail rows — each retaining its exact source, and a malformed trail row kept as a diagnostic rather than a
+thrown parse. `bearing fog` lists the patches on one map or across every map, and refuses an unknown project by
+naming the maps that exist. The
 fogbound and fog-complete states are reported through the frontier: a map with fog and no open design ticket is
 called out above its sections, and a map with no fog and no open design ticket stops appearing in DECIDE while
 its build tickets keep running. The mapping-pass method the fog is drained by is still not built — the shipped

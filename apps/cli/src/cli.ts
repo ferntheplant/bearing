@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import {
-  applyCapture,
+  applyCreation,
   applyRemoval,
   checkTracker,
   deriveFrontier,
@@ -11,8 +11,10 @@ import {
   planCapture,
   planClose,
   planRemove,
+  planTicketCreation,
   RemovalError,
   showItem,
+  TicketCreationError,
   type TicketSelector,
   type TicketType,
 } from "@bearing/core";
@@ -23,8 +25,8 @@ import { ChildProcessSpawner } from "effect/unstable/process";
 
 import {
   renderBacklogList,
-  renderCapture,
   renderCheck,
+  renderCreation,
   renderDesignClose,
   renderFog,
   renderFrontier,
@@ -34,6 +36,7 @@ import {
   renderRemovalError,
   renderSetupOutcome,
   renderShow,
+  renderTicketCreationError,
 } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
 import { BEARING_VERSION } from "./version.ts";
@@ -180,11 +183,37 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
           return;
         }
         const plan = yield* planCapture(cwd, title);
-        const result = yield* applyCapture(plan);
-        const rendered = config.json ? renderJson(result) : renderCapture(result);
+        const result = yield* applyCreation(plan);
+        const rendered = config.json ? renderJson(result) : renderCreation(result);
         yield* Effect.sync(() => stdout.write(`${rendered}\n`));
       }),
   ).pipe(Command.withDescription("Capture a backlog item, or list the backlog when called bare"));
+
+  const ticketCreationConfig = {
+    type: Argument.choice("type", ["build", "design"]),
+    title: Argument.string("title"),
+    project: Flag.optional(Flag.string("project")),
+    json: Flag.boolean("json"),
+  };
+  const createTicket = (config: {
+    readonly type: TicketType;
+    readonly title: string;
+    readonly project: Option.Option<string>;
+    readonly json: boolean;
+  }) =>
+    Effect.gen(function* () {
+      const plan = yield* planTicketCreation(cwd, config.type, config.title, Option.getOrUndefined(config.project));
+      const result = yield* applyCreation(plan);
+      const rendered = config.json ? renderJson(result) : renderCreation(result);
+      yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+    });
+  const newTicket = Command.make("new", ticketCreationConfig, createTicket).pipe(
+    Command.withDescription("Create a build or design ticket"),
+    Command.withAlias("create"),
+  );
+  const addTicket = Command.make("add", ticketCreationConfig, createTicket).pipe(
+    Command.withDescription("Create a build or design ticket"),
+  );
 
   const fog = Command.make(
     "fog",
@@ -322,7 +351,7 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
   );
 
   return Command.make("bearing", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
-    Command.withSubcommands([init, show, backlog, fog, check, next, ls, close, rm]),
+    Command.withSubcommands([init, show, backlog, newTicket, addTicket, fog, check, next, ls, close, rm]),
     Command.withDescription("Track work too large for one session"),
   );
 };
@@ -342,6 +371,10 @@ const exitStatus = (exit: Exit.Exit<void, unknown>, stderr: Writer): number => {
   }
   if (error instanceof RemovalError) {
     stderr.write(`error: ${renderRemovalError(error)}\n`);
+    return 1;
+  }
+  if (error instanceof TicketCreationError) {
+    stderr.write(`error: ${renderTicketCreationError(error)}\n`);
     return 1;
   }
   const message = error instanceof Error ? error.message : String(error);
