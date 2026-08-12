@@ -106,7 +106,7 @@ const refusalMessage = (reason: SkillRefusalError["reason"], paths: readonly str
 
 const structuralError = (path: string, message: string): MalformedTrackerError =>
   new MalformedTrackerError({
-    diagnostics: [{ path, source: "structure", message } satisfies TrackerDiagnostic],
+    diagnostics: [{ kind: "parse", path, source: "structure", message } satisfies TrackerDiagnostic],
     message: `malformed tracker:\n${path}: ${message}`,
   });
 

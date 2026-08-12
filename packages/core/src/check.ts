@@ -11,8 +11,6 @@ import type {
 } from "./acquisition.ts";
 import { acquireTracker, discoverTracker } from "./acquisition.ts";
 
-const UNKNOWN_TYPE_MESSAGE = "type must be design or build";
-
 export type IntegritySeverity = "error" | "warning";
 
 export type IntegrityFinding =
@@ -20,13 +18,12 @@ export type IntegrityFinding =
       readonly severity: "error";
       readonly kind: "parse";
       readonly path: string;
-      readonly message: string;
+      readonly detail: string;
     }
   | {
       readonly severity: "error";
       readonly kind: "unknown-type";
       readonly path: string;
-      readonly message: string;
     }
   | {
       readonly severity: "error";
@@ -34,7 +31,6 @@ export type IntegrityFinding =
       readonly path: string;
       readonly owner: string;
       readonly blocker: string;
-      readonly message: string;
     }
   | {
       readonly severity: "error";
@@ -42,29 +38,24 @@ export type IntegrityFinding =
       readonly path: string;
       readonly owner: string;
       readonly project: string;
-      readonly message: string;
     }
   | {
       readonly severity: "error";
       readonly kind: "design-no-project";
       readonly path: string;
       readonly owner: string;
-      readonly message: string;
     }
   | {
       readonly severity: "error";
       readonly kind: "duplicate-id";
       readonly id: string;
       readonly paths: readonly string[];
-      readonly message: string;
     }
   | {
       readonly severity: "warning";
       readonly kind: "trail-row-open-ticket";
       readonly path: string;
       readonly id: string;
-      readonly fix: string;
-      readonly message: string;
     };
 
 export interface CheckResult {
@@ -75,15 +66,15 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
   const findings: IntegrityFinding[] = [];
 
   for (const diagnostic of observation.diagnostics) {
-    findings.push({
-      severity: "error",
-      kind: diagnostic.message === UNKNOWN_TYPE_MESSAGE ? "unknown-type" : "parse",
-      path: diagnostic.path,
-      message: `${diagnostic.path}: ${diagnostic.message}`,
-    });
+    findings.push(
+      diagnostic.kind === "unknown-type"
+        ? { severity: "error", kind: "unknown-type", path: diagnostic.path }
+        : { severity: "error", kind: "parse", path: diagnostic.path, detail: diagnostic.message },
+    );
   }
 
   const itemIds = new Map<string, string[]>();
+  const ticketIds = new Set<string>();
   const tickets: { path: string; ticket: Ticket }[] = [];
   const maps: { path: string; map: MapDocument }[] = [];
 
@@ -97,13 +88,16 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
   };
 
   for (const document of observation.backlog) {
-    if (Result.isSuccess(document.parsed)) {
-      addId(document.parsed.success.id, document.path);
+    if (document.itemId !== undefined) {
+      addId(document.itemId, document.path);
     }
   }
   for (const document of observation.tickets) {
+    if (document.itemId !== undefined) {
+      addId(document.itemId, document.path);
+      ticketIds.add(document.itemId);
+    }
     if (Result.isSuccess(document.parsed)) {
-      addId(document.parsed.success.id, document.path);
       tickets.push({ path: document.path, ticket: document.parsed.success });
     }
   }
@@ -120,13 +114,11 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
         kind: "duplicate-id",
         id,
         paths,
-        message: `id ${id} is shared by ${paths.join(", ")}`,
       });
     }
   }
 
   const projects = new Set(maps.map(({ map }) => map.project));
-  const ticketIds = new Set(tickets.map(({ ticket }) => ticket.id));
 
   for (const { path, ticket } of tickets) {
     if (ticket.project !== undefined && !projects.has(ticket.project)) {
@@ -136,7 +128,6 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
         path,
         owner: ticket.id,
         project: ticket.project,
-        message: `${path}: ticket ${ticket.id} names project ${ticket.project}, which no map carries`,
       });
     }
     if (ticket.type === "design" && ticket.project === undefined) {
@@ -145,7 +136,6 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
         kind: "design-no-project",
         path,
         owner: ticket.id,
-        message: `${path}: design ticket ${ticket.id} has no project`,
       });
     }
     for (const blocker of ticket.blockers) {
@@ -156,7 +146,6 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
           path,
           owner: ticket.id,
           blocker,
-          message: `${path}: ticket ${ticket.id} names blocker ${blocker}, which does not exist`,
         });
       }
     }
@@ -170,8 +159,6 @@ export const analyzeIntegrity = (observation: TrackerObservation): CheckResult =
           kind: "trail-row-open-ticket",
           path,
           id: row.id,
-          fix: `bearing close ${row.id}`,
-          message: `${path}: trail row names ticket ${row.id}, which still exists`,
         });
       }
     }

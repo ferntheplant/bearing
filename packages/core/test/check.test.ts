@@ -68,7 +68,6 @@ describe("checkTracker", () => {
       path: `${TRACKER}/tickets/a1b2c3-first.md`,
       owner: "a1b2c3",
       blocker: "zzzzzz",
-      message: `${TRACKER}/tickets/a1b2c3-first.md: ticket a1b2c3 names blocker zzzzzz, which does not exist`,
     });
   });
 
@@ -83,7 +82,6 @@ describe("checkTracker", () => {
       path: `${TRACKER}/tickets/a1b2c3-first.md`,
       owner: "a1b2c3",
       project: "missing",
-      message: `${TRACKER}/tickets/a1b2c3-first.md: ticket a1b2c3 names project missing, which no map carries`,
     });
   });
 
@@ -95,7 +93,6 @@ describe("checkTracker", () => {
       kind: "design-no-project",
       path: `${TRACKER}/tickets/a1b2c3-first.md`,
       owner: "a1b2c3",
-      message: `${TRACKER}/tickets/a1b2c3-first.md: design ticket a1b2c3 has no project`,
     });
   });
 
@@ -112,7 +109,6 @@ describe("checkTracker", () => {
       severity: "error",
       kind: "unknown-type",
       path: `${TRACKER}/tickets/a1b2c3-first.md`,
-      message: `${TRACKER}/tickets/a1b2c3-first.md: type must be design or build`,
     });
   });
 
@@ -129,8 +125,28 @@ describe("checkTracker", () => {
       kind: "duplicate-id",
       id: "a1b2c3",
       paths: [`${TRACKER}/backlog/a1b2c3-captured.md`, `${TRACKER}/tickets/a1b2c3-first.md`],
-      message: `id a1b2c3 is shared by ${TRACKER}/backlog/a1b2c3-captured.md, ${TRACKER}/tickets/a1b2c3-first.md`,
     });
+  });
+
+  it("retains ids from malformed items for duplicate and blocker analysis", async () => {
+    const result = await runCheck(
+      entries({
+        [`${TRACKER}/tickets/a1b2c3-first.md`]: file(
+          ticketSource("design", { project: "mvp" }).replace("design", "frobnicate"),
+        ),
+        [`${TRACKER}/tickets/b1c2d3-second.md`]: file(ticketSource("build", { blockers: ["c1d2e3"] })),
+        [`${TRACKER}/tickets/c1d2e3-third.md`]: file(ticketSource("build").replace("build", "frobnicate")),
+        [`${TRACKER}/backlog/a1b2c3-captured.md`]: file("# Captured\n"),
+      }),
+    );
+
+    expect(result.findings).toContainEqual({
+      severity: "error",
+      kind: "duplicate-id",
+      id: "a1b2c3",
+      paths: [`${TRACKER}/backlog/a1b2c3-captured.md`, `${TRACKER}/tickets/a1b2c3-first.md`],
+    });
+    expect(result.findings).not.toContainEqual(expect.objectContaining({ kind: "blocker-missing", blocker: "c1d2e3" }));
   });
 
   it("reports every parse failure and all five error classes in one run", async () => {
@@ -177,8 +193,6 @@ describe("checkTracker", () => {
         kind: "trail-row-open-ticket",
         path: `${TRACKER}/maps/mvp.md`,
         id: "a1b2c3",
-        fix: "bearing close a1b2c3",
-        message: `${TRACKER}/maps/mvp.md: trail row names ticket a1b2c3, which still exists`,
       },
     ]);
   });
@@ -221,7 +235,7 @@ describe("checkTracker", () => {
 
     expect(
       result.findings.some(
-        (finding) => finding.kind === "parse" && finding.message.includes("backlog directory is missing"),
+        (finding) => finding.kind === "parse" && finding.detail.includes("backlog directory is missing"),
       ),
     ).toBe(true);
   });

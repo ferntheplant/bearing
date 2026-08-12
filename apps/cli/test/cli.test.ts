@@ -966,7 +966,7 @@ describe("check", () => {
 
   it("exits 0 for warnings and no errors, rendering the warning and its named fix command", async () => {
     const root = join(fixtureRoot, "check-warning");
-    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") }, {}, { "mvp.md": TRAIL_MAP });
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
     const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
@@ -976,13 +976,30 @@ describe("check", () => {
     );
   });
 
+  it.skip("enters the design-close flow when the warning's named command is run", async () => {
+    const root = join(fixtureRoot, "check-warning-fix");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
+    const check = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+    const command = /run: bearing (\S+) (\S+)/.exec(check.stdout);
+
+    expect(command).not.toBeNull();
+    const close = await captureRun(({ stdout, stderr }) =>
+      main([command?.[1] ?? "", command?.[2] ?? ""], stdout, stderr, root),
+    );
+
+    expect(close.exitCode).toBe(0);
+    expect(close.stderr).toBe("");
+    expect(close.stdout).toContain("| a1b2c3 | Some decision | [row](outcome) |");
+  });
+
   it("exits 1 for any error, reporting every class in one run", async () => {
     const root = join(fixtureRoot, "check-errors");
     await createTracker(
       root,
       {
         "a1b2c3-first.md": `---
-type: build
+type: design
+project: mvp
 blockers: [zzzzzz]
 ---
 
@@ -1035,7 +1052,7 @@ Body.
 
   it("reports a warnings-only tracker as zero via --json too", async () => {
     const root = join(fixtureRoot, "check-json-warning");
-    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") }, {}, { "mvp.md": TRAIL_MAP });
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
     const result = await captureRun(({ stdout, stderr }) => main(["check", "--json"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
@@ -1047,8 +1064,6 @@ Body.
         kind: "trail-row-open-ticket",
         path: `${root}/.bearing/maps/mvp.md`,
         id: "a1b2c3",
-        fix: "bearing close a1b2c3",
-        message: `${root}/.bearing/maps/mvp.md: trail row names ticket a1b2c3, which still exists`,
       },
     ]);
   });

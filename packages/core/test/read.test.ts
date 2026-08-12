@@ -183,6 +183,9 @@ blockers:
       "type must be design or build",
       "blockers must be a list of strings",
     ]);
+    expect(observation.diagnostics.find((finding) => finding.message === "type must be design or build")?.kind).toBe(
+      "unknown-type",
+    );
     await expect(runList(files)).rejects.toMatchObject({
       _tag: "MalformedTrackerError",
       diagnostics: expect.arrayContaining([

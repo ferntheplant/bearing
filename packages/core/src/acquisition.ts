@@ -22,6 +22,7 @@ type TrackerDirectory = (typeof TRACKER_DIRECTORIES)[number];
 type DiagnosticSource = "structure" | "filename" | "frontmatter" | "document";
 
 export interface TrackerDiagnostic {
+  readonly kind: "parse" | "unknown-type";
   readonly path: string;
   readonly source: DiagnosticSource;
   readonly message: string;
@@ -109,6 +110,7 @@ export interface DocumentObservation<Value> {
   readonly filename: string;
   readonly path: string;
   readonly source: string;
+  readonly itemId: string | undefined;
   readonly parsed: Result.Result<Value, readonly TrackerDiagnostic[]>;
 }
 
@@ -153,7 +155,13 @@ const readError = (operation: TrackerReadError["operation"], path: string, detai
     message: `cannot ${operation.replaceAll("-", " ")} ${path}: ${detail}`,
   });
 
-const diagnostic = (path: string, source: DiagnosticSource, message: string): TrackerDiagnostic => ({
+const diagnostic = (
+  path: string,
+  source: DiagnosticSource,
+  message: string,
+  kind: TrackerDiagnostic["kind"] = "parse",
+): TrackerDiagnostic => ({
+  kind,
   path,
   source,
   message,
@@ -277,7 +285,7 @@ const parseTicket = (
   }
 
   if (fields.type !== "design" && fields.type !== "build") {
-    diagnostics.push(diagnostic(path, "frontmatter", "type must be design or build"));
+    diagnostics.push(diagnostic(path, "frontmatter", "type must be design or build", "unknown-type"));
   }
   if (fields.project !== undefined && typeof fields.project !== "string") {
     diagnostics.push(diagnostic(path, "frontmatter", "project must be a string"));
@@ -609,10 +617,13 @@ const readDocuments = (
             .stat(documentPath)
             .pipe(Effect.mapError((error) => readError("stat", documentPath, error.message)));
           if (info.type !== "File") {
+            const identity =
+              directory === "maps" ? undefined : parseItemIdentity({ filename, path: documentPath, source: "" });
             return {
               filename,
               path: documentPath,
               source: "",
+              itemId: identity !== undefined && Result.isSuccess(identity) ? identity.success.id : undefined,
               parsed: Result.fail([diagnostic(documentPath, "structure", "Markdown tracker entry must be a file")]),
             };
           }
@@ -620,8 +631,10 @@ const readDocuments = (
             .readFileString(documentPath)
             .pipe(Effect.mapError((error) => readError("read-file", documentPath, error.message)));
           const document = { filename, path: documentPath, source };
+          const identity = directory === "maps" ? undefined : parseItemIdentity(document);
           return {
             ...document,
+            itemId: identity !== undefined && Result.isSuccess(identity) ? identity.success.id : undefined,
             ...parseDocument(directory, document),
           };
         }),

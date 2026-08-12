@@ -81,11 +81,22 @@ export const renderCheck = (result: CheckResult): string => {
 
 const renderFinding = (finding: IntegrityFinding): string => {
   const prefix = finding.severity === "error" ? "error" : "warning";
-  const lines = [`${prefix}: ${finding.message}`];
-  if (finding.kind === "trail-row-open-ticket") {
-    lines.push(`        run: ${finding.fix}`);
+  switch (finding.kind) {
+    case "parse":
+      return `${prefix}: ${finding.path}: ${finding.detail}`;
+    case "unknown-type":
+      return `${prefix}: ${finding.path}: type must be design or build`;
+    case "blocker-missing":
+      return `${prefix}: ${finding.path}: ticket ${finding.owner} names blocker ${finding.blocker}, which does not exist`;
+    case "project-missing":
+      return `${prefix}: ${finding.path}: ticket ${finding.owner} names project ${finding.project}, which no map carries`;
+    case "design-no-project":
+      return `${prefix}: ${finding.path}: design ticket ${finding.owner} has no project`;
+    case "duplicate-id":
+      return `${prefix}: id ${finding.id} is shared by ${finding.paths.join(", ")}`;
+    case "trail-row-open-ticket":
+      return `${prefix}: ${finding.path}: trail row names ticket ${finding.id}, which still exists\n        run: bearing close ${finding.id}`;
   }
-  return lines.join("\n");
 };
 
 export const renderJson = (value: object): string => JSON.stringify(value, null, 2);
