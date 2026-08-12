@@ -220,8 +220,8 @@ describe("renderRemovalError", () => {
     ["no-match", "zzzz", [], 'no item matches id prefix "zzzz"'],
     ["ambiguous", "a", ["a1b2c3", "a2b3c4"], 'ambiguous id prefix "a": a1b2c3, a2b3c4'],
     ["backlog-item", "c1d2e3", [], "cannot close backlog item c1d2e3 with bearing close; use bearing rm"],
-  ] as const)("renders %s", (reason, prefix, candidates, expected) => {
-    expect(renderRemovalError(new RemovalError({ reason, prefix, candidates }))).toBe(expected);
+  ] as const)("renders %s", (reason, target, candidates, expected) => {
+    expect(renderRemovalError(new RemovalError({ reason, target, candidates }))).toBe(expected);
   });
 });
 

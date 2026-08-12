@@ -21,7 +21,7 @@ export class RemovalError extends Data.TaggedError("RemovalError")<{
     | "trail-outcome-empty"
     | "map-missing"
     | "map-has-tickets";
-  readonly prefix: string;
+  readonly target: string;
   readonly candidates: readonly string[];
   readonly project?: string;
 }> {}
@@ -84,10 +84,10 @@ type RemovalReason = RemovalError["reason"];
 
 const refusal = (
   reason: RemovalReason,
-  prefix: string,
+  target: string,
   candidates: readonly string[],
   project?: string,
-): RemovalError => new RemovalError({ reason, prefix, candidates, ...(project === undefined ? {} : { project }) });
+): RemovalError => new RemovalError({ reason, target, candidates, ...(project === undefined ? {} : { project }) });
 
 const splice = (source: string, start: number, end: number, replacement: string): string =>
   `${source.slice(0, start)}${replacement}${source.slice(end)}`;

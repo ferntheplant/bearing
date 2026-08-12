@@ -353,7 +353,7 @@ describe("planMapClose", () => {
     ).rejects.toMatchObject({
       _tag: "RemovalError",
       reason: "map-has-tickets",
-      prefix: "mvp",
+      target: "mvp",
       candidates: ["a1b2c3", "b1c2d3"],
     });
   });
@@ -370,7 +370,7 @@ describe("planMapClose", () => {
     ).rejects.toMatchObject({
       _tag: "RemovalError",
       reason: "map-missing",
-      prefix: "mv",
+      target: "mv",
       candidates: ["mvp", "other"],
     });
   });
