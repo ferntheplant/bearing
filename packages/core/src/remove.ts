@@ -1,13 +1,27 @@
 import type { Path } from "effect";
 import { Data, Effect, FileSystem } from "effect";
 
-import type { BlockersSyntax, MalformedTrackerError, TrackerNotFoundError, TrackerReadError } from "./acquisition.ts";
+import type {
+  BlockersSyntax,
+  MalformedTrackerError,
+  TrackerNotFoundError,
+  TrackerReadError,
+  TrailRow,
+} from "./acquisition.ts";
 import { acquireValidObservation, buildIndex, resolve, type ResolvedItem, type ResolvableEntry } from "./analysis.ts";
 
 export class RemovalError extends Data.TaggedError("RemovalError")<{
-  readonly reason: "no-match" | "ambiguous" | "design-ticket" | "backlog-item";
+  readonly reason:
+    | "no-match"
+    | "ambiguous"
+    | "backlog-item"
+    | "design-no-project"
+    | "project-missing"
+    | "trail-row-missing"
+    | "trail-outcome-empty";
   readonly prefix: string;
   readonly candidates: readonly string[];
+  readonly project?: string;
 }> {}
 
 export class RemovalApplyError extends Data.TaggedError("RemovalApplyError")<{
@@ -26,6 +40,28 @@ export interface RemovalPlan {
   readonly rewrites: readonly RemovalRewrite[];
 }
 
+export type ClosePlan = BuildClosePlan | DesignClosePlan;
+
+export interface BuildClosePlan extends RemovalPlan {
+  readonly kind: "build";
+}
+
+export interface DesignClosePlan extends RemovalPlan {
+  readonly kind: "design";
+  readonly ticket: {
+    readonly id: string;
+    readonly slug: string;
+    readonly project: string;
+    readonly path: string;
+    readonly source: string;
+  };
+  readonly trail: {
+    readonly path: string;
+    readonly row: TrailRow;
+  };
+  readonly unblocks: readonly ResolvedItem[];
+}
+
 export interface RemovalApplyResult {
   readonly id: string;
   readonly removed: string;
@@ -34,8 +70,12 @@ export interface RemovalApplyResult {
 
 type RemovalReason = RemovalError["reason"];
 
-const refusal = (reason: RemovalReason, prefix: string, candidates: readonly string[]): RemovalError =>
-  new RemovalError({ reason, prefix, candidates });
+const refusal = (
+  reason: RemovalReason,
+  prefix: string,
+  candidates: readonly string[],
+  project?: string,
+): RemovalError => new RemovalError({ reason, prefix, candidates, ...(project === undefined ? {} : { project }) });
 
 const splice = (source: string, start: number, end: number, replacement: string): string =>
   `${source.slice(0, start)}${replacement}${source.slice(end)}`;
@@ -61,12 +101,36 @@ const stripBlockers = (source: string, syntax: BlockersSyntax, remains: readonly
   return splice(source, syntax.valueStart, syntax.valueEnd, replacement);
 };
 
-type RemovalMode = "close" | "remove";
+const planResolvedRemoval = (
+  observation: Parameters<typeof buildIndex>[0],
+  entry: ResolvableEntry,
+): Effect.Effect<RemovalPlan> =>
+  Effect.gen(function* () {
+    const rewrites: RemovalRewrite[] = [];
+    for (const document of observation.tickets) {
+      const ticket = document.parsed.success;
+      if (ticket.id === entry.id || !ticket.blockers.includes(entry.id)) {
+        continue;
+      }
+      const blockersSyntax = document.syntax.blockers;
+      if (blockersSyntax === undefined) {
+        return yield* Effect.die(new Error(`parsed blockers for ${document.path} have no retained syntax`));
+      }
+      rewrites.push({
+        path: document.path,
+        source: stripBlockers(
+          document.source,
+          blockersSyntax,
+          ticket.blockers.filter((id) => id !== entry.id),
+        ),
+      });
+    }
+    return { target: { kind: entry.kind, id: entry.id, slug: entry.slug, path: entry.path }, rewrites };
+  });
 
-const planRemoval = (
+export const planRemove = (
   startDirectory: string,
   prefix: string,
-  mode: RemovalMode,
 ): Effect.Effect<
   RemovalPlan,
   RemovalError | TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
@@ -88,53 +152,92 @@ const planRemoval = (
         );
       case "match": {
         const entry: ResolvableEntry = resolution.entry;
-        if (entry.kind === "ticket" && mode === "close" && entry.parsed.type === "design") {
-          return yield* Effect.fail(refusal("design-ticket", entry.id, []));
-        }
-        if (entry.kind === "backlog" && mode === "close") {
-          return yield* Effect.fail(refusal("backlog-item", entry.id, []));
-        }
-        const rewrites: RemovalRewrite[] = [];
-        for (const document of observation.tickets) {
-          const ticket = document.parsed.success;
-          if (ticket.id === entry.id || !ticket.blockers.includes(entry.id)) {
-            continue;
-          }
-          const blockersSyntax = document.syntax.blockers;
-          if (blockersSyntax === undefined) {
-            return yield* Effect.die(new Error(`parsed blockers for ${document.path} have no retained syntax`));
-          }
-          rewrites.push({
-            path: document.path,
-            source: stripBlockers(
-              document.source,
-              blockersSyntax,
-              ticket.blockers.filter((id) => id !== entry.id),
-            ),
-          });
-        }
-        return { target: { kind: entry.kind, id: entry.id, slug: entry.slug, path: entry.path }, rewrites };
+        return yield* planResolvedRemoval(observation, entry);
       }
     }
+  });
+
+const planDesignClose = (
+  observation: Parameters<typeof buildIndex>[0],
+  entry: Extract<ResolvableEntry, { readonly kind: "ticket" }>,
+  removal: RemovalPlan,
+): Effect.Effect<DesignClosePlan, RemovalError> =>
+  Effect.gen(function* () {
+    const project = entry.parsed.project;
+    if (project === undefined) {
+      return yield* Effect.fail(refusal("design-no-project", entry.id, []));
+    }
+    const map = observation.maps.find((document) => document.parsed.success.project === project);
+    if (map === undefined) {
+      return yield* Effect.fail(refusal("project-missing", entry.id, [], project));
+    }
+    const row = map.parsed.success.trail.find((candidate) => candidate.id === entry.id);
+    if (row === undefined) {
+      return yield* Effect.fail(refusal("trail-row-missing", entry.id, [], project));
+    }
+    if (row.outcome.trim().length === 0) {
+      return yield* Effect.fail(refusal("trail-outcome-empty", entry.id, [], project));
+    }
+    const unblocks = observation.tickets
+      .filter(
+        (document) =>
+          document.parsed.success.blockers.length === 1 && document.parsed.success.blockers.includes(entry.id),
+      )
+      .map((document) => ({
+        kind: "ticket" as const,
+        id: document.parsed.success.id,
+        slug: document.parsed.success.slug,
+        path: document.path,
+      }));
+    return {
+      kind: "design",
+      ...removal,
+      ticket: {
+        id: entry.id,
+        slug: entry.slug,
+        project,
+        path: entry.path,
+        source: entry.source,
+      },
+      trail: { path: map.path, row },
+      unblocks,
+    };
   });
 
 export const planClose = (
   startDirectory: string,
   prefix: string,
 ): Effect.Effect<
-  RemovalPlan,
+  ClosePlan,
   RemovalError | TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
   FileSystem.FileSystem | Path.Path
-> => planRemoval(startDirectory, prefix, "close");
-
-export const planRemove = (
-  startDirectory: string,
-  prefix: string,
-): Effect.Effect<
-  RemovalPlan,
-  RemovalError | TrackerReadError | TrackerNotFoundError | MalformedTrackerError,
-  FileSystem.FileSystem | Path.Path
-> => planRemoval(startDirectory, prefix, "remove");
+> =>
+  Effect.gen(function* () {
+    const observation = yield* acquireValidObservation(startDirectory);
+    const resolution = resolve(buildIndex(observation), prefix);
+    switch (resolution.tag) {
+      case "no-match":
+        return yield* Effect.fail(refusal("no-match", prefix, []));
+      case "ambiguous":
+        return yield* Effect.fail(
+          refusal(
+            "ambiguous",
+            prefix,
+            resolution.candidates.map((entry) => entry.id),
+          ),
+        );
+      case "match": {
+        const entry = resolution.entry;
+        if (entry.kind === "backlog") {
+          return yield* Effect.fail(refusal("backlog-item", entry.id, []));
+        }
+        const removal = yield* planResolvedRemoval(observation, entry);
+        return entry.parsed.type === "design"
+          ? yield* planDesignClose(observation, entry, removal)
+          : { kind: "build", ...removal };
+      }
+    }
+  });
 
 export const applyRemoval = (
   plan: RemovalPlan,

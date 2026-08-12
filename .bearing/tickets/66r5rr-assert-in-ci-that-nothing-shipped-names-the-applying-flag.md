@@ -23,8 +23,8 @@ which is six months from now and is the failure the ADR is actually worried abou
 
 Add a check to `vp run ready` and therefore to CI that greps the shipped skill tree and every command's generated
 help output for the flag, and fails naming the file and the reason. The flag's spelling is settled and recorded
-in ADR 0016 by `bvtnp7`; until then this check reads the spelling from one place rather than hardcoding it in
-two.
+in [The confirmation flag is undocumented on purpose (ADR 0016)](../../docs/adr/0016-the-confirm-flag-is-undocumented-on-purpose.md),
+and this check reads the spelling from one place rather than hardcoding it in two.
 
 Out of scope: greping error messages at rest — those are asserted by the tests that produce them, in the tickets
 that write them.

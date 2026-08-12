@@ -1,10 +1,10 @@
 # Core returns values; only the CLI renders
 
 The domain lives in one package that knows nothing about terminals, colour, or strings-as-output. The CLI is the
-only thing that turns a value into text. Closing a design ticket does not print a dry run — it returns a plan holding
-the ticket, the trail row it found, the fog patches still present, and the edits it would make. The CLI renders
-that as the dry-run text, JSON output serializes the same value, and a future non-terminal interface would
-return it directly.
+only thing that turns a value into text. Closing a design ticket does not print a dry run — it returns a plan
+holding the ticket, the trail row it found, the tickets it would unblock, and the edits it would make. The CLI
+renders that as the dry-run text, JSON output serializes the same value, and a future non-terminal interface
+would return it directly.
 
 This is the seam that makes the separation real rather than two folders that drift into one, and the design
 already depends on it in three places:

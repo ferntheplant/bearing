@@ -2,6 +2,7 @@ import type {
   BacklogItem,
   CaptureApplyResult,
   CheckResult,
+  DesignClosePlan,
   FogReport,
   Frontier,
   IntegrityFinding,
@@ -59,16 +60,39 @@ export const renderRemoval = (result: RemovalApplyResult): string => {
   return lines.join("\n");
 };
 
+export const renderDesignClose = (plan: DesignClosePlan): string => {
+  const lines = [
+    "DESIGN TICKET",
+    plan.ticket.source.trimEnd(),
+    "",
+    "TRAIL ROW",
+    plan.trail.row.source,
+    "",
+    `WOULD DELETE ${plan.ticket.path}`,
+  ];
+  for (const ticket of plan.unblocks) {
+    lines.push(`WOULD UNBLOCK ${ticket.id} ${ticket.path}`);
+  }
+  lines.push("", `Re-run with: bearing close ${plan.ticket.id} --confirm`);
+  return lines.join("\n");
+};
+
 export const renderRemovalError = (error: RemovalError): string => {
   switch (error.reason) {
     case "no-match":
       return `no item matches id prefix "${error.prefix}"`;
     case "ambiguous":
       return `ambiguous id prefix "${error.prefix}": ${error.candidates.join(", ")}`;
-    case "design-ticket":
-      return `cannot close design ticket ${error.prefix} with bearing close; a design ticket closes against its trail row`;
     case "backlog-item":
       return `cannot close backlog item ${error.prefix} with bearing close; use bearing rm`;
+    case "design-no-project":
+      return `cannot close design ticket ${error.prefix}: it has no project`;
+    case "project-missing":
+      return `cannot close design ticket ${error.prefix}: no map carries project ${error.project}`;
+    case "trail-row-missing":
+      return `cannot close design ticket ${error.prefix}: project ${error.project} has no trail row for it`;
+    case "trail-outcome-empty":
+      return `cannot close design ticket ${error.prefix}: its trail row in project ${error.project} has an empty outcome`;
   }
 };
 

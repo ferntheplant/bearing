@@ -38,10 +38,11 @@ tracker is live.
 
 ## Where it stands
 
-**Partial.** `bearing close` on a build ticket and `bearing rm` are built and apply on their first invocation:
-the file is deleted before any blocker list is rewritten, the rewrite is lossless, and an emptied `blockers` key
-is removed rather than left as `[]`. Closing a design ticket refuses and points at its trail-row gate, and
-closing a map, which are settled, not built.
+**Partial.** `bearing close` is built for build and design tickets, and `bearing rm` is built for any item. Build
+closing and removal apply on their first invocation; design closing returns a dry run with the ticket and exact
+trail row, then applies on the re-run it prints. Every close deletes the file before rewriting blocker lists,
+the rewrite is lossless, and an emptied `blockers` key is removed rather than left as `[]`. Closing a map is
+settled, not built.
 
 ## Decisions
 

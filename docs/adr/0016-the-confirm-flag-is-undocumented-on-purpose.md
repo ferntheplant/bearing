@@ -1,9 +1,9 @@
 # The confirmation flag is undocumented on purpose
 
-The flag that applies a design-ticket close is documented **in this repository and nowhere else**. It does not appear in
-command help, it does not appear in the shipped skill, and no error message mentions it before a dry run has
-run. The only place a caller learns it is the last line of the dry-run output — the output that also contains
-the trail row and the fog patch.
+The `--confirm` flag applies a design-ticket close and is documented **in this repository and nowhere else**. It
+does not appear in command help, it does not appear in the shipped skill, and no error message mentions it before
+a dry run has run. The only place a caller learns it is the last line of the dry-run output — the output that
+also contains the ticket and trail row.
 
 That is the whole mechanism. The reason to make someone look at the trail row before deleting a ticket is that
 the row is where the mistake hides, and an agent that knows the flag up front will go straight to it and never
