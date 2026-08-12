@@ -6,7 +6,10 @@ import { Console, Effect } from "effect";
 import { Argument, Command } from "effect/unstable/cli";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { main, type OutputWriters, runCommand } from "#src/cli.ts";
+import { colorsWanted, main, type OutputWriters, runCommand } from "#src/cli.ts";
+
+/** The escape byte, spelled out so no assertion carries a control character. */
+const ESC = "\u001B";
 
 const VALID_MAP = `# MVP
 
@@ -249,12 +252,98 @@ describe("main", () => {
     expect(result.stderr).toContain("Missing required argument: target");
   });
 
+  it("accepts the global --json before the subcommand, not only after it", async () => {
+    const before = await captureRun(({ stdout, stderr }) => main(["--json", "ls"], stdout, stderr, fixtureRoot));
+    const after = await captureRun(({ stdout, stderr }) => main(["ls", "--json"], stdout, stderr, fixtureRoot));
+
+    expect(before.exitCode).toBe(0);
+    expect(before.stderr).toBe("");
+    expect(before.stdout).toBe(after.stdout);
+    expect(JSON.parse(before.stdout)).toHaveLength(2);
+  });
+
+  it.each(["init", "show", "backlog", "add", "fog", "doctor", "next", "ls", "close", "rm", "retitle"])(
+    "describes every argument %s takes, rather than printing a bare name and type",
+    async (command) => {
+      const result = await captureRun(({ stdout, stderr }) => main([command, "--help"], stdout, stderr, fixtureRoot));
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+
+      const lines = result.stdout.split("\n");
+      const start = lines.indexOf("ARGUMENTS");
+      if (start === -1) {
+        return;
+      }
+      const argumentLines = lines.slice(start + 1, lines.indexOf("", start + 1));
+      expect(argumentLines.length).toBeGreaterThan(0);
+      for (const line of argumentLines) {
+        // "  <name> <type>   <description>" — three fields, not two.
+        expect(
+          line
+            .trim()
+            .split(/\s{2,}/)
+            .filter(Boolean).length,
+        ).toBeGreaterThan(1);
+      }
+    },
+  );
+
+  it("rejects the retired check command, which bearing doctor replaced", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown subcommand "check"');
+  });
+
   it("fails rather than ignoring unsupported console operations", async () => {
     const command = Command.make("probe", {}, () => Console.clear);
     const result = await captureRun((output) => runCommand(command, [], output));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Console.clear");
+  });
+});
+
+describe("colour", () => {
+  it.each([
+    ["a terminal with NO_COLOR unset", {}, true, true],
+    ["a terminal with NO_COLOR set", { NO_COLOR: "1" }, true, false],
+    ["a pipe, whatever NO_COLOR says", {}, false, false],
+    // The convention is that NO_COLOR counts when present and non-empty.
+    ["a terminal with NO_COLOR set to empty", { NO_COLOR: "" }, true, true],
+  ])("wants colour on %s", (_case, env, isTTY, expected) => {
+    expect(colorsWanted(env, isTTY)).toBe(expected);
+  });
+
+  it("treats an absent isTTY the way node reports a non-terminal", () => {
+    expect(colorsWanted({}, undefined)).toBe(false);
+  });
+
+  it("paints a real listing when colour is on", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, fixtureRoot, undefined, true));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(ESC);
+    expect(result.stdout).toContain("first ticket");
+  });
+
+  it("never paints --json output, even with colour on", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["ls", "--json"], stdout, stderr, fixtureRoot, undefined, true),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain(ESC);
+    expect(JSON.parse(result.stdout)).toHaveLength(2);
+  });
+
+  it("emits nothing but plain text when colour is off", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["ls"], stdout, stderr, fixtureRoot, undefined, false),
+    );
+
+    expect(result.stdout).not.toContain(ESC);
   });
 });
 
@@ -1217,6 +1306,28 @@ Body.
     expect(parsed.findings.map((finding) => finding.severity)).toContain("warning");
   });
 
+  it("carries every check, passing or not, in the JSON as well as the text", async () => {
+    const root = join(fixtureRoot, "check-json-checks");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as {
+      checks: { name: string; severity: string; findings: unknown[] }[];
+    };
+    expect(parsed.checks.map((check) => check.name)).toEqual([
+      "parse",
+      "duplicate-id",
+      "unknown-type",
+      "design-no-project",
+      "project-missing",
+      "blocker-missing",
+      "trail-row-open-ticket",
+    ]);
+    expect(parsed.checks.every((check) => check.findings.length === 0)).toBe(true);
+    expect(parsed.checks.at(-1)?.severity).toBe("warning");
+  });
+
   it("reports a warnings-only tracker as zero via --json too", async () => {
     const root = join(fixtureRoot, "check-json-warning");
     await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
@@ -1502,6 +1613,29 @@ describe("rm", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe(`deleted ${root}/.bearing/backlog/c1d2e3-captured.md\n`);
     await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(true);
+  });
+
+  it("emits what it deleted as JSON with the global --json", async () => {
+    const root = join(fixtureRoot, "rm-json");
+    await createTracker(root, {
+      "a1b2c3-first.md": ticketSource("build"),
+      "b1c2d3-second.md": `---
+type: build
+blockers: [a1b2c3]
+---
+
+Second.
+`,
+    });
+    const result = await captureRun(({ stdout, stderr }) => main(["rm", "a1b2c3", "--json"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      id: "a1b2c3",
+      removed: `${root}/.bearing/tickets/a1b2c3-first.md`,
+      rewrote: [`${root}/.bearing/tickets/b1c2d3-second.md`],
+    });
   });
 
   it("deletes a design ticket without close semantics", async () => {

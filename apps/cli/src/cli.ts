@@ -443,8 +443,15 @@ export const runCommand = async <Name extends string, Input, E, ContextInput>(
  * convention for turning it off, and a destination that is not a terminal — a
  * pipe, a file, an agent reading the output — never wants escape sequences
  * (ADR 0041).
+ *
+ * Per the `NO_COLOR` convention the variable suppresses colour when it is
+ * present and non-empty; setting it to the empty string is not setting it.
+ * Both inputs are parameters so the decision can be tested without a terminal.
  */
-const colorsWanted = (): boolean => process.env["NO_COLOR"] === undefined && process.stdout.isTTY === true;
+export const colorsWanted = (
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  isTTY: boolean | undefined = process.stdout.isTTY,
+): boolean => (env["NO_COLOR"] ?? "") === "" && isTTY === true;
 
 export const main = async (
   args: readonly string[],
