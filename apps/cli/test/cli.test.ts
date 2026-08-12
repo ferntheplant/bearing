@@ -262,32 +262,43 @@ describe("main", () => {
     expect(JSON.parse(before.stdout)).toHaveLength(2);
   });
 
-  it.each(["init", "show", "backlog", "add", "fog", "doctor", "next", "ls", "close", "rm", "retitle", "triage"])(
-    "describes every argument %s takes, rather than printing a bare name and type",
-    async (command) => {
-      const result = await captureRun(({ stdout, stderr }) => main([command, "--help"], stdout, stderr, fixtureRoot));
+  it.each([
+    "init",
+    "show",
+    "backlog",
+    "add",
+    "fog",
+    "doctor",
+    "next",
+    "ls",
+    "close",
+    "rm",
+    "retitle",
+    "triage",
+    "completion",
+  ])("describes every argument %s takes, rather than printing a bare name and type", async (command) => {
+    const result = await captureRun(({ stdout, stderr }) => main([command, "--help"], stdout, stderr, fixtureRoot));
 
-      expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe("");
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
 
-      const lines = result.stdout.split("\n");
-      const start = lines.indexOf("ARGUMENTS");
-      if (start === -1) {
-        return;
-      }
-      const argumentLines = lines.slice(start + 1, lines.indexOf("", start + 1));
-      expect(argumentLines.length).toBeGreaterThan(0);
-      for (const line of argumentLines) {
-        // "  <name> <type>   <description>" — three fields, not two.
-        expect(
-          line
-            .trim()
-            .split(/\s{2,}/)
-            .filter(Boolean).length,
-        ).toBeGreaterThan(1);
-      }
-    },
-  );
+    const lines = result.stdout.split("\n");
+    const start = lines.indexOf("ARGUMENTS");
+    if (start === -1) {
+      return;
+    }
+    const argumentLines = lines.slice(start + 1, lines.indexOf("", start + 1));
+    expect(argumentLines.length).toBeGreaterThan(0);
+    for (const line of argumentLines) {
+      // "  <name> <type>   <description>" — three fields, not two.
+      expect(
+        line
+          .trim()
+          .split(/\s{2,}/)
+          .filter(Boolean).length,
+      ).toBeGreaterThan(1);
+    }
+  });
 
   it("rejects the retired check command, which bearing doctor replaced", async () => {
     const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, fixtureRoot));
@@ -1966,5 +1977,107 @@ Body.
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain('no item matches id prefix "zzzz"');
+  });
+});
+
+describe("completion", () => {
+  it("writes a bash completion script to stdout and exits 0", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["completion", "bash"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("###-begin-bearing-completions-###");
+    expect(result.stdout).toContain("_bearing()");
+    expect(result.stdout.endsWith("\n")).toBe(true);
+  });
+
+  it("generates a script for every shell its help text names", async () => {
+    for (const shell of ["bash", "zsh", "fish"]) {
+      const result = await captureRun(({ stdout, stderr }) => main(["completion", shell], stdout, stderr, fixtureRoot));
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("covers every command the binary exposes, with no hand-maintained list", async () => {
+    const help = await captureRun(({ stdout, stderr }) => main(["--help"], stdout, stderr, fixtureRoot));
+    const lines = help.stdout.split("\n");
+    const names = lines
+      .slice(lines.indexOf("SUBCOMMANDS") + 1)
+      .map((line) => line.trim().split(/\s+/)[0] ?? "")
+      .filter((name) => /^[a-z]+$/.test(name));
+
+    expect(names.length).toBeGreaterThan(0);
+    const script = await captureRun(({ stdout, stderr }) => main(["completion", "bash"], stdout, stderr, fixtureRoot));
+    for (const name of names) {
+      expect(script.stdout).toContain(`_bearing_${name}`);
+    }
+  });
+
+  it("never names the flag that applies a design close in the generated output", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["completion", "bash"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("confirm");
+  });
+
+  it("names the command that exists, not a --completions built-in flag, in its install comment", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["completion", "bash"], stdout, stderr, fixtureRoot));
+
+    expect(result.stdout).toContain("bearing completion bash >> ~/.bashrc");
+    expect(result.stdout).not.toContain("--completions");
+  });
+
+  it("writes no file and creates nothing", async () => {
+    const root = join(fixtureRoot, "completion-no-writes");
+    await createTracker(root);
+    const before = await readdir(root).then((entries) => entries.sort());
+
+    const result = await captureRun(({ stdout, stderr }) => main(["completion", "bash"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect((await readdir(root)).sort()).toEqual(before);
+  });
+
+  it("exits 1 with a missing shell, naming the shells that are supported", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["completion"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("bash | zsh | fish");
+  });
+
+  it("exits 1 with an unsupported shell, naming the shells that are supported", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["completion", "powershell"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("bash");
+    expect(result.stderr).toContain("zsh");
+    expect(result.stderr).toContain("fish");
+  });
+
+  it("emits the script as a JSON value with the global --json", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["completion", "zsh", "--json"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const parsed = JSON.parse(result.stdout) as { shell: string; script: string };
+    expect(parsed.shell).toBe("zsh");
+    expect(parsed.script).toContain("###-begin-bearing-completions-###");
+  });
+
+  it("names the supported shells in its help text", async () => {
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["completion", "--help"], stdout, stderr, fixtureRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("bash | zsh | fish");
   });
 });

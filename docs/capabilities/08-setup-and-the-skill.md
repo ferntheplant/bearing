@@ -52,8 +52,10 @@ from its current directory, uses the nearest `.bearing/`, and refuses a malforme
 without searching farther. What the skill's text must and must not carry is settled, but the text itself is
 unwritten — the file that ships and installs today is a stub that says so. Installation by linked clone runs
 today and is verified end to end: a linked `bearing` creates a tracker and installs the skill in a directory
-outside this repository, with no registry, npm, or Node involved. Completion remains settled, not built, and
-publishing is deliberately not a path at all.
+outside this repository, with no registry, npm, or Node involved. `bearing completion <shell>` generates a
+Bash, Zsh, or Fish completion script on stdout from the live command tree, so the script always covers the
+commands that exist and never names the flag that applies a design close. Publishing is deliberately not a
+path at all.
 
 ## Decisions
 
