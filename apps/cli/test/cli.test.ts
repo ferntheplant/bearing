@@ -102,7 +102,7 @@ afterAll(async () => {
 });
 
 describe("main", () => {
-  it("prints the frontier rather than help when called bare", async () => {
+  it("prints help rather than the frontier when called bare", async () => {
     const stdout = capture();
     const stderr = capture();
 
@@ -110,9 +110,19 @@ describe("main", () => {
 
     expect(exitCode).toBe(0);
     expect(stderr.read()).toBe("");
-    expect(stdout.read()).toContain("BUILD");
-    expect(stdout.read()).toContain("first ticket");
-    expect(stdout.read()).not.toContain("ls");
+    expect(stdout.read()).toContain("SUBCOMMANDS");
+    expect(stdout.read()).toContain("next");
+    expect(stdout.read()).not.toContain("BUILD");
+  });
+
+  it("prints help from a directory with no tracker at all, without failing", async () => {
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main([], stdout.writer, stderr.writer, noTrackerRoot);
+
+    expect(exitCode).toBe(0);
+    expect(stdout.read()).toContain("SUBCOMMANDS");
   });
 
   it("fails when no ancestor contains a tracker", async () => {
@@ -214,6 +224,14 @@ describe("main", () => {
     expect(result.stdout).toContain("show");
     expect(result.stdout).toContain("ls");
     expect(result.stdout).toContain("next");
+  });
+
+  it("terminates help with a newline so a shell does not mark a partial line", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["--help"], stdout, stderr, fixtureRoot));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.endsWith("\n")).toBe(true);
+    expect(result.stdout.endsWith("\n\n")).toBe(false);
   });
 
   it("does not expose the framework's version flag", async () => {
@@ -332,13 +350,13 @@ describe("backlog", () => {
   });
 });
 
-describe("new", () => {
+describe("add", () => {
   it("creates a projectless build ticket immediately with no project or blockers key", async () => {
     const root = join(fixtureRoot, "new-build");
     await createTracker(root);
 
     const result = await captureRun(({ stdout, stderr }) =>
-      main(["new", "build", "Ship the feature"], stdout, stderr, root),
+      main(["add", "build", "Ship the feature"], stdout, stderr, root),
     );
 
     expect(result.exitCode).toBe(0);
@@ -362,7 +380,7 @@ type: build
     await createTracker(root);
 
     const result = await captureRun(({ stdout, stderr }) =>
-      main(["new", "design", "Choose the seam", "--project", "mvp"], stdout, stderr, root),
+      main(["add", "design", "Choose the seam", "--project", "mvp"], stdout, stderr, root),
     );
 
     expect(result.exitCode).toBe(0);
@@ -384,7 +402,7 @@ project: mvp
     await createTracker(root);
 
     const result = await captureRun(({ stdout, stderr }) =>
-      main(["new", "build", "Json ticket", "--json"], stdout, stderr, root),
+      main(["add", "build", "Json ticket", "--json"], stdout, stderr, root),
     );
 
     expect(result.exitCode).toBe(0);
@@ -400,7 +418,7 @@ project: mvp
     await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP.replace("# MVP", "# Other") });
 
     const result = await captureRun(({ stdout, stderr }) =>
-      main(["new", "design", "Choose the seam"], stdout, stderr, root),
+      main(["add", "design", "Choose the seam"], stdout, stderr, root),
     );
 
     expect(result.exitCode).toBe(1);
@@ -414,7 +432,7 @@ project: mvp
     await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP.replace("# MVP", "# Other") });
 
     const result = await captureRun(({ stdout, stderr }) =>
-      main(["new", "build", "Ship the feature", "--project", "missing"], stdout, stderr, root),
+      main(["add", "build", "Ship the feature", "--project", "missing"], stdout, stderr, root),
     );
 
     expect(result.exitCode).toBe(1);
@@ -423,18 +441,24 @@ project: mvp
     expect(await readdir(join(root, ".bearing/tickets"))).toEqual([]);
   });
 
-  it.each(["create", "add"])("accepts %s as an alias for new", async (command) => {
-    const root = join(fixtureRoot, `new-alias-${command}`);
-    await createTracker(root);
-
-    const result = await captureRun(({ stdout, stderr }) =>
-      main([command, "build", `${command} ticket`], stdout, stderr, root),
-    );
+  it("names the choices for its type argument in help, which the framework does not", async () => {
+    const result = await captureRun(({ stdout, stderr }) => main(["add", "--help"], stdout, stderr, fixtureRoot));
 
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    const files = await readdir(join(root, ".bearing/tickets"));
-    expect(files.some((filename) => filename.endsWith(`-${command}-ticket.md`))).toBe(true);
+    expect(result.stdout).toContain("build | design");
+  });
+});
+
+describe("retired names", () => {
+  it.each(["new", "create", "done", "delete"])("rejects %s, which is no longer a command", async (command) => {
+    const root = join(fixtureRoot, `retired-${command}`);
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
+
+    const result = await captureRun(({ stdout, stderr }) => main([command, "build", "A ticket"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(command);
+    expect(await readdir(join(root, ".bearing/tickets"))).toEqual(["a1b2c3-first.md"]);
   });
 });
 
@@ -451,7 +475,7 @@ describe("show", () => {
     const result = await captureRun(({ stdout, stderr }) => main(["show", "b1c2"], stdout, stderr, fixtureRoot));
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("type: design\nproject: mvp\nblockers: [a1b2c3]\n\nQuestion body.\n");
+    expect(result.stdout).toBe("type: design\nproject: mvp\nblockers: a1b2c3\n\nQuestion body.\n");
   });
 
   it("prints a backlog item the same way", async () => {
@@ -666,11 +690,11 @@ describe("ls", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
-      "a1b2c3  first ticket  build  -  ready\n" +
-        "        unblocks: [b1c2d3]\n" +
-        "b1c2d3  design question  design  mvp  blocked\n" +
-        "        blockers: [a1b2c3]\n" +
-        "        blocked by: [a1b2c3]\n",
+      "build   -    ready    a1b2c3  first ticket\n" +
+        `${" ".repeat(30)}unblocks: b1c2d3\n` +
+        "design  mvp  blocked  b1c2d3  design question\n" +
+        `${" ".repeat(30)}blockers: a1b2c3\n` +
+        `${" ".repeat(30)}blocked by: a1b2c3\n`,
     );
   });
 
@@ -711,34 +735,34 @@ describe("ls", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("c1d2e3  nearest  build  -  ready\n");
+    expect(result.stdout).toBe("build  -  ready  c1d2e3  nearest\n");
   });
 
   it("filters by type", async () => {
     const build = await captureRun(({ stdout, stderr }) => main(["ls", "--build"], stdout, stderr, fixtureRoot));
     expect(build.exitCode).toBe(0);
-    expect(build.stdout).toBe("a1b2c3  first ticket  build  -  ready\n        unblocks: [b1c2d3]\n");
+    expect(build.stdout).toBe(`build  -  ready  a1b2c3  first ticket\n${" ".repeat(25)}unblocks: b1c2d3\n`);
 
     const design = await captureRun(({ stdout, stderr }) => main(["ls", "--design"], stdout, stderr, fixtureRoot));
     expect(design.exitCode).toBe(0);
     expect(design.stdout).toBe(
-      "b1c2d3  design question  design  mvp  blocked\n" +
-        "        blockers: [a1b2c3]\n" +
-        "        blocked by: [a1b2c3]\n",
+      "design  mvp  blocked  b1c2d3  design question\n" +
+        `${" ".repeat(30)}blockers: a1b2c3\n` +
+        `${" ".repeat(30)}blocked by: a1b2c3\n`,
     );
   });
 
   it("filters by readiness", async () => {
     const ready = await captureRun(({ stdout, stderr }) => main(["ls", "--ready"], stdout, stderr, fixtureRoot));
     expect(ready.exitCode).toBe(0);
-    expect(ready.stdout).toBe("a1b2c3  first ticket  build  -  ready\n        unblocks: [b1c2d3]\n");
+    expect(ready.stdout).toBe(`build  -  ready  a1b2c3  first ticket\n${" ".repeat(25)}unblocks: b1c2d3\n`);
 
     const blocked = await captureRun(({ stdout, stderr }) => main(["ls", "--blocked"], stdout, stderr, fixtureRoot));
     expect(blocked.exitCode).toBe(0);
     expect(blocked.stdout).toBe(
-      "b1c2d3  design question  design  mvp  blocked\n" +
-        "        blockers: [a1b2c3]\n" +
-        "        blocked by: [a1b2c3]\n",
+      "design  mvp  blocked  b1c2d3  design question\n" +
+        `${" ".repeat(30)}blockers: a1b2c3\n` +
+        `${" ".repeat(30)}blocked by: a1b2c3\n`,
     );
   });
 
@@ -749,9 +773,9 @@ describe("ls", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe(
-      "b1c2d3  design question  design  mvp  blocked\n" +
-        "        blockers: [a1b2c3]\n" +
-        "        blocked by: [a1b2c3]\n",
+      "design  mvp  blocked  b1c2d3  design question\n" +
+        `${" ".repeat(30)}blockers: a1b2c3\n` +
+        `${" ".repeat(30)}blocked by: a1b2c3\n`,
     );
   });
 
@@ -767,9 +791,9 @@ describe("ls", () => {
     );
     expect(blocked.exitCode).toBe(0);
     expect(blocked.stdout).toBe(
-      "b1c2d3  design question  design  mvp  blocked\n" +
-        "        blockers: [a1b2c3]\n" +
-        "        blocked by: [a1b2c3]\n",
+      "design  mvp  blocked  b1c2d3  design question\n" +
+        `${" ".repeat(30)}blockers: a1b2c3\n` +
+        `${" ".repeat(30)}blocked by: a1b2c3\n`,
     );
   });
 
@@ -806,13 +830,13 @@ Body.
 
     const all = await captureRun(({ stdout, stderr }) => main(["ls"], stdout, stderr, root));
     expect(all.exitCode).toBe(0);
-    expect(all.stdout).toBe("a1b2c3  absorbed  build  -  ready\n        blockers: [zzzzzz]\n");
+    expect(all.stdout).toBe(`build  -  ready  a1b2c3  absorbed\n${" ".repeat(25)}blockers: zzzzzz\n`);
 
     const blocked = await captureRun(({ stdout, stderr }) => main(["ls", "--blocked"], stdout, stderr, root));
     expect(blocked.stdout).toBe("\n");
 
     const ready = await captureRun(({ stdout, stderr }) => main(["ls", "--ready"], stdout, stderr, root));
-    expect(ready.stdout).toBe("a1b2c3  absorbed  build  -  ready\n        blockers: [zzzzzz]\n");
+    expect(ready.stdout).toBe(`build  -  ready  a1b2c3  absorbed\n${" ".repeat(25)}blockers: zzzzzz\n`);
   });
 
   it("reports a blocker cycle as a refusal naming the ids in it", async () => {
@@ -868,25 +892,17 @@ describe("next", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe(
-      "BUILD\n" + "a1b2c3  first ticket  -\n" + "DECIDE\n" + "Ship bearing. (mvp, 1 fog)\n" + "TRIAGE\n" + "0\n",
-    );
+    // The map's only design ticket is closed, so DECIDE has no group to print.
+    expect(result.stdout).toBe("BUILD\n" + "  a1b2c3  first ticket\n" + "DECIDE\n" + "TRIAGE\n" + "  0\n");
   });
 
-  it("renders the same value as bare bearing, and the same JSON either way", async () => {
-    const bare = await captureRun(({ stdout, stderr }) => main([], stdout, stderr, fixtureRoot));
-    const next = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, fixtureRoot));
-
-    expect(bare.exitCode).toBe(0);
-    expect(next.exitCode).toBe(0);
-    expect(next.stdout).toBe(bare.stdout);
-
-    const bareJson = await captureRun(({ stdout, stderr }) => main(["--json"], stdout, stderr, fixtureRoot));
+  it("emits the frontier as a value with the global --json flag", async () => {
     const nextJson = await captureRun(({ stdout, stderr }) => main(["next", "--json"], stdout, stderr, fixtureRoot));
-    expect(nextJson.stdout).toBe(bareJson.stdout);
+
+    expect(nextJson.exitCode).toBe(0);
     expect(JSON.parse(nextJson.stdout)).toEqual({
       build: [{ id: "a1b2c3", slug: "first-ticket", gateCount: 1 }],
-      decide: [{ project: "mvp", destination: "Ship bearing.", fogCount: 1, tickets: [] }],
+      decide: [],
       triageCount: 0,
       fogbound: [],
     });
@@ -912,12 +928,12 @@ Waiting.
     );
 
     const before = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
-    expect(before.stdout).toBe("BUILD\na1b2c3  blocker  -\nDECIDE\nTRIAGE\n0\n");
+    expect(before.stdout).toBe("BUILD\n  a1b2c3  blocker\nDECIDE\nTRIAGE\n  0\n");
 
     await rm(join(root, ".bearing/tickets/a1b2c3-blocker.md"));
 
     const after = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
-    expect(after.stdout).toBe("BUILD\nb1c2d3  waiting  -\nDECIDE\nTRIAGE\n0\n");
+    expect(after.stdout).toBe("BUILD\n  b1c2d3  waiting\nDECIDE\nTRIAGE\n  0\n");
   });
 
   it("ranks the ready ticket that transitively unblocks more above the one that unblocks less", async () => {
@@ -951,7 +967,7 @@ Leaf.
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe(
-      "BUILD\n" + "a1b2c3  keystone  -\n" + "b1c2d3  leafs  -\n" + "DECIDE\n" + "TRIAGE\n" + "0\n",
+      "BUILD\n" + "  a1b2c3  keystone\n" + "  b1c2d3  leafs\n" + "DECIDE\n" + "TRIAGE\n" + "  0\n",
     );
   });
 
@@ -962,7 +978,7 @@ Leaf.
 
     const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
 
-    expect(result.stdout).toBe("BUILD\na1b2c3  build  -\nDECIDE\nTRIAGE\n0\n");
+    expect(result.stdout).toBe("BUILD\n  a1b2c3  build\nDECIDE\nTRIAGE\n  0\n");
   });
 
   it("prints a fogbound map above the sections, including when BUILD and DECIDE are both empty", async () => {
@@ -973,7 +989,7 @@ Leaf.
     const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("mvp is fogbound: fog left, no open design tickets\nBUILD\nDECIDE\nTRIAGE\n0\n");
+    expect(result.stdout).toBe("mvp is fogbound: fog left, no open design tickets\nBUILD\nDECIDE\nTRIAGE\n  0\n");
   });
 
   it("keeps a map out of the fogbound report while its design ticket is blocked by build work", async () => {
@@ -993,8 +1009,21 @@ Question.
     const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
+    // Not starved — someone is working it — but with no ready decision it has
+    // no DECIDE group either. The build ticket is where the work is.
     expect(result.stdout).not.toContain("fogbound");
-    expect(result.stdout).toContain("Ship bearing. (mvp, 1 fog)\n");
+    expect(result.stdout).toBe("BUILD\n  a1b2c3  build\nDECIDE\nTRIAGE\n  0\n");
+  });
+
+  it("heads a decide group with its project and fog count rather than the destination prose", async () => {
+    const root = join(fixtureRoot, "next-decide-heading");
+    await createTracker(root, { "b1c2d3-design.md": ticketSource("design", "mvp") });
+
+    const result = await captureRun(({ stdout, stderr }) => main(["next"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("Ship bearing");
+    expect(result.stdout).toBe("BUILD\nDECIDE\n  mvp  1 fog\n    b1c2d3  design\nTRIAGE\n  0\n");
   });
 
   it("reports a blocker cycle as a refusal naming the ids in it", async () => {
@@ -1059,33 +1088,62 @@ Ship bearing.
 ## Out of scope
 `;
 
-describe("check", () => {
+describe("doctor", () => {
   it("reports nothing for a clean tracker, saying so rather than printing nothing", async () => {
     const root = join(fixtureRoot, "check-clean");
     await createTracker(root);
-    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("tracker is consistent\n");
-  });
-
-  it("exits 0 for warnings and no errors, rendering the warning and its named fix command", async () => {
-    const root = join(fixtureRoot, "check-warning");
-    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
-    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toBe(
-      `warning: ${root}/.bearing/maps/mvp.md: trail row names ticket a1b2c3, which still exists\n        run: bearing close a1b2c3\n`,
+      "ok    document parsing\n" +
+        "ok    id collisions\n" +
+        "ok    ticket types\n" +
+        "ok    design ticket projects\n" +
+        "ok    project references\n" +
+        "ok    blocker references\n" +
+        "ok    trail rows\n" +
+        "\n" +
+        "7 checks, tracker is consistent\n",
     );
+  });
+
+  it("names every check it ran, so a passing one is visibly a check that happened", async () => {
+    const root = join(fixtureRoot, "check-names");
+    await createTracker(root);
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor"], stdout, stderr, root));
+
+    for (const check of [
+      "document parsing",
+      "id collisions",
+      "ticket types",
+      "design ticket projects",
+      "project references",
+      "blocker references",
+      "trail rows",
+    ]) {
+      expect(result.stdout).toContain(check);
+    }
+  });
+
+  it("exits 0 for warnings and no errors, rendering the warning under its check with the named fix", async () => {
+    const root = join(fixtureRoot, "check-warning");
+    await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor"], stdout, stderr, root));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("warn  trail rows");
+    expect(result.stdout).toContain(`${root}/.bearing/maps/mvp.md: trail row names ticket a1b2c3, which still exists`);
+    expect(result.stdout).toContain("run: bearing close a1b2c3");
+    expect(result.stdout).toContain("7 checks, 1 warning");
   });
 
   it("enters the design-close flow when the warning's named command is run", async () => {
     const root = join(fixtureRoot, "check-warning-fix");
     await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
-    const check = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+    const check = await captureRun(({ stdout, stderr }) => main(["doctor"], stdout, stderr, root));
     const command = /run: bearing (\S+) (\S+)/.exec(check.stdout);
 
     expect(command).not.toBeNull();
@@ -1122,13 +1180,16 @@ Body.
       {},
       { "mvp.md": TRAIL_MAP },
     );
-    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, root));
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("error:");
+    expect(result.stdout).toContain("fail  blocker references");
+    expect(result.stdout).toContain("fail  project references");
     expect(result.stdout).toContain("names blocker zzzzzz, which does not exist");
     expect(result.stdout).toContain("names project missing, which no map carries");
+    // The checks that passed still say so, in the same run.
+    expect(result.stdout).toContain("ok    id collisions");
   });
 
   it("emits the values it rendered as JSON, carrying the severity in the data", async () => {
@@ -1147,7 +1208,7 @@ Body.
       {},
       { "mvp.md": TRAIL_MAP },
     );
-    const result = await captureRun(({ stdout, stderr }) => main(["check", "--json"], stdout, stderr, root));
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor", "--json"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe("");
@@ -1159,7 +1220,7 @@ Body.
   it("reports a warnings-only tracker as zero via --json too", async () => {
     const root = join(fixtureRoot, "check-json-warning");
     await createTracker(root, { "a1b2c3-first.md": ticketSource("design", "mvp") }, {}, { "mvp.md": TRAIL_MAP });
-    const result = await captureRun(({ stdout, stderr }) => main(["check", "--json"], stdout, stderr, root));
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor", "--json"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
@@ -1177,14 +1238,14 @@ Body.
   it("rejects a bulk-applying flag instead of applying it", async () => {
     const root = join(fixtureRoot, "check-fix");
     await createTracker(root);
-    const result = await captureRun(({ stdout, stderr }) => main(["check", "--fix"], stdout, stderr, root));
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor", "--fix"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Unrecognized flag: --fix");
   });
 
   it("fails when no ancestor contains a tracker", async () => {
-    const result = await captureRun(({ stdout, stderr }) => main(["check"], stdout, stderr, noTrackerRoot));
+    const result = await captureRun(({ stdout, stderr }) => main(["doctor"], stdout, stderr, noTrackerRoot));
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
@@ -1237,15 +1298,6 @@ Second.
     const root = join(fixtureRoot, "close-immediate");
     await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
     const result = await captureRun(({ stdout, stderr }) => main(["close", "a1b2c3"], stdout, stderr, root));
-
-    expect(result.exitCode).toBe(0);
-    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
-  });
-
-  it("accepts done as an alias for close", async () => {
-    const root = join(fixtureRoot, "close-done");
-    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
-    const result = await captureRun(({ stdout, stderr }) => main(["done", "a1b2c3"], stdout, stderr, root));
 
     expect(result.exitCode).toBe(0);
     await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
@@ -1450,15 +1502,6 @@ describe("rm", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe(`deleted ${root}/.bearing/backlog/c1d2e3-captured.md\n`);
     await expect(missing(join(root, ".bearing/backlog/c1d2e3-captured.md"))).resolves.toBe(true);
-  });
-
-  it("accepts delete as an alias for rm", async () => {
-    const root = join(fixtureRoot, "rm-delete");
-    await createTracker(root, { "a1b2c3-first.md": ticketSource("build") });
-    const result = await captureRun(({ stdout, stderr }) => main(["delete", "a1b2c3"], stdout, stderr, root));
-
-    expect(result.exitCode).toBe(0);
-    await expect(missing(join(root, ".bearing/tickets/a1b2c3-first.md"))).resolves.toBe(true);
   });
 
   it("deletes a design ticket without close semantics", async () => {

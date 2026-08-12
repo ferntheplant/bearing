@@ -44,6 +44,7 @@ import {
   renderTicketCreationError,
 } from "./render.ts";
 import { runSetup, type SetupRunner } from "./setup.ts";
+import { ansiStyle, plainStyle, type Style } from "./style.ts";
 import { BEARING_VERSION } from "./version.ts";
 
 interface Writer {
@@ -56,7 +57,7 @@ export interface OutputWriters {
 }
 
 /**
- * The `bearing check` command renders its findings to stdout and then fails with
+ * The `bearing doctor` command renders its report to stdout and then fails with
  * this sentinel when any of them is an error, so the process exits 1. `exitStatus`
  * maps it back to 1 without writing anything else, because the rendered findings
  * already carried the distinction (ADR 0035).
@@ -69,11 +70,14 @@ class IntegrityCheckFailed extends Error {
 }
 
 const makeConsole = ({ stdout, stderr }: OutputWriters): Console.Console => {
+  // Console.log is a println, so every write ends in a newline. Command handlers
+  // write through the raw writers and terminate their own output; this path
+  // carries the framework's help and errors, which do not.
   const toStdout = (...args: ReadonlyArray<unknown>) => {
-    stdout.write(args.map(String).join(" "));
+    stdout.write(`${args.map(String).join(" ")}\n`);
   };
   const toStderr = (...args: ReadonlyArray<unknown>) => {
-    stderr.write(args.map(String).join(" "));
+    stderr.write(`${args.map(String).join(" ")}\n`);
   };
   const unsupportedConsoleMethod = (method: keyof Console.Console) => () => {
     throw new Error(`bearing's CLI console does not support Console.${method}`);
@@ -121,46 +125,63 @@ const dieStdio = Stdio.make({
 
 const dieSpawner = ChildProcessSpawner.make(() => die("bearing never spawns a subprocess"));
 
-const buildLayer = (output: OutputWriters) =>
+/**
+ * `--json` applies to every command, so it is parsed once for the whole tree
+ * rather than declared on each one. Handlers read it out of the context the
+ * runner provides.
+ */
+const JsonOutput = GlobalFlag.setting("json")({
+  flag: Flag.boolean("json").pipe(Flag.withDescription("Emit this command's value as JSON")),
+});
+
+const buildLayer = (output: OutputWriters, colors: boolean) =>
   Layer.mergeAll(
     BunFileSystem.layer,
     BunPath.layer,
     Layer.succeed(Console.Console, makeConsole(output)),
-    CliOutput.layer(CliOutput.defaultFormatter({ colors: false })),
+    CliOutput.layer(CliOutput.defaultFormatter({ colors })),
     CliConfig.layer({ builtIns: [GlobalFlag.Help] }),
     Layer.succeed(Terminal.Terminal, dieTerminal),
     Layer.succeed(Stdio.Stdio, dieStdio),
     Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, dieSpawner),
   );
 
-const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
+const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer, style: Style) => {
+  const emit = (rendered: string) =>
+    Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+
   const init = Command.make("init", {}, () =>
     Effect.gen(function* () {
       const outcome = yield* Effect.tryPromise({
         try: () => setup(cwd),
         catch: (error) => error,
       });
-      yield* Effect.sync(() => stdout.write(`${renderSetupOutcome(outcome)}\n`));
+      const json = yield* JsonOutput;
+      yield* emit(json ? renderJson(outcome) : renderSetupOutcome(outcome, style));
     }),
   ).pipe(Command.withDescription("Create a tracker and install the bearing wayfinder skill"));
 
   const show = Command.make(
     "show",
-    { id: Argument.string("id"), full: Flag.boolean("full"), json: Flag.boolean("json") },
+    {
+      id: Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one")),
+      full: Flag.boolean("full").pipe(Flag.withDescription("Print the file's exact source")),
+    },
     (config) =>
       Effect.gen(function* () {
-        if (config.full && config.json) {
+        const json = yield* JsonOutput;
+        if (config.full && json) {
           return yield* Effect.fail(new Error("--full and --json cannot be used together"));
         }
         const result = yield* showItem(cwd, config.id);
         switch (result.tag) {
           case "resolved": {
-            const rendered = config.json
+            const rendered = json
               ? renderJson(result.item)
               : config.full
                 ? result.item.source
-                : renderShow(result.item);
-            yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+                : renderShow(result.item, style);
+            yield* emit(rendered);
             return;
           }
           case "no-match":
@@ -177,62 +198,66 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
 
   const backlog = Command.make(
     "backlog",
-    { title: Argument.optional(Argument.string("title")), json: Flag.boolean("json") },
+    {
+      title: Argument.optional(
+        Argument.string("title").pipe(Argument.withDescription("What to capture; omit to list the backlog")),
+      ),
+    },
     (config) =>
       Effect.gen(function* () {
+        const json = yield* JsonOutput;
         const title = Option.getOrUndefined(config.title);
         if (title === undefined) {
           const items = yield* listBacklog(cwd);
-          const rendered = config.json ? renderJson(items) : renderBacklogList(items);
-          yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+          yield* emit(json ? renderJson(items) : renderBacklogList(items, style));
           return;
         }
         const plan = yield* planCapture(cwd, title);
         const result = yield* applyCreation(plan);
-        const rendered = config.json ? renderJson(result) : renderCreation(result);
-        yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+        yield* emit(json ? renderJson(result) : renderCreation(result, style));
       }),
   ).pipe(Command.withDescription("Capture a backlog item, or list the backlog when called bare"));
 
-  const ticketCreationConfig = {
-    type: Argument.choice("type", ["build", "design"]),
-    title: Argument.string("title"),
-    project: Flag.optional(Flag.string("project")),
-    json: Flag.boolean("json"),
-  };
-  const createTicket = (config: {
-    readonly type: TicketType;
-    readonly title: string;
-    readonly project: Option.Option<string>;
-    readonly json: boolean;
-  }) =>
-    Effect.gen(function* () {
-      const plan = yield* planTicketCreation(cwd, config.type, config.title, Option.getOrUndefined(config.project));
-      const result = yield* applyCreation(plan);
-      const rendered = config.json ? renderJson(result) : renderCreation(result);
-      yield* Effect.sync(() => stdout.write(`${rendered}\n`));
-    });
-  const newTicket = Command.make("new", ticketCreationConfig, createTicket).pipe(
-    Command.withDescription("Create a build or design ticket"),
-    Command.withAlias("create"),
-  );
-  const addTicket = Command.make("add", ticketCreationConfig, createTicket).pipe(
-    Command.withDescription("Create a build or design ticket"),
-  );
+  const add = Command.make(
+    "add",
+    {
+      // The framework appends a choice's values to a flag's help text but not to
+      // an argument's, so the values are written out here (docs/gotchas.md).
+      type: Argument.choice("type", ["build", "design"]).pipe(
+        Argument.withDescription("build | design — a build ticket closes as a commit, a design ticket as an artifact"),
+      ),
+      title: Argument.string("title").pipe(Argument.withDescription("What the ticket is called")),
+      project: Flag.optional(
+        Flag.string("project").pipe(
+          Flag.withDescription("The map this ticket belongs to; required for a design ticket"),
+        ),
+      ),
+    },
+    (config: { readonly type: TicketType; readonly title: string; readonly project: Option.Option<string> }) =>
+      Effect.gen(function* () {
+        const json = yield* JsonOutput;
+        const plan = yield* planTicketCreation(cwd, config.type, config.title, Option.getOrUndefined(config.project));
+        const result = yield* applyCreation(plan);
+        yield* emit(json ? renderJson(result) : renderCreation(result, style));
+      }),
+  ).pipe(Command.withDescription("Create a build or design ticket"));
 
   const fog = Command.make(
     "fog",
-    { project: Argument.optional(Argument.string("project")), json: Flag.boolean("json") },
+    {
+      project: Argument.optional(
+        Argument.string("project").pipe(Argument.withDescription("One map; omit for every map")),
+      ),
+    },
     (config) =>
       Effect.gen(function* () {
+        const json = yield* JsonOutput;
         const project = Option.getOrUndefined(config.project);
         const result = yield* listFog(cwd, project);
         switch (result.tag) {
-          case "fog": {
-            const rendered = config.json ? renderJson(result.maps) : renderFog(result.maps);
-            yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+          case "fog":
+            yield* emit(json ? renderJson(result.maps) : renderFog(result.maps, style));
             return;
-          }
           case "no-project":
             return yield* Effect.fail(
               new Error(`no map for project "${result.project}"; maps: ${result.projects.join(", ") || "none"}`),
@@ -241,47 +266,43 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
       }),
   ).pipe(Command.withDescription("List the fog patches on one map, or across every map"));
 
-  const renderFrontierValue = (json: boolean) =>
+  const doctor = Command.make("doctor", {}, () =>
     Effect.gen(function* () {
-      const result = yield* deriveFrontier(cwd);
-      switch (result.tag) {
-        case "ok": {
-          const rendered = json ? renderJson(result.frontier) : renderFrontier(result.frontier);
-          yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
-          return;
-        }
-        case "cycle":
-          return yield* Effect.fail(new Error(`blocker cycle: [${result.ids.join(", ")}]`));
-      }
-    });
-
-  const check = Command.make("check", { json: Flag.boolean("json") }, (config) =>
-    Effect.gen(function* () {
+      const json = yield* JsonOutput;
       const result = yield* checkTracker(cwd);
-      const rendered = config.json ? renderJson(result) : renderCheck(result);
-      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+      yield* emit(json ? renderJson(result) : renderCheck(result, style));
       if (result.findings.some((finding) => finding.severity === "error")) {
         return yield* Effect.fail(new IntegrityCheckFailed());
       }
     }),
-  ).pipe(Command.withDescription("Check the whole tracker for integrity errors and warnings"));
+  ).pipe(Command.withDescription("Run every tracker integrity check and report what each one found"));
 
-  const next = Command.make("next", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
-    Command.withDescription("Show the frontier: ready build work, ready decisions, and the backlog count"),
-  );
+  const next = Command.make("next", {}, () =>
+    Effect.gen(function* () {
+      const json = yield* JsonOutput;
+      const result = yield* deriveFrontier(cwd);
+      switch (result.tag) {
+        case "ok":
+          yield* emit(json ? renderJson(result.frontier) : renderFrontier(result.frontier, style));
+          return;
+        case "cycle":
+          return yield* Effect.fail(new Error(`blocker cycle: [${result.ids.join(", ")}]`));
+      }
+    }),
+  ).pipe(Command.withDescription("Show the frontier: ready build work, ready decisions, and the backlog count"));
 
   const ls = Command.make(
     "ls",
     {
-      build: Flag.boolean("build"),
-      design: Flag.boolean("design"),
-      ready: Flag.boolean("ready"),
-      blocked: Flag.boolean("blocked"),
-      project: Flag.optional(Flag.string("project")),
-      json: Flag.boolean("json"),
+      build: Flag.boolean("build").pipe(Flag.withDescription("Only build tickets")),
+      design: Flag.boolean("design").pipe(Flag.withDescription("Only design tickets")),
+      ready: Flag.boolean("ready").pipe(Flag.withDescription("Only tickets with no open blocker")),
+      blocked: Flag.boolean("blocked").pipe(Flag.withDescription("Only tickets waiting on a blocker")),
+      project: Flag.optional(Flag.string("project").pipe(Flag.withDescription("Only tickets on this map"))),
     },
     (config) =>
       Effect.gen(function* () {
+        const json = yield* JsonOutput;
         const types: TicketType[] = [];
         if (config.build) {
           types.push("build");
@@ -304,11 +325,9 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
         };
         const result = yield* listTickets(cwd, selector);
         switch (result.tag) {
-          case "ok": {
-            const rendered = config.json ? renderJson(result.tickets) : renderList(result.tickets);
-            yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+          case "ok":
+            yield* emit(json ? renderJson(result.tickets) : renderList(result.tickets, style));
             return;
-          }
           case "cycle":
             return yield* Effect.fail(new Error(`blocker cycle: [${result.ids.join(", ")}]`));
           case "no-project":
@@ -322,54 +341,59 @@ const buildCommand = (cwd: string, setup: SetupRunner, stdout: Writer) => {
   const close = Command.make(
     "close",
     {
-      id: Argument.string("id"),
-      json: Flag.boolean("json"),
+      id: Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one")),
       confirm: Flag.boolean("confirm").pipe(Flag.withHidden),
     },
     (config) =>
       Effect.gen(function* () {
+        const json = yield* JsonOutput;
         const plan = yield* planClose(cwd, config.id);
         if (plan.kind === "design" && !config.confirm) {
-          const rendered = config.json ? renderJson(plan) : renderDesignClose(plan);
-          yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+          yield* emit(json ? renderJson(plan) : renderDesignClose(plan, style));
           return;
         }
         const result = yield* applyRemoval(plan);
-        const rendered = config.json ? renderJson(result) : renderRemoval(result);
-        yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
+        yield* emit(json ? renderJson(result) : renderRemoval(result, style));
+      }),
+  ).pipe(Command.withDescription("Close a ticket, deleting it and stripping its id from every blocker list"));
+
+  const rm = Command.make(
+    "rm",
+    { id: Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one")) },
+    (config) =>
+      Effect.gen(function* () {
+        const json = yield* JsonOutput;
+        const plan = yield* planRemove(cwd, config.id);
+        const result = yield* applyRemoval(plan);
+        yield* emit(json ? renderJson(result) : renderRemoval(result, style));
       }),
   ).pipe(
-    Command.withDescription("Close a ticket, deleting it and stripping its id from every blocker list"),
-    Command.withAlias("done"),
-  );
-
-  const rm = Command.make("rm", { id: Argument.string("id"), json: Flag.boolean("json") }, (config) =>
-    Effect.gen(function* () {
-      const plan = yield* planRemove(cwd, config.id);
-      const result = yield* applyRemoval(plan);
-      const rendered = config.json ? renderJson(result) : renderRemoval(result);
-      yield* Effect.sync(() => stdout.write(rendered.endsWith("\n") ? rendered : `${rendered}\n`));
-    }),
-  ).pipe(
     Command.withDescription("Delete a ticket or backlog item immediately, stripping its id from every blocker list"),
-    Command.withAlias("delete"),
   );
 
   const retitle = Command.make(
     "retitle",
-    { id: Argument.string("id"), title: Argument.string("title"), json: Flag.boolean("json") },
+    {
+      id: Argument.string("id").pipe(Argument.withDescription("An id, or a prefix of one")),
+      title: Argument.string("title").pipe(Argument.withDescription("What the ticket should be called instead")),
+    },
     (config) =>
       Effect.gen(function* () {
+        const json = yield* JsonOutput;
         const plan = yield* planRetitle(cwd, config.id, config.title);
         const result = yield* applyRetitle(plan);
-        const rendered = config.json ? renderJson(result) : renderRetitle(result);
-        yield* Effect.sync(() => stdout.write(`${rendered}\n`));
+        yield* emit(json ? renderJson(result) : renderRetitle(result, style));
       }),
   ).pipe(Command.withDescription("Rename a ticket from a new title without changing its contents"));
 
-  return Command.make("bearing", { json: Flag.boolean("json") }, (config) => renderFrontierValue(config.json)).pipe(
-    Command.withSubcommands([init, show, backlog, newTicket, addTicket, fog, check, next, ls, close, rm, retitle]),
-    Command.withDescription("Track work too large for one session"),
+  // A bare invocation prints help, the way every other CLI answers "what is
+  // this?" (ADR 0044). `bearing next` is the only way to the frontier.
+  return Command.make("bearing", {}, () =>
+    Effect.fail(new CliError.ShowHelp({ commandPath: ["bearing"], errors: [] })),
+  ).pipe(
+    Command.withSubcommands([init, show, backlog, add, fog, doctor, next, ls, close, rm, retitle]),
+    Command.withGlobalFlags([JsonOutput]),
+    Command.withDescription("Track work across sessions"),
   );
 };
 
@@ -407,11 +431,20 @@ export const runCommand = async <Name extends string, Input, E, ContextInput>(
   command: Command.Command<Name, Input, ContextInput, E, Command.Environment>,
   args: readonly string[],
   output: OutputWriters,
+  colors = false,
 ): Promise<number> => {
   const program = Command.runWith(command, { version: BEARING_VERSION })(args);
-  const exit = await Effect.runPromise(program.pipe(Effect.provide(buildLayer(output)), Effect.exit));
+  const exit = await Effect.runPromise(program.pipe(Effect.provide(buildLayer(output, colors)), Effect.exit));
   return exitStatus(exit, output.stderr);
 };
+
+/**
+ * Colour is for a person watching a terminal. `NO_COLOR` is the standing
+ * convention for turning it off, and a destination that is not a terminal — a
+ * pipe, a file, an agent reading the output — never wants escape sequences
+ * (ADR 0041).
+ */
+const colorsWanted = (): boolean => process.env["NO_COLOR"] === undefined && process.stdout.isTTY === true;
 
 export const main = async (
   args: readonly string[],
@@ -419,9 +452,10 @@ export const main = async (
   stderr: Writer = process.stderr,
   cwd: string = process.cwd(),
   setup: SetupRunner = runSetup,
+  colors: boolean = colorsWanted(),
 ): Promise<number> => {
-  const command = buildCommand(cwd, setup, stdout);
-  return runCommand(command, args, { stdout, stderr });
+  const command = buildCommand(cwd, setup, stdout, colors ? ansiStyle : plainStyle);
+  return runCommand(command, args, { stdout, stderr }, colors);
 };
 
 if (import.meta.main) {

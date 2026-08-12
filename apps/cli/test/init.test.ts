@@ -251,15 +251,28 @@ describe("bearing init", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("refuses extra arguments to init", async () => {
-    const root = await mkdtemp(join(tmpdir(), "bearing-init-usage-"));
+  it("accepts the global --json flag and emits the outcome as a value", async () => {
+    const root = await mkdtemp(join(tmpdir(), "bearing-init-json-"));
     const stdout = capture();
     const stderr = capture();
 
     const exitCode = await main(["init", "--json"], stdout.writer, stderr.writer, root);
 
+    expect(exitCode).toBe(0);
+    expect(stderr.read()).toBe("");
+    expect(JSON.parse(stdout.read())).toMatchObject({ tag: "installed" });
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("refuses a flag that is neither its own nor global", async () => {
+    const root = await mkdtemp(join(tmpdir(), "bearing-init-usage-"));
+    const stdout = capture();
+    const stderr = capture();
+
+    const exitCode = await main(["init", "--frobnicate"], stdout.writer, stderr.writer, root);
+
     expect(exitCode).toBe(1);
-    expect(stderr.read()).toContain("Unrecognized flag: --json");
+    expect(stderr.read()).toContain("Unrecognized flag: --frobnicate");
     await rm(root, { recursive: true, force: true });
   });
 });
