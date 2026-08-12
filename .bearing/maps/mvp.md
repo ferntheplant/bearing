@@ -70,17 +70,6 @@ and print slugs. Ticket and backlog listings render this — capture now writes 
 heading, so the first-heading option is available for captured items without any new parsing — and it is worth
 settling before their interfaces expand.
 
-### Whether bearing emits colour at all
-
-The frontier capability promises `NO_COLOR` is respected. Nothing anywhere says bearing ever colourises, so the
-promise holds today only because there is no colour to suppress — which makes it a promise about nothing.
-
-Either that is the answer and the capability should say so plainly, or the frontier's three sections earn colour
-for the human reading over the agent's shoulder, in which case someone has to decide what gets it. Every read
-command renders through the same seam, so it is worth settling before there are six of them. The seam is now
-`CliOutput` behind every command, and it is pinned to `colors: false` — the absence of colour is a decision
-waiting to be named, not an accident.
-
 ### What a query filter on `bearing ls` matches
 
 The tickets capability promises `bearing ls` filters by "a query" and says nothing about what that matches.
@@ -91,19 +80,6 @@ a decision rather than an implementation.
 Underneath it sits a question nobody has asked: whether `bearing ls` groups its output by project by default.
 The **Filter tickets with `bearing ls`** build ticket delivered every other filter and deliberately left this
 one out.
-
-### How DECIDE groups are ordered and how an empty group prints
-
-The frontier heads each DECIDE group with its map's destination and fog count
-([The frontier](../../docs/capabilities/05-the-frontier.md)) and ranks the tickets inside by gate count like
-everything else. Nothing settles two things a real tracker now exercises: the order the groups print in, and
-what a map whose design tickets are all blocked prints — a heading with nothing under it, the "ordinary waiting"
-state [A fogbound map is reported (ADR 0034)](../../docs/adr/0034-a-fogbound-map-is-reported.md) describes
-without ever showing. Both are rendered today in an order nobody chose: groups in map filename order, empty
-groups as their bare heading.
-
-Whether groups order by their most ready decision, by project name, or by map, and whether a heading with
-nothing under it should print at all, is unsettled. A session touching the frontier can land it on the spot.
 
 ## Out of scope
 
