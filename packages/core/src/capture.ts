@@ -1,4 +1,5 @@
 import { Data, Effect, FileSystem, Path } from "effect";
+import { stringify as stringifyYaml } from "yaml";
 
 import {
   acquireTracker,
@@ -86,11 +87,12 @@ export const planTicketCreation = (
       return yield* Effect.fail(new TicketCreationError({ reason: "project-missing", project, projects }));
     }
     const { id, slug } = yield* mintItemIdentity(valid, title);
+    const frontmatter = stringifyYaml(project === undefined ? { type } : { type, project });
     return {
       id,
       slug,
       title,
-      source: `---\ntype: ${type}\n${project === undefined ? "" : `project: ${project}\n`}---\n\n# ${title}\n`,
+      source: `---\n${frontmatter}---\n\n# ${title}\n`,
       path: path.join(tracker, "tickets", `${id}-${slug}.md`),
     };
   });

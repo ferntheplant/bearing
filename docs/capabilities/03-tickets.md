@@ -20,7 +20,8 @@ legible to whoever picks it up cold, human or agent.
   from the blocking graph, and a blocker cycle is a refusal naming the ids in it rather than a hang.
 - **A build ticket may belong to no project; a design ticket must belong to one.** `bearing new design` with no
   project is an error that names the maps that exist so the next command is obvious. Not a prompt, not a
-  default, not a map created behind your back. `create` and `add` are aliases for `new`.
+  default, not a map created behind your back. `create` and `add` are aliases for `new`; all three accept
+  `--json` and return the created ticket's id, slug, and path.
 - **Ticket content is edited directly.** Bearing has no `edit` command and never launches an editor. Bodies and
   frontmatter are yours; `bearing check` reports structural mistakes.
 - **`bearing retitle` owns renaming.** The title lives in the filename, so retitling by hand is how you get a

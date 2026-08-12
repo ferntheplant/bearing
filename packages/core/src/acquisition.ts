@@ -4,7 +4,9 @@ import { isMap, isScalar, isSeq, parseDocument as parseYamlDocument } from "yaml
 const TRACKER_DIRECTORIES = ["backlog", "tickets", "maps"] as const;
 const FRONTMATTER_FIELDS = new Set(["type", "project", "blockers"]);
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-const ITEM_FILENAME_PATTERN = /^([0-9abcdefghjkmnpqrstvwxyz]{6})-([a-z0-9_]+(?:-[a-z0-9_]+)*)\.md$/;
+const SLUG_SOURCE = "[a-z0-9_]+(?:-[a-z0-9_]+)*";
+const ITEM_FILENAME_PATTERN = new RegExp(`^([0-9abcdefghjkmnpqrstvwxyz]{6})-(${SLUG_SOURCE})\\.md$`);
+const MAP_FILENAME_PATTERN = new RegExp(`^(${SLUG_SOURCE})\\.md$`);
 const MAX_SLUG_LENGTH = 60;
 const CROCKFORD_BASE32 = "0123456789abcdefghjkmnpqrstvwxyz";
 const ID_LENGTH = 6;
@@ -431,9 +433,12 @@ const parseMap = ({
   source,
 }: DocumentInput): Result.Result<MapDocument, readonly TrackerDiagnostic[]> => {
   const diagnostics: TrackerDiagnostic[] = [];
-  const project = filename.slice(0, -3);
-  if (project.length === 0) {
-    diagnostics.push(diagnostic(path, "filename", "map filename must have a non-empty stem"));
+  const filenameMatch = MAP_FILENAME_PATTERN.exec(filename);
+  const project = filenameMatch?.[1] ?? "";
+  if (filenameMatch === null) {
+    diagnostics.push(diagnostic(path, "filename", "map filename is not <slug>.md"));
+  } else if (project.length > MAX_SLUG_LENGTH) {
+    diagnostics.push(diagnostic(path, "filename", `slug must be at most ${MAX_SLUG_LENGTH} characters`));
   }
 
   const sourceLines = source.match(/[^\r\n]*(?:\r\n|\n|$)/g)?.filter((line) => line.length > 0) ?? [];

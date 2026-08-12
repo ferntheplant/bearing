@@ -7,7 +7,8 @@ assumes and never states.
 
 ## The name
 
-`<id>-<slug>.md`, in `backlog/`, `tickets/`, or `maps/`.
+An item is named `<id>-<slug>.md` in `backlog/` or `tickets/`. A map is named `<slug>.md` in `maps/`; that slug
+is its project's name.
 
 The **id** is six characters of Crockford base32 (`0123456789abcdefghjkmnpqrstvwxyz`), lowercased. Crockford
 rather than base36 because it drops `i`, `l`, `o`, and `u`, which removes both visual confusion pairs — and ids
@@ -15,15 +16,17 @@ are retyped from a screen constantly, since unambiguous prefixes resolve everywh
 characters rather than eight gives 32⁶ ≈ 1.07 × 10⁹, which is absurd overkill for a directory holding dozens of
 files, and two fewer characters to type.
 
-The **slug** is the title lowercased and stripped to word characters, spaces, and hyphens, with spaces becoming
-hyphens, then truncated to 60 characters at the last hyphen that fits, falling back to `untitled` when a title
-slugifies to nothing. It is a filename rule and nothing else depends on it.
+A **slug** contains lowercase ASCII letters, digits, underscores, and single hyphens between non-empty segments,
+up to 60 characters. An item's slug is derived from its title: lowercased and stripped to word characters,
+spaces, and hyphens, with spaces becoming hyphens, then truncated at the last hyphen that fits and falling back
+to `untitled` when nothing survives. A map's slug is chosen directly and remains stable; tickets name that exact
+slug as their project.
 
 ## The frontmatter
 
 ```yaml
 type: design # design | build. Required on a ticket; absent on a backlog item.
-project: mvp # the map's filename stem. Required on a design ticket.
+project: mvp # the map's slug. Required on a design ticket.
 blockers: [k4m2p9] # ids this ticket waits on.
 ```
 

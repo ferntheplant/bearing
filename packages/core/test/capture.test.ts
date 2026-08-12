@@ -224,6 +224,23 @@ project: mvp
     });
   });
 
+  it("serializes a project slug as a YAML string when it resembles another scalar", async () => {
+    const entries = {
+      ...TRACKER_ENTRIES,
+      [`${TRACKER}/maps/null.md`]: file(VALID_MAP.replace("# MVP", "# Null")),
+    };
+
+    await expect(runTicketPlan(entries, "design", "Choose the seam", "null")).resolves.toMatchObject({
+      source: `---
+type: design
+project: "null"
+---
+
+# Choose the seam
+`,
+    });
+  });
+
   it("refuses a design ticket with no project and names every map", async () => {
     const entries = {
       ...TRACKER_ENTRIES,

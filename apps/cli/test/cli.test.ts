@@ -379,6 +379,22 @@ project: mvp
     expect(source).not.toContain("blockers:");
   });
 
+  it("emits the created ticket values as JSON with --json", async () => {
+    const root = join(fixtureRoot, "new-json");
+    await createTracker(root);
+
+    const result = await captureRun(({ stdout, stderr }) =>
+      main(["new", "build", "Json ticket", "--json"], stdout, stderr, root),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const parsed = JSON.parse(result.stdout) as { id: string; slug: string; path: string };
+    expect(parsed).toMatchObject({ slug: "json-ticket" });
+    expect(parsed.id).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{6}$/);
+    expect(parsed.path).toContain(".bearing/tickets/");
+  });
+
   it("refuses a design ticket with no project, names every map, and creates nothing", async () => {
     const root = join(fixtureRoot, "new-design-no-project");
     await createTracker(root, {}, {}, { "mvp.md": VALID_MAP, "other.md": VALID_MAP.replace("# MVP", "# Other") });
